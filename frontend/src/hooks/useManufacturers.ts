@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 export interface Manufacturer {
   id: string;
   name: string;
-  country?: string;
   country_id?: string;
   country_name?: string;
   country_code?: string;
@@ -31,7 +30,7 @@ export const useManufacturers = () => {
     queryKey: ['manufacturers'],
     queryFn: async (): Promise<Manufacturer[]> => {
       const response = await api.get('/manufacturers');
-      return response.data;
+      return response.data.data;
     },
     enabled: !!user,
   });
@@ -40,7 +39,7 @@ export const useManufacturers = () => {
   const createMutation = useMutation({
     mutationFn: async (data: CreateManufacturerData) => {
       const response = await api.post('/manufacturers', data);
-      return response.data;
+      return response.data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['manufacturers'] });
@@ -51,7 +50,18 @@ export const useManufacturers = () => {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateManufacturerData }) => {
       const response = await api.put(`/manufacturers/${id}`, data);
-      return response.data;
+      return response.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['manufacturers'] });
+    },
+  });
+
+  // Eliminar fabricante
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.delete(`/manufacturers/${id}`);
+      return response.data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['manufacturers'] });
@@ -64,7 +74,9 @@ export const useManufacturers = () => {
     error,
     createManufacturer: createMutation.mutateAsync,
     updateManufacturer: updateMutation.mutateAsync,
+    deleteManufacturer: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
   };
 };

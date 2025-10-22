@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LoginFormData, loginSchema } from '@/lib/validations';
 import { useLogin } from '@/hooks/useApi';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
+import Input from '@/components/auth/Input';
+import Button from '@/components/auth/Button';
 
 export default function LoginPage() {
   const router = useRouter();

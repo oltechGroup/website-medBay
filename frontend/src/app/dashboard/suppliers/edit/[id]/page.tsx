@@ -1,194 +1,282 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { useSuppliers } from '@/hooks/useSuppliers';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import Button from '@/components/ui/Button';
-import { ArrowLeft } from 'lucide-react';
+import Label from '@/components/ui/Label';
+import { useSuppliers } from '@/hooks/useSuppliers';
+import { useCountries } from '@/hooks/useCountries';
+import { useCurrencies } from '@/hooks/useCurrencies';
 
-interface SupplierFormData {
-  name: string;
-  tax_id: string;
-  country: string;
-  default_currency: string;
-  contact_info: {
-    phone: string;
-    email: string;
-    address: string;
-    contact_person: string;
-  };
+interface ContactInfo {
+  telefono?: string;
+  email?: string;
+  persona_contacto?: string;
+  direccion?: string;
 }
 
 export default function EditSupplierPage() {
   const router = useRouter();
   const params = useParams();
-  const supplierId = params.id as string;
-  
-  const { suppliers, updateSupplier, isUpdating, error: supplierError } = useSuppliers();
-  const [error, setError] = useState<string | null>(null);
+  const id = params.id as string;
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<SupplierFormData>();
+  const { suppliers, updateSupplier, isUpdating } = useSuppliers();
+  const { data: countries, isLoading: isLoadingCountries } = useCountries();
+  const { data: currencies, isLoading: isLoadingCurrencies } = useCurrencies();
 
-  // Cargar datos del proveedor cuando estén disponibles
+  // ✅ VALORES POR DEFECTO MEJORADOS
+  const [formData, setFormData] = useState({
+    name: '',
+    tax_id: '',
+    country_id: '',
+    currency_id: '',
+    contact_info: {
+      telefono: '',
+      email: '',
+      persona_contacto: '',
+      direccion: ''
+    }
+  });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Cargar datos del proveedor - CORREGIDO
   useEffect(() => {
-    if (suppliers.length > 0 && supplierId) {
-      const supplier = suppliers.find(s => s.id === supplierId);
+    if (suppliers && id) {
+      const supplier = suppliers.find(s => s.id === id);
       if (supplier) {
-        reset({
-          name: supplier.name,
+        setFormData({
+          name: supplier.name || '',
           tax_id: supplier.tax_id || '',
-          country: supplier.country || '',
-          default_currency: supplier.default_currency || 'MXN',
+          country_id: supplier.country_id || '',
+          currency_id: supplier.currency_id || '',
           contact_info: {
-            phone: supplier.contact_info?.phone || '',
+            telefono: supplier.contact_info?.telefono || '',
             email: supplier.contact_info?.email || '',
-            address: supplier.contact_info?.address || '',
-            contact_person: supplier.contact_info?.contact_person || '',
-          },
+            persona_contacto: supplier.contact_info?.persona_contacto || '',
+            direccion: supplier.contact_info?.direccion || ''
+          }
         });
+        setIsLoading(false);
+      } else {
+        router.push('/dashboard/suppliers');
       }
     }
-  }, [suppliers, supplierId, reset]);
+  }, [suppliers, id, router]);
 
-  const onSubmit = async (data: SupplierFormData) => {
-    try {
-      setError(null);
-      // Limpiar campos vacíos en contact_info
-      const contactInfo = Object.fromEntries(
-        Object.entries(data.contact_info).filter(([_, value]) => value !== '')
-      );
-      await updateSupplier({ id: supplierId, supplierData: { ...data, contact_info: contactInfo } });
-      router.push('/dashboard/suppliers');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al actualizar el proveedor');
-      console.error('Error updating supplier:', err);
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
-  const supplier = suppliers.find(s => s.id === supplierId);
+  const handleContactInfoChange = (field: keyof ContactInfo, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      contact_info: {
+        ...prev.contact_info,
+        [field]: value
+      }
+    }));
+  };
 
-  if (!supplier && suppliers.length > 0) {
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'El nombre del proveedor es requerido';
+    }
+
+    if (!formData.country_id) {
+      newErrors.country_id = 'Debe seleccionar un país';
+    }
+
+    if (!formData.currency_id) {
+      newErrors.currency_id = 'Debe seleccionar una moneda';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      await updateSupplier({
+        id,
+        data: {
+          name: formData.name,
+          tax_id: formData.tax_id || undefined,
+          country_id: formData.country_id,
+          currency_id: formData.currency_id,
+          contact_info: Object.keys(formData.contact_info).some(key => 
+            formData.contact_info[key as keyof ContactInfo]?.trim()
+          ) ? formData.contact_info : undefined
+        }
+      });
+
+      router.push('/dashboard/suppliers');
+    } catch (error) {
+      console.error('Error al actualizar proveedor:', error);
+    }
+  };
+
+  if (isLoading) {
     return (
-      <div className="text-center py-8">
-        <div className="text-red-600 mb-4">Proveedor no encontrado</div>
-        <Button onClick={() => router.push('/dashboard/suppliers')}>
-          Volver a proveedores
-        </Button>
+      <div className="container mx-auto py-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-lg text-gray-600">Cargando proveedor...</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Editar Proveedor</h1>
-          <p className="text-gray-600">Actualiza la información del proveedor</p>
-          {supplier && (
-            <p className="text-sm text-gray-500">
-              Proveedor: {supplier.name}
-            </p>
-          )}
-        </div>
+    <div className="container mx-auto py-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Editar Proveedor</h1>
+        <p className="text-gray-600 mt-2">
+          Actualice la información del proveedor
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 space-y-6">
-        {(error || supplierError) && (
-          <div className="rounded-md bg-red-50 p-4">
-            <p className="text-sm text-red-800">
-              {error || (supplierError as any)?.message || 'Error al actualizar el proveedor'}
-            </p>
-          </div>
-        )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Información del Proveedor</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Información Básica */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Input
+                label="Nombre del Proveedor *"
+                value={formData.name}
+                onChange={(e) => handleChange('name', e.target.value)}
+                error={errors.name}
+                placeholder="Ej: Farmacias del Ahorro"
+                required
+              />
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <Input
-            label="Nombre del Proveedor *"
-            error={errors.name?.message}
-            {...register('name', { required: 'El nombre es requerido' })}
-          />
+              <Input
+                label="RFC / Tax ID"
+                value={formData.tax_id}
+                onChange={(e) => handleChange('tax_id', e.target.value)}
+                placeholder="Ej: FDA120304ABC"
+              />
+            </div>
 
-          <Input
-            label="RFC / Tax ID"
-            error={errors.tax_id?.message}
-            {...register('tax_id')}
-          />
+            {/* Selects de Datos Maestros */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="country_id">País *</Label>
+                <Select
+                  value={formData.country_id}
+                  onChange={(e) => handleChange('country_id', e.target.value)}
+                  options={[
+                    { value: '', label: 'Selecciona un país...' },
+                    ...(countries?.map(country => ({
+                      value: country.code,
+                      label: `📍 ${country.name} - ${country.currency_name} (${country.code})`
+                    })) || [])
+                  ]}
+                  disabled={isLoadingCountries}
+                />
+                {errors.country_id && (
+                  <p className="text-sm text-red-600">{errors.country_id}</p>
+                )}
+              </div>
 
-          <Input
-            label="País"
-            error={errors.country?.message}
-            {...register('country')}
-            placeholder="Ej: MX, US"
-          />
+              <div className="space-y-2">
+                <Label htmlFor="currency_id">Moneda Principal *</Label>
+                <Select
+                  value={formData.currency_id}
+                  onChange={(e) => handleChange('currency_id', e.target.value)}
+                  options={[
+                    { value: '', label: 'Selecciona una moneda...' },
+                    ...(currencies?.map(currency => ({
+                      value: currency.code,
+                      label: `💰 ${currency.name} - ${currency.symbol} (${currency.code})`
+                    })) || [])
+                  ]}
+                  disabled={isLoadingCurrencies}
+                />
+                {errors.currency_id && (
+                  <p className="text-sm text-red-600">{errors.currency_id}</p>
+                )}
+              </div>
+            </div>
 
-          <Select
-            label="Moneda por Defecto"
-            options={[
-              { value: 'MXN', label: 'MXN - Peso Mexicano' },
-              { value: 'USD', label: 'USD - Dólar Americano' },
-            ]}
-            {...register('default_currency')}
-          />
-        </div>
+            {/* Información de Contacto */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Información de Contacto
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Input
+                  label="Persona de Contacto"
+                  value={formData.contact_info.persona_contacto}
+                  onChange={(e) => handleContactInfoChange('persona_contacto', e.target.value)}
+                  placeholder="Ej: Juan Pérez"
+                />
 
-        <div className="border-t pt-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Información de Contacto</h3>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <Input
-              label="Teléfono"
-              error={errors.contact_info?.phone?.message}
-              {...register('contact_info.phone')}
-            />
+                <Input
+                  label="Teléfono"
+                  value={formData.contact_info.telefono}
+                  onChange={(e) => handleContactInfoChange('telefono', e.target.value)}
+                  placeholder="Ej: +52 55 1234 5678"
+                />
 
-            <Input
-              label="Email"
-              type="email"
-              error={errors.contact_info?.email?.message}
-              {...register('contact_info.email')}
-            />
+                <Input
+                  label="Email"
+                  type="email"
+                  value={formData.contact_info.email}
+                  onChange={(e) => handleContactInfoChange('email', e.target.value)}
+                  placeholder="Ej: contacto@empresa.com"
+                />
 
-            <Input
-              label="Persona de Contacto"
-              error={errors.contact_info?.contact_person?.message}
-              {...register('contact_info.contact_person')}
-            />
+                <Input
+                  label="Dirección"
+                  value={formData.contact_info.direccion}
+                  onChange={(e) => handleContactInfoChange('direccion', e.target.value)}
+                  placeholder="Ej: Av. Insurgentes 123, CDMX"
+                />
+              </div>
+            </div>
 
-            <Input
-              label="Dirección"
-              error={errors.contact_info?.address?.message}
-              {...register('contact_info.address')}
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end space-x-3 pt-6 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            loading={isUpdating}
-          >
-            Actualizar Proveedor
-          </Button>
-        </div>
-      </form>
+            {/* Botones de Acción */}
+            <div className="flex gap-4 pt-6 border-t">
+              <Button
+                type="submit"
+                loading={isUpdating}
+                disabled={isUpdating || isLoadingCountries || isLoadingCurrencies}
+              >
+                Actualizar Proveedor
+              </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push('/dashboard/suppliers')}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
