@@ -1,4 +1,4 @@
-// src/controllers/inventoryController.js - VERSIÓN CORREGIDA
+// src/controllers/inventoryController.js - VERSIÓN COMPLETA CORREGIDA
 const pool = require('../config/database');
 
 const inventoryController = {
@@ -95,15 +95,11 @@ const inventoryController = {
   },
 
   // =============================================
-  // NUEVO ENDPOINT: CREAR LOTE PARA PRODUCTO SIN LOTE - CORREGIDO
+  // NUEVO ENDPOINT: CREAR LOTE PARA PRODUCTO SIN LOTE - VERSIÓN CORREGIDA
   // =============================================
 
   createLotForProduct: async (req, res) => {
-    const client = await pool.connect();
-    
     try {
-      await client.query('BEGIN');
-      
       const { product_id, lot_number, expiry_date, quantity, supplier_id } = req.body;
       console.log('🆕 Creando lote para producto:', { product_id, lot_number, expiry_date, quantity, supplier_id });
 
@@ -117,9 +113,8 @@ const inventoryController = {
       }
 
       // Verificar que el producto existe
-      const productCheck = await client.query('SELECT * FROM products WHERE id = $1', [product_id]);
+      const productCheck = await pool.query('SELECT * FROM products WHERE id = $1', [product_id]);
       if (productCheck.rows.length === 0) {
-        await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Producto no encontrado' });
       }
 
@@ -128,7 +123,7 @@ const inventoryController = {
       
       if (supplier_id) {
         // Verificar si ya existe la relación producto-proveedor
-        const existingRelation = await client.query(
+        const existingRelation = await pool.query(
           'SELECT id FROM product_suppliers WHERE product_id = $1 AND supplier_id = $2',
           [product_id, supplier_id]
         );
@@ -137,11 +132,11 @@ const inventoryController = {
           productSupplierId = existingRelation.rows[0].id;
         } else {
           // Obtener nombre del proveedor
-          const supplierResult = await client.query('SELECT name FROM suppliers WHERE id = $1', [supplier_id]);
+          const supplierResult = await pool.query('SELECT name FROM suppliers WHERE id = $1', [supplier_id]);
           const supplierName = supplierResult.rows.length > 0 ? supplierResult.rows[0].name : 'Proveedor Desconocido';
           
           // Crear nueva relación producto-proveedor
-          const newRelation = await client.query(
+          const newRelation = await pool.query(
             `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name, units_per_box)
              VALUES ($1, $2, $3, $4, $5)
              RETURNING id`,
@@ -151,7 +146,7 @@ const inventoryController = {
         }
       } else {
         // Si no se especifica proveedor, buscar uno existente o crear uno por defecto
-        const existingRelation = await client.query(
+        const existingRelation = await pool.query(
           'SELECT id FROM product_suppliers WHERE product_id = $1 LIMIT 1',
           [product_id]
         );
@@ -160,7 +155,7 @@ const inventoryController = {
           productSupplierId = existingRelation.rows[0].id;
         } else {
           // Buscar proveedor por defecto existente
-          const defaultSupplierCheck = await client.query(
+          const defaultSupplierCheck = await pool.query(
             `SELECT id FROM suppliers WHERE name = 'Proveedor por Defecto' LIMIT 1`
           );
 
@@ -169,7 +164,7 @@ const inventoryController = {
             supplierId = defaultSupplierCheck.rows[0].id;
           } else {
             // Crear proveedor por defecto
-            const defaultSupplier = await client.query(
+            const defaultSupplier = await pool.query(
               `INSERT INTO suppliers (name, country, default_currency) 
                VALUES ($1, $2, $3) 
                RETURNING id`,
@@ -179,7 +174,7 @@ const inventoryController = {
           }
 
           // Crear relación con proveedor por defecto
-          const newRelation = await client.query(
+          const newRelation = await pool.query(
             `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name, units_per_box)
              VALUES ($1, $2, $3, $4, $5)
              RETURNING id`,
@@ -189,7 +184,7 @@ const inventoryController = {
         }
       }
 
-      // Crear el lote - SOLUCIÓN: Usar created_by solo si req.user existe
+      // Crear el lote - Manejo seguro de created_by
       const lotQuery = `
         INSERT INTO product_lots (
           product_supplier_id, 
@@ -215,16 +210,14 @@ const inventoryController = {
         queryParams.push(req.user.id || 1);
       }
 
-      const lotResult = await client.query(lotQuery, queryParams);
+      const lotResult = await pool.query(lotQuery, queryParams);
       const newLot = lotResult.rows[0];
 
       // Crear registro en inventory
-      await client.query(
+      await pool.query(
         'INSERT INTO inventory (product_lot_id, quantity_on_hand, last_updated) VALUES ($1, $2, CURRENT_TIMESTAMP)',
         [newLot.id, quantity || 0]
       );
-
-      await client.query('COMMIT');
 
       console.log(`✅ Lote creado exitosamente para producto ${product_id}, ID: ${newLot.id}`);
       
@@ -235,11 +228,10 @@ const inventoryController = {
       });
 
     } catch (error) {
-      await client.query('ROLLBACK');
       console.error('❌ Error al crear lote para producto:', error);
       
       // Manejar error de lote duplicado
-      if (error.code === '23505') { // Violación de unique constraint
+      if (error.code === '23505') {
         return res.status(400).json({ 
           error: 'El número de lote ya existe para este producto' 
         });
@@ -249,13 +241,11 @@ const inventoryController = {
         error: 'Error interno del servidor',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
-    } finally {
-      client.release();
     }
   },
 
   // =============================================
-  // ENDPOINTS EXISTENTES (MANTENIDOS CON MEJORAS)
+  // ENDPOINTS EXISTENTES (MANTENIDOS)
   // =============================================
 
   adjustInventory: async (req, res) => {

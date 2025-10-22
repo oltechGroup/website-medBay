@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const db = require('../config/database'); // ✅ CORREGIDO: ../config/database
 
 const Supplier = {
   // Crear un nuevo proveedor

@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { useProducts } from '@/hooks/useProducts';
 import { useManufacturers } from '@/hooks/useManufacturers';
+import { useCategories } from '@/hooks/useCategories';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
+import MultiSelect from '@/components/ui/MultiSelect';
 import Button from '@/components/ui/Button';
 import { ArrowLeft } from 'lucide-react';
 
@@ -19,26 +21,29 @@ interface ProductFormData {
   requires_license: boolean;
   prescription_required: boolean;
   export_restricted: boolean;
+  category_ids: string[];
 }
 
 export default function NewProductPage() {
   const router = useRouter();
   const { createProduct, isCreating, createError } = useProducts();
   const { manufacturers, isLoading: manufacturersLoading } = useManufacturers();
+  const { categories, isLoading: categoriesLoading } = useCategories();
   const [error, setError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    watch,
     setValue,
+    watch,
   } = useForm<ProductFormData>({
     defaultValues: {
       requires_license: false,
       prescription_required: false,
       export_restricted: false,
       manufacturer_id: '',
+      category_ids: [],
     },
   });
 
@@ -46,6 +51,13 @@ export default function NewProductPage() {
     value: manufacturer.id,
     label: `${manufacturer.name} (${manufacturer.country})`
   }));
+
+  const categoryOptions = categories.map(category => ({
+    value: category.id,
+    label: category.name
+  }));
+
+  const selectedCategories = watch('category_ids', []);
 
   const onSubmit = async (data: ProductFormData) => {
     try {
@@ -118,6 +130,19 @@ export default function NewProductPage() {
               {...register('description')}
             />
           </div>
+
+          <div className="sm:col-span-2">
+            <MultiSelect
+              label="Categorías"
+              options={categoryOptions}
+              value={selectedCategories}
+              onChange={(value) => setValue('category_ids', value)}
+              placeholder="Seleccionar categorías..."
+            />
+            {categoriesLoading && (
+              <div className="text-sm text-gray-500 mt-1">Cargando categorías...</div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-4 border-t pt-6">
@@ -163,7 +188,7 @@ export default function NewProductPage() {
           </Button>
           <Button
             type="submit"
-            loading={isCreating || manufacturersLoading}
+            loading={isCreating || manufacturersLoading || categoriesLoading}
           >
             Crear Producto
           </Button>

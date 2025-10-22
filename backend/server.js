@@ -28,12 +28,23 @@ app.use('/api/products', require('./src/routes/productRoutes'));
 app.use('/api/manufacturers', require('./src/routes/manufacturerRoutes'));
 app.use('/api/categories', require('./src/routes/categoryRoutes'));
 app.use('/api/suppliers', require('./src/routes/supplierRoutes'));
+
+// NUEVAS RUTAS - MÓDULO INVENTARIO (AGREGAR ESTAS)
+app.use('/api/expiry-categories', require('./src/routes/expiryCategoryRoutes'));
+app.use('/api/product-lots', require('./src/routes/productLotRoutes'));
+
+// NUEVAS RUTAS - MÓDULO DATOS MAESTROS (AGREGAR ESTAS)
+app.use('/api/countries', require('./src/routes/countryRoutes'));
+app.use('/api/currencies', require('./src/routes/currencyRoutes'));
+app.use('/api/avalara-tax-codes', require('./src/routes/avalaraTaxCodeRoutes'));
+
+// Rutas existentes que ya tienes
 app.use('/api/inventory', require('./src/routes/inventoryRoutes'));
 app.use('/api/orders', require('./src/routes/orderRoutes'));
 app.use('/api/invoices', require('./src/routes/invoiceRoutes'));
 app.use('/api/documents', require('./src/routes/documentRoutes'));
 app.use('/api/compliance', require('./src/routes/complianceRoutes'));
-app.use('/api/import', require('./src/routes/importRoutes')); // ← NUEVA
+app.use('/api/import', require('./src/routes/importRoutes'));
 
 // Ruta de salud
 app.get('/api/health', (req, res) => {
@@ -44,7 +55,8 @@ app.get('/api/health', (req, res) => {
     features: {
       import: 'Sistema de importación de Excel activo',
       compliance: 'Revisión humana integrada',
-      inventory: 'Gestión por lotes y expiración'
+      inventory: 'Gestión por lotes y expiración',
+      master_data: 'Datos maestros (países, monedas, códigos fiscales)'
     }
   });
 });
@@ -68,7 +80,11 @@ app.get('/', (req, res) => {
       invoices: '/api/invoices',
       documents: '/api/documents',
       compliance: '/api/compliance',
-      import: '/api/import'
+      import: '/api/import',
+      // NUEVOS ENDPOINTS - DATOS MAESTROS
+      countries: '/api/countries',
+      currencies: '/api/currencies',
+      tax_codes: '/api/avalara-tax-codes'
     }
   });
 });
@@ -92,5 +108,6 @@ app.listen(PORT, () => {
   console.log(`📁 Sistema de importación: ACTIVO`);
   console.log(`🔒 Cumplimiento normativo: ACTIVO`);
   console.log(`📦 Gestión de inventario: ACTIVO`);
+  console.log(`🌎 Datos maestros: ACTIVO (países, monedas, códigos fiscales)`);
   console.log(`✨ ==============================================\n`);
 });

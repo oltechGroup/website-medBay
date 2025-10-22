@@ -11,12 +11,19 @@ export default function DashboardHeader() {
 
   // Título dinámico según la ruta
   const pageTitle = (() => {
+    if (pathname === '/dashboard/inventory') return 'Gestión de Lotes 📦';
+    if (pathname === '/dashboard/inventory/expiry-settings') return 'Parámetros de Caducidad ⏰';
+    if (pathname.includes('/suppliers')) return 'Proveedores 🏢';
+    // NUEVAS RUTAS - DATOS MAESTROS
+    if (pathname === '/dashboard/master-data/countries') return 'Países 🌎';
+    if (pathname === '/dashboard/master-data/currencies') return 'Monedas 💰';
+    if (pathname === '/dashboard/master-data/tax-codes') return 'Códigos Fiscales 📑';
+    if (pathname.includes('/master-data')) return 'Datos Maestros 🌎';
     if (pathname.includes('/products')) return 'Productos 💊';
     if (pathname.includes('/categories')) return 'Categorías 🗂️';
     if (pathname.includes('/manufacturers')) return 'Fabricantes 🏭';
     if (pathname.includes('/inventory')) return 'Inventario 📦';
     if (pathname.includes('/orders')) return 'Órdenes 📋';
-    if (pathname.includes('/suppliers')) return 'Proveedores 🏢';
     if (pathname.includes('/import')) return 'Importar 📤';
     return 'Panel Principal 📊';
   })();
