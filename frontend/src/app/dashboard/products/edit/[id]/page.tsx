@@ -5,11 +5,14 @@ import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { useProducts } from '@/hooks/useProducts';
 import { useManufacturers } from '@/hooks/useManufacturers';
+import { useCategories } from '@/hooks/useCategories';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
+import MultiSelect from '@/components/ui/MultiSelect';
 import Button from '@/components/ui/Button';
 import { ArrowLeft } from 'lucide-react';
 
+// ✅ CORREGIDO: Usar UpdateProductData del hook
 interface ProductFormData {
   name: string;
   description: string;
@@ -19,52 +22,107 @@ interface ProductFormData {
   requires_license: boolean;
   prescription_required: boolean;
   export_restricted: boolean;
+  category_ids: string[];
 }
 
 export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
-  const productId = params.id as string;
-  
-  const { products, updateProduct, isUpdating, error: productError } = useProducts();
+  const id = params.id as string;
+
+  const { products, updateProduct, isUpdating, updateError } = useProducts();
   const { manufacturers, isLoading: manufacturersLoading } = useManufacturers();
+  const { categories, isLoading: categoriesLoading } = useCategories();
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    reset,
-  } = useForm<ProductFormData>();
+    setValue,
+    watch,
+  } = useForm<ProductFormData>({
+    defaultValues: {
+      requires_license: false,
+      prescription_required: false,
+      export_restricted: false,
+      manufacturer_id: '',
+      category_ids: [],
+    },
+  });
 
-  // Cargar datos del producto cuando estén disponibles
+  const manufacturerOptions = manufacturers?.map(manufacturer => ({
+    value: manufacturer.id,
+    label: `${manufacturer.name} (${manufacturer.country_name || 'País no especificado'})`
+  })) || [];
+
+  const categoryOptions = categories?.map(category => ({
+    value: category.id,
+    label: category.name
+  })) || [];
+
+  const selectedCategories = watch('category_ids', []);
+
+  // Cargar datos del producto - CORREGIDO
   useEffect(() => {
-    if (products.length > 0 && productId) {
-      const product = products.find(p => p.id === productId);
+    if (products && id && categories) {
+      const product = products.find(p => p.id === id);
       if (product) {
-        reset({
-          name: product.name,
-          description: product.description || '',
-          manufacturer_id: product.manufacturer_id || '',
-          global_sku: product.global_sku || '',
-          avalara_tax_code: product.avalara_tax_code || '',
-          requires_license: product.requires_license || false,
-          prescription_required: product.prescription_required || false,
-          export_restricted: product.export_restricted || false,
-        });
+        setValue('name', product.name);
+        setValue('description', product.description || '');
+        setValue('manufacturer_id', product.manufacturer_id || '');
+        setValue('global_sku', product.global_sku || '');
+        setValue('avalara_tax_code', product.avalara_tax_code || '');
+        setValue('requires_license', product.requires_license || false);
+        setValue('prescription_required', product.prescription_required || false);
+        setValue('export_restricted', product.export_restricted || false);
+        
+        // ✅ CORREGIDO: Si el producto viene con category_ids, usarlos directamente
+        // Si no, intentar mapear desde categories (nombres) a IDs
+        let categoryIds: string[] = [];
+        
+        if (product.category_ids) {
+          // Si el backend ya devuelve category_ids
+          categoryIds = product.category_ids;
+        } else if (product.categories && categories) {
+          // Mapear nombres de categorías a IDs
+          categoryIds = product.categories
+            .map(categoryName => {
+              const category = categories.find(cat => cat.name === categoryName);
+              return category?.id;
+            })
+            .filter((id): id is string => id !== undefined);
+        }
+        
+        setValue('category_ids', categoryIds);
+        setIsLoading(false);
+      } else {
+        router.push('/dashboard/products');
       }
     }
-  }, [products, productId, reset]);
-
-  const manufacturerOptions = manufacturers.map(manufacturer => ({
-    value: manufacturer.id,
-    label: `${manufacturer.name} (${manufacturer.country})`
-  }));
+  }, [products, id, categories, router, setValue]);
 
   const onSubmit = async (data: ProductFormData) => {
     try {
       setError(null);
-      await updateProduct({ id: productId, productData: data });
+      
+      // ✅ CORREGIDO: Usar UpdateProductData correctamente
+      await updateProduct({
+        id,
+        productData: {
+          name: data.name,
+          description: data.description,
+          manufacturer_id: data.manufacturer_id,
+          global_sku: data.global_sku,
+          avalara_tax_code: data.avalara_tax_code,
+          requires_license: data.requires_license,
+          prescription_required: data.prescription_required,
+          export_restricted: data.export_restricted,
+          category_ids: data.category_ids
+        }
+      });
+      
       router.push('/dashboard/products');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al actualizar el producto');
@@ -72,15 +130,22 @@ export default function EditProductPage() {
     }
   };
 
-  const product = products.find(p => p.id === productId);
-
-  if (!product && products.length > 0) {
+  if (isLoading) {
     return (
-      <div className="text-center py-8">
-        <div className="text-red-600 mb-4">Producto no encontrado</div>
-        <Button onClick={() => router.push('/dashboard/products')}>
-          Volver a productos
-        </Button>
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Editando Producto</h1>
+            <p className="text-gray-600">Cargando información del producto...</p>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="text-lg text-gray-600">Cargando producto...</div>
+        </div>
       </div>
     );
   }
@@ -99,10 +164,10 @@ export default function EditProductPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 space-y-6">
-        {(error || productError) && (
+        {(error || updateError) && (
           <div className="rounded-md bg-red-50 p-4">
             <p className="text-sm text-red-800">
-              {error || (productError as any)?.message || 'Error al actualizar el producto'}
+              {error || (updateError as any)?.message || 'Error al actualizar el producto'}
             </p>
           </div>
         )}
@@ -144,6 +209,19 @@ export default function EditProductPage() {
               error={errors.description?.message}
               {...register('description')}
             />
+          </div>
+
+          <div className="sm:col-span-2">
+            <MultiSelect
+              label="Categorías"
+              options={categoryOptions}
+              value={selectedCategories}
+              onChange={(value) => setValue('category_ids', value)}
+              placeholder="Seleccionar categorías..."
+            />
+            {categoriesLoading && (
+              <div className="text-sm text-gray-500 mt-1">Cargando categorías...</div>
+            )}
           </div>
         </div>
 
@@ -190,7 +268,7 @@ export default function EditProductPage() {
           </Button>
           <Button
             type="submit"
-            loading={isUpdating || manufacturersLoading}
+            loading={isUpdating || manufacturersLoading || categoriesLoading}
           >
             Actualizar Producto
           </Button>
