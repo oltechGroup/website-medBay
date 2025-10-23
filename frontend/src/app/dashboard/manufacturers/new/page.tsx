@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -10,12 +10,9 @@ import Label from '@/components/ui/Label';
 import { useManufacturers } from '@/hooks/useManufacturers';
 import { useCountries } from '@/hooks/useCountries';
 
-export default function EditManufacturerPage() {
+export default function NewManufacturerPage() {
   const router = useRouter();
-  const params = useParams();
-  const id = params.id as string;
-
-  const { manufacturers, updateManufacturer, isUpdating } = useManufacturers();
+  const { createManufacturer, isCreating } = useManufacturers();
   const { data: countries, isLoading: isLoadingCountries } = useCountries();
 
   const [formData, setFormData] = useState({
@@ -24,23 +21,6 @@ export default function EditManufacturerPage() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Cargar datos del fabricante
-  useEffect(() => {
-    if (manufacturers && id) {
-      const manufacturer = manufacturers.find(m => m.id === id);
-      if (manufacturer) {
-        setFormData({
-          name: manufacturer.name || '',
-          country_id: manufacturer.country_id || '',
-        });
-        setIsLoading(false);
-      } else {
-        router.push('/dashboard/manufacturers');
-      }
-    }
-  }, [manufacturers, id, router]);
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -71,36 +51,23 @@ export default function EditManufacturerPage() {
     }
 
     try {
-      await updateManufacturer({
-        id,
-        data: {
-          name: formData.name,
-          country_id: formData.country_id || undefined,
-        }
+      await createManufacturer({
+        name: formData.name,
+        country_id: formData.country_id || undefined,
       });
 
       router.push('/dashboard/manufacturers');
     } catch (error) {
-      console.error('Error al actualizar fabricante:', error);
+      console.error('Error al crear fabricante:', error);
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto py-6">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-lg text-gray-600">Cargando fabricante...</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto py-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Editar Fabricante</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Nuevo Fabricante</h1>
         <p className="text-gray-600 mt-2">
-          Actualice la información del fabricante
+          Complete la información del nuevo fabricante
         </p>
       </div>
 
@@ -140,10 +107,10 @@ export default function EditManufacturerPage() {
             <div className="flex gap-4 pt-6 border-t">
               <Button
                 type="submit"
-                loading={isUpdating}
-                disabled={isUpdating || isLoadingCountries}
+                loading={isCreating}
+                disabled={isCreating || isLoadingCountries}
               >
-                Actualizar Fabricante
+                Crear Fabricante
               </Button>
               
               <Button
