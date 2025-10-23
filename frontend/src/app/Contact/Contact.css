@@ -1,0 +1,139 @@
+
+
+/*-----------Header--------------------*/
+.header {
+  background: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo-img {
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+}
+
+.logo-text1 {
+  font-weight: 700;
+  font-size: 2rem;
+  color: #2563eb;
+}
+.logo-text2 {
+  font-weight: 700;
+  font-size: 2rem;
+  color: #53555a;
+}
+
+.nav {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.nav a {
+  text-decoration: none;
+  color: #475569;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.nav a:hover {
+  color: #1e40af;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 1rem;
+}
+/*---------------------------------------------*/
+/*---------------Contacto----------------------*/
+.contacto {
+  font-family: "Inter", sans-serif;
+  background: linear-gradient(to bottom right, #f8fbff, #e0f2ff);
+  color: #1e293b;
+  min-height: 100vh;
+}
+
+.contacto-header {
+  text-align: center;
+  padding: 5rem 1rem 3rem;
+  background: linear-gradient(to right, #2563eb, #1e40af);
+  color: white;
+}
+
+.contacto-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.contacto-header p {
+  font-size: 1.1rem;
+  opacity: 0.9;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.contacto-formulario {
+  display: flex;
+  justify-content: center;
+  padding: 4rem 1rem;
+}
+
+.form {
+  background: white;
+  border-radius: 16px;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+}
+
+.form label {
+  display: block;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.form input,
+.form textarea {
+  width: 100%;
+  padding: 0.8rem;
+  margin-top: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.form textarea {
+  resize: none;
+  height: 120px;
+}
+
+.form button {
+  width: 100%;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  padding: 0.9rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.form button:hover {
+  background: #1e40af;
+}
