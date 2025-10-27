@@ -12,6 +12,7 @@ import MultiSelect from '@/components/ui/MultiSelect';
 import Button from '@/components/ui/Button';
 import { ArrowLeft } from 'lucide-react';
 
+// ✅ ACTUALIZADO: Usar CreateProductData del hook
 interface ProductFormData {
   name: string;
   description: string;
@@ -47,15 +48,15 @@ export default function NewProductPage() {
     },
   });
 
-  const manufacturerOptions = manufacturers.map(manufacturer => ({
+  const manufacturerOptions = manufacturers?.map(manufacturer => ({
     value: manufacturer.id,
-    label: `${manufacturer.name} (${manufacturer.country})`
-  }));
+    label: `${manufacturer.name} (${manufacturer.country_name || 'País no especificado'})`
+  })) || [];
 
-  const categoryOptions = categories.map(category => ({
+  const categoryOptions = categories?.map(category => ({
     value: category.id,
     label: category.name
-  }));
+  })) || [];
 
   const selectedCategories = watch('category_ids', []);
 

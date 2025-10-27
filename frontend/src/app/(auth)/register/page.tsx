@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { RegisterFormData, registerSchema } from '@/lib/validations';
 import { useRegister } from '@/hooks/useApi';
+// ✅ Cambiado a componentes ui unificados
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 

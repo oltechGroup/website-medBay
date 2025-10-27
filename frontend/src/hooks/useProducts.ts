@@ -16,7 +16,9 @@ export interface Product {
   created_at: string;
   updated_at: string;
   manufacturer_name?: string;
-  categories?: string[];
+  categories?: string[]; // Nombres de categorías desde el backend
+  // ✅ NUEVO: Para el formulario necesitamos los IDs
+  category_ids?: string[];
 }
 
 export interface CreateProductData {
@@ -30,6 +32,22 @@ export interface CreateProductData {
   export_restricted?: boolean;
   prohibited_countries?: any;
   notes?: any;
+  category_ids?: string[]; // ✅ Añadido para crear producto
+}
+
+// ✅ NUEVO: Interfaz específica para actualizar
+export interface UpdateProductData {
+  name?: string;
+  description?: string;
+  manufacturer_id?: string;
+  global_sku?: string;
+  avalara_tax_code?: string;
+  requires_license?: boolean;
+  prescription_required?: boolean;
+  export_restricted?: boolean;
+  prohibited_countries?: any;
+  notes?: any;
+  category_ids?: string[]; // ✅ Añadido para actualizar producto
 }
 
 export const useProducts = () => {
@@ -68,8 +86,9 @@ export const useProducts = () => {
     }
   });
 
+  // ✅ CORREGIDO: Usar UpdateProductData en lugar de Partial<Product>
   const updateMutation = useMutation({
-    mutationFn: async ({ id, productData }: { id: string; productData: Partial<Product> }) => {
+    mutationFn: async ({ id, productData }: { id: string; productData: UpdateProductData }) => {
       const response = await api.put(`/products/${id}`, productData);
       return response.data;
     },
