@@ -51,8 +51,51 @@ export interface ProcessImportRequest {
   supplier_name: string;
 }
 
+// INTERFACE CORREGIDA: Permitir null y undefined
+export interface CreateSupplierRequest {
+  name: string;
+  country_id?: string | null;
+  currency_id?: string | null;
+  contact_info?: any;
+}
+
+// INTERFACE PARA LA RESPUESTA DEL BACKEND
+export interface SupplierResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string;
+    name: string;
+    tax_id?: string;
+    country_id?: string;
+    currency_id?: string;
+    contact_info?: any;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
 export const useImport = () => {
   const queryClient = useQueryClient();
+
+  // MUTATION CORREGIDA: Manejar estructura de respuesta del backend
+  const createSupplierMutation = useMutation({
+    mutationFn: async (data: CreateSupplierRequest): Promise<SupplierResponse['data']> => {
+      const response = await api.post<SupplierResponse>('/suppliers', {
+        name: data.name,
+        country_id: data.country_id || null,
+        currency_id: data.currency_id || null,
+        contact_info: data.contact_info || {}
+      });
+      
+      // ✅ EXTRAER data DE LA RESPUESTA (según la estructura del backend)
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Error creando proveedor');
+      }
+    },
+  });
 
   // Upload file mutation
   const uploadFileMutation = useMutation({
@@ -108,7 +151,10 @@ export const useImport = () => {
   });
 
   return {
-    // Mutations
+    // NUEVA FUNCIÓN: Crear proveedor
+    createSupplier: createSupplierMutation.mutateAsync,
+    
+    // Mutations existentes
     uploadFile: uploadFileMutation.mutateAsync,
     saveMappingTemplate: saveMappingTemplateMutation.mutateAsync,
     cleanCatalog: cleanCatalogMutation.mutateAsync,
@@ -119,12 +165,14 @@ export const useImport = () => {
     getMappingTemplate,
     
     // Loading states
+    isCreatingSupplier: createSupplierMutation.isPending,
     isUploading: uploadFileMutation.isPending,
     isCleaning: cleanCatalogMutation.isPending,
     isProcessing: processImportMutation.isPending,
     isSavingTemplate: saveMappingTemplateMutation.isPending,
     
     // Errors
+    createSupplierError: createSupplierMutation.error,
     uploadError: uploadFileMutation.error,
     cleanError: cleanCatalogMutation.error,
     processError: processImportMutation.error,

@@ -29,7 +29,7 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
   const [uploadId, setUploadId] = useState<string>('');
   const [previewData, setPreviewData] = useState<any>(null);
   const [mappings, setMappings] = useState<any>(null);
-  const [tempSuppliers, setTempSuppliers] = useState<Supplier[]>([]);
+  const [newlyCreatedSuppliers, setNewlyCreatedSuppliers] = useState<Supplier[]>([]); // ✅ REEMPLAZA tempSuppliers
   const [totalRows, setTotalRows] = useState<number>(0);
 
   const {
@@ -39,13 +39,15 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
     getPreview,
     getMappingTemplate,
     saveMappingTemplate,
+    createSupplier, // ✅ NUEVA FUNCIÓN
     isUploading,
     isCleaning,
     isProcessing,
+    isCreatingSupplier, // ✅ NUEVO LOADING STATE
   } = useImport();
 
-  // Combinar proveedores existentes con temporales
-  const allSuppliers = [...suppliers, ...tempSuppliers];
+  // Combinar proveedores existentes con NUEVAMENTE CREADOS (no temporales)
+  const allSuppliers = [...suppliers, ...newlyCreatedSuppliers];
 
   const handleSupplierSelect = (supplierId: string) => {
     setSelectedSupplierId(supplierId);
@@ -53,17 +55,22 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
     setSession({ ...session, supplier_id: supplierId });
   };
 
-  const handleCreateSupplier = async () => {
-    if (!newSupplierName.trim()) return;
+  // EN LA FUNCIÓN handleCreateSupplier, CAMBIAR:
+const handleCreateSupplier = async () => {
+  if (!newSupplierName.trim()) return;
+  
+  try {
+    // Crear proveedor REAL en el backend - CORREGIDO
+    const newSupplier = await createSupplier({
+      name: newSupplierName.trim(),
+      // ✅ CORREGIDO: Usar undefined en lugar de null
+      country_id: undefined, // TypeScript ahora acepta esto
+      currency_id: undefined,
+      contact_info: undefined
+    });
     
-    // Crear proveedor temporal
-    const newSupplier: Supplier = {
-      id: `temp-${Date.now()}`,
-      name: newSupplierName,
-      created_at: new Date().toISOString(),
-    };
-    
-    setTempSuppliers(prev => [...prev, newSupplier]);
+    // ✅ Ahora tenemos UUID VÁLIDO de PostgreSQL
+    setNewlyCreatedSuppliers(prev => [...prev, newSupplier]);
     setSelectedSupplierId(newSupplier.id);
     setSession({ 
       ...session, 
@@ -71,12 +78,20 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
       supplier_name: newSupplier.name 
     });
     setNewSupplierName('');
-  };
+    
+    console.log('✅ Proveedor creado con ID real:', newSupplier.id);
+  } catch (error) {
+    console.error('❌ Error creando proveedor:', error);
+    // Aquí puedes agregar un toast o mensaje de error al usuario
+    alert('Error al crear el proveedor. Por favor, intenta nuevamente.');
+  }
+};
 
   const handleCleanCatalog = async () => {
     if (!selectedSupplierId) return;
     
     try {
+      // ✅ Ahora supplier_id es UUID VÁLIDO, no fallará
       await cleanCatalog({
         supplier_id: selectedSupplierId,
         sales_category: salesCategory
@@ -84,6 +99,7 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
       setStep(2);
     } catch (error) {
       console.error('Error en limpieza:', error);
+      alert('Error al limpiar el catálogo. Verifica que el proveedor exista.');
     }
   };
 
@@ -99,7 +115,7 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
       });
       
       setUploadId(result.upload_id);
-      setTotalRows(result.total_rows); // ✅ Guardar total de filas
+      setTotalRows(result.total_rows);
       
       // Obtener preview para mapeo
       const preview = await getPreview(result.upload_id);
@@ -157,6 +173,7 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
     setPreviewData(null);
     setMappings(null);
     setTotalRows(0);
+    setNewlyCreatedSuppliers([]); // ✅ Limpiar proveedores nuevos también
     setSession({
       id: '1',
       status: 'selecting',
@@ -212,7 +229,7 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
                 <option key={supplier.id} value={supplier.id}>
                   {supplier.name} 
                   {supplier.country_name && ` - ${supplier.country_name}`}
-                  {supplier.id.startsWith('temp-') && ' (Nuevo)'}
+                  {newlyCreatedSuppliers.some(s => s.id === supplier.id) && ' (Nuevo)'}
                 </option>
               ))}
             </select>
@@ -240,15 +257,26 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
                 onChange={(e) => setNewSupplierName(e.target.value)}
                 placeholder="Ingresa el nombre del nuevo proveedor"
                 className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={isCreatingSupplier} // ✅ Deshabilitar durante creación
               />
               <button
                 onClick={handleCreateSupplier}
-                disabled={!newSupplierName.trim()}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                disabled={!newSupplierName.trim() || isCreatingSupplier}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
-                Crear
+                {isCreatingSupplier ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Creando...
+                  </>
+                ) : (
+                  'Crear'
+                )}
               </button>
             </div>
+            <p className="text-sm text-gray-500">
+              ✅ El proveedor se creará inmediatamente con un ID válido. Podrás completar su información después en el módulo de proveedores.
+            </p>
           </div>
 
           {/* Selección de categoría */}
@@ -346,6 +374,9 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
                       salesCategory === 'regular' ? '🟢 En Fecha' :
                       salesCategory === 'near_expiry' ? '🟡 Fecha Cerca' : '🔴 Caducados'
                     }
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    ID: {selectedSupplierId}
                   </p>
                 </div>
                 <button
