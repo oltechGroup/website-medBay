@@ -1,420 +1,319 @@
-const Import = require('../models/importModel');
-const Product = require('../models/productModel');
-const Supplier = require('../models/supplierModel');
-const Manufacturer = require('../models/manufacturerModel');
-const Category = require('../models/categoryModel');
-const Inventory = require('../models/inventoryModel');
-const excelParser = require('../utils/excelParser');
+const ImportModel = require('../models/importModel');
+const XLSX = require('xlsx');
 const fs = require('fs');
-const path = require('path');
-
-// Simulamos el procesamiento de Excel (en producción usarías xlsx o similar)
-const processExcelFile = (filePath) => {
-  try {
-    // En producción, aquí usarías:
-    // const workbook = XLSX.readFile(filePath);
-    // const sheetName = workbook.SheetNames[0];
-    // return XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-    
-    // Por ahora simulamos datos de diferentes proveedores
-    const filename = path.basename(filePath);
-    
-    // Simulamos diferentes formatos según el nombre del archivo
-    if (filename.includes('proveedor_a')) {
-      return [
-        {
-          'Producto': 'Paracetamol 500mg',
-          'SKU Proveedor': 'PARA500001',
-          'Fabricante': 'Pfizer',
-          'Categoría': 'Medicamentos',
-          'Precio Unitario': '25.50',
-          'Cantidad en Stock': '100',
-          'Número de Lote': 'LOTE-001',
-          'Fecha Caducidad': '2024-12-31',
-          'Unidad': 'piezas'
-        },
-        {
-          'Producto': 'Ibuprofeno 400mg',
-          'SKU Proveedor': 'IBU400001', 
-          'Fabricante': 'Bayer',
-          'Categoría': 'Medicamentos',
-          'Precio Unitario': '30.00',
-          'Cantidad en Stock': '50',
-          'Número de Lote': 'LOTE-002',
-          'Fecha Caducidad': '2024-11-30',
-          'Unidad': 'piezas'
-        }
-      ];
-    } else if (filename.includes('proveedor_b')) {
-      return [
-        {
-          'Nombre Producto': 'Guantes Latex Talla M',
-          'Código': 'GLM100001',
-          'Marca': 'MediGlove',
-          'Tipo': 'Desechables',
-          'Coste': '15.75',
-          'Stock Disponible': '200',
-          'Lote': 'BATCH-001',
-          'Vencimiento': '31/12/2024',
-          'Medida': 'caja'
-        }
-      ];
-    } else {
-      // Formato genérico
-      return [
-        {
-          'ITEM': 'Jeringa 10ml',
-          'CODIGO': 'JER10ML001',
-          'FABRICANTE': 'BD',
-          'CATEGORIA': 'Material Desechable', 
-          'PRECIO': '8.25',
-          'CANTIDAD': '150',
-          'LOTE_NUM': 'LOT-123',
-          'FECHA_EXP': '2025-06-30',
-          'UNIDAD_MED': 'piezas'
-        }
-      ];
-    }
-  } catch (error) {
-    throw new Error(`Error procesando archivo Excel: ${error.message}`);
-  }
-};
+const pool = require('../config/database'); // ← LÍNEA CRÍTICA AGREGADA
 
 const importController = {
-  // Subir archivo Excel
+  // Subir archivo y extraer datos crudos
   uploadFile: async (req, res) => {
     try {
-      const { supplier_id } = req.body;
-      
-      if (!supplier_id) {
-        return res.status(400).json({ error: 'supplier_id es requerido' });
-      }
+      const { supplier_id, sales_category } = req.body;
+      const file = req.file;
 
-      if (!req.file) {
-        return res.status(400).json({ error: 'Archivo Excel es requerido' });
-      }
-
-      // Verificar que el proveedor existe
-      const supplier = await Supplier.findById(supplier_id);
-      if (!supplier) {
-        // Limpiar archivo subido
-        fs.unlinkSync(req.file.path);
-        return res.status(404).json({ error: 'Proveedor no encontrado' });
-      }
-
-      // Procesar el archivo Excel
-      const excelData = processExcelFile(req.file.path);
-      
-      if (!excelData || excelData.length === 0) {
-        fs.unlinkSync(req.file.path);
-        return res.status(400).json({ error: 'El archivo Excel está vacío o no se pudo procesar' });
-      }
-
-      // Crear raw_upload
-      const rawUpload = await Import.createRawUpload({
+      console.log('📤 Subiendo archivo:', {
         supplier_id,
-        filename: req.file.originalname,
-        uploaded_by: req.user.id,
-        file_path: req.file.path,
-        file_hash: 'simulated_hash_' + Date.now(),
-        row_count: excelData.length,
-        status: 'uploaded',
-        errors: null
+        sales_category,
+        filename: file?.originalname
       });
 
-      // Crear raw_rows para auditoría
-      const rawRows = excelData.map((row, index) => ({
-        raw_upload_id: rawUpload.id,
-        row_index: index,
+      if (!file) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'No se proporcionó archivo' 
+        });
+      }
+
+      if (!supplier_id || !sales_category) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'supplier_id y sales_category son requeridos' 
+        });
+      }
+
+      // Leer archivo Excel
+      const workbook = XLSX.readFile(file.path);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Convertir a JSON
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      if (jsonData.length === 0) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'El archivo Excel está vacío' 
+        });
+      }
+
+      // Crear registro de upload (adaptado a tu estructura)
+      const upload = await ImportModel.createUpload({
+        supplier_id,
+        filename: file.filename,
+        file_path: file.path,
+        uploaded_by: req.user?.id || 1
+      });
+
+      // Guardar filas crudas (adaptado a tu estructura)
+      const rawRows = jsonData.map((row, index) => ({
+        raw_upload_id: upload.id,
+        row_index: index + 1,
         raw_data: row
       }));
 
-      await Import.createRawRows(rawRows);
+      await ImportModel.createRawRows(rawRows);
 
-      // Detección automática de mapeo
-      const autoMappings = excelParser.autoDetectColumns(excelData);
-
-      res.status(201).json({
-        message: 'Archivo subido exitosamente',
-        upload: rawUpload,
-        autoMappings,
-        sampleData: excelData.slice(0, 5), // Primeras 5 filas como muestra
-        totalRows: excelData.length
-      });
-
-    } catch (error) {
-      // Limpiar archivo en caso de error
-      if (req.file && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      console.error('Error al subir archivo:', error);
-      res.status(500).json({ error: 'Error interno del servidor: ' + error.message });
-    }
-  },
-
-  // Obtener archivos subidos por proveedor
-  getUploadsBySupplier: async (req, res) => {
-    try {
-      const { supplierId } = req.params;
-      const uploads = await Import.findRawUploadsBySupplier(supplierId);
-      res.json(uploads);
-    } catch (error) {
-      console.error('Error al obtener archivos:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  // Obtener detalles de un upload específico
-  getUploadDetails: async (req, res) => {
-    try {
-      const { uploadId } = req.params;
-      const uploadData = await Import.findRawUploadById(uploadId);
-      
-      if (!uploadData.upload) {
-        return res.status(404).json({ error: 'Archivo no encontrado' });
-      }
-
-      res.json(uploadData);
-    } catch (error) {
-      console.error('Error al obtener detalles:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  // Guardar mapping template
-  saveMappingTemplate: async (req, res) => {
-    try {
-      const { supplier_id, name, mappings } = req.body;
-
-      if (!supplier_id || !name || !mappings) {
-        return res.status(400).json({ error: 'supplier_id, name y mappings son requeridos' });
-      }
-
-      const template = await Import.saveMappingTemplate({
-        supplier_id,
-        name,
-        mappings,
-        created_by: req.user.id
-      });
+      console.log(`✅ Archivo procesado: ${jsonData.length} filas extraídas`);
 
       res.json({
-        message: 'Plantilla guardada exitosamente',
+        success: true,
+        message: 'Archivo subido y procesado exitosamente',
+        upload_id: upload.id,
+        sales_category: sales_category,
+        total_rows: jsonData.length,
+        preview_available: true
+      });
+
+    } catch (error) {
+      console.error('❌ Error en uploadFile:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Error al procesar el archivo',
+        details: error.message 
+      });
+    }
+  },
+
+  // Obtener preview de 5 filas para mapeo
+  getPreview: async (req, res) => {
+    try {
+      const { upload_id } = req.params;
+
+      console.log('👀 Obteniendo preview para upload:', upload_id);
+
+      const previewRows = await ImportModel.getPreviewRows(upload_id);
+
+      if (!previewRows || previewRows.length === 0) {
+        return res.status(404).json({ 
+          success: false,
+          error: 'No se encontraron datos para el preview' 
+        });
+      }
+
+      // Extraer las columnas disponibles del primer registro
+      const availableColumns = Object.keys(previewRows[0].raw_data || {});
+
+      res.json({
+        success: true,
+        preview: previewRows.map(row => row.raw_data),
+        available_columns: availableColumns,
+        total_preview_rows: previewRows.length
+      });
+
+    } catch (error) {
+      console.error('❌ Error en getPreview:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Error al obtener el preview',
+        details: error.message 
+      });
+    }
+  },
+
+  // Obtener o crear template de mapeo (adaptado a tu estructura)
+  getMappingTemplate: async (req, res) => {
+    try {
+      const { supplier_id, template_name = 'default' } = req.query;
+
+      console.log('🗺️ Obteniendo template para:', { supplier_id, template_name });
+
+      let template = await ImportModel.findMappingTemplate(supplier_id, template_name);
+
+      // Si no existe, crear uno por defecto
+      if (!template) {
+        template = {
+          supplier_id,
+          name: template_name,
+          mappings: {
+            codigo: '',
+            fabricante: '',
+            descripcion: '',
+            cantidad: '',
+            precio: '',
+            fecha_caducidad: ''
+          }
+        };
+      }
+
+      res.json({
+        success: true,
         template
       });
 
     } catch (error) {
-      console.error('Error al guardar plantilla:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      console.error('❌ Error en getMappingTemplate:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Error al obtener el template de mapeo',
+        details: error.message 
+      });
     }
   },
 
-  // Obtener templates por proveedor
-  getTemplatesBySupplier: async (req, res) => {
+  // En el método saveMappingTemplate - CORREGIDO
+  saveMappingTemplate: async (req, res) => {
     try {
-      const { supplierId } = req.params;
-      const templates = await Import.findTemplatesBySupplier(supplierId);
-      res.json(templates);
-    } catch (error) {
-      console.error('Error al obtener plantillas:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
+      const { supplier_id, template_name = 'default', mappings } = req.body;
 
-  // Procesar archivo con mapping
-  processUpload: async (req, res) => {
-    try {
-      const { uploadId } = req.params;
-      const { mappings, applyTemplate } = req.body;
+      console.log('💾 Guardando template:', { supplier_id, template_name, mappings });
+
+      // Validaciones
+      if (!supplier_id) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'supplier_id es requerido' 
+        });
+      }
 
       if (!mappings) {
-        return res.status(400).json({ error: 'Mappings son requeridos' });
+        return res.status(400).json({ 
+          success: false,
+          error: 'mappings es requerido' 
+        });
       }
 
-      // Obtener los datos del upload
-      const uploadData = await Import.findRawUploadById(uploadId);
-      if (!uploadData.upload) {
-        return res.status(404).json({ error: 'Archivo no encontrado' });
-      }
-
-      // Actualizar estado a processing
-      await Import.updateRawUploadStatus(uploadId, 'processing');
-
-      // Responder inmediatamente y procesar en segundo plano
-      res.json({
-        message: 'Procesamiento iniciado',
-        uploadId,
-        status: 'processing'
+      const template = await ImportModel.saveMappingTemplate({
+        supplier_id,
+        name: template_name,
+        mappings,
+        created_by: req.user?.id || 1
       });
 
-      // Procesamiento en segundo plano
-      setTimeout(async () => {
-        try {
-          const results = {
-            processed: 0,
-            errors: [],
-            createdProducts: 0,
-            updatedInventory: 0,
-            expiredItems: 0,
-            skippedItems: 0
-          };
+      console.log('✅ Template guardado:', template.id);
 
-          for (const row of uploadData.rows) {
-            try {
-              const rawData = row.raw_data;
-              const parsedData = {};
-
-              // Aplicar mappings y parsear datos
-              for (const [field, excelColumn] of Object.entries(mappings)) {
-                if (rawData[excelColumn] !== undefined) {
-                  let value = rawData[excelColumn];
-                  
-                  // Parsear según el tipo de campo
-                  switch (field) {
-                    case 'price':
-                      value = excelParser.parsePrice(value);
-                      break;
-                    case 'quantity':
-                      value = excelParser.parseQuantity(value);
-                      break;
-                    case 'expiry_date':
-                      value = excelParser.parseDate(value) || 
-                              excelParser.extractDateFromFilename(uploadData.upload.filename);
-                      break;
-                    default:
-                      // Mantener como string
-                      value = value ? value.toString().trim() : null;
-                  }
-                  
-                  parsedData[field] = value;
-                }
-              }
-
-              // Validar datos parseados
-              const validationErrors = excelParser.validateParsedData(parsedData);
-              if (validationErrors.length > 0) {
-                results.errors.push({
-                  row: row.row_index,
-                  error: validationErrors.join(', '),
-                  rawData
-                });
-                continue;
-              }
-
-              // VERIFICAR SI EL PRODUCTO YA EXISTE (usando findOrCreate)
-              let product = null;
-              if (parsedData.product_name) {
-                // Buscar o crear fabricante
-                const manufacturer = await Manufacturer.findOrCreate({
-                  name: parsedData.manufacturer || 'Desconocido',
-                  country: 'Unknown'
-                });
-
-                // Buscar o crear producto
-                product = await Product.findOrCreate({
-                  name: parsedData.product_name,
-                  description: parsedData.product_name,
-                  manufacturer_id: manufacturer.id,
-                  global_sku: parsedData.sku || `GEN-${Date.now()}-${row.row_index}`,
-                  requires_license: false,
-                  prescription_required: false,
-                  export_restricted: false
-                });
-
-                results.createdProducts++;
-              }
-
-              // CREAR LOTE EN INVENTARIO
-              if (product && parsedData.lot_number && parsedData.quantity > 0) {
-                const lotData = {
-                  product_supplier_id: null, // Se establecería con la relación producto-proveedor
-                  lot_number: parsedData.lot_number,
-                  expiry_date: parsedData.expiry_date,
-                  quantity: parsedData.quantity,
-                  unit: parsedData.unit || 'piezas',
-                  price_amount: parsedData.price,
-                  price_currency: 'MXN',
-                  received_at: new Date(),
-                  raw_upload_id: uploadId,
-                  import_line_id: row.id,
-                  created_by: uploadData.upload.uploaded_by
-                };
-
-                // Aquí crearías el lote en product_lots
-                // await Inventory.createLot(lotData);
-                results.updatedInventory++;
-
-                // Contar expirados
-                if (new Date(parsedData.expiry_date) < new Date()) {
-                  results.expiredItems++;
-                }
-              }
-
-              results.processed++;
-
-            } catch (error) {
-              results.errors.push({
-                row: row.row_index,
-                error: error.message,
-                rawData: row.raw_data
-              });
-            }
-          }
-
-          // Crear reporte de importación
-          const importReport = await Import.createImportReport({
-            raw_upload_id: uploadId,
-            processed_rows: results.processed,
-            errors_count: results.errors.length,
-            expired_count: results.expiredItems,
-            report_json: results
-          });
-
-          // Actualizar estado final
-          const finalStatus = results.errors.length === 0 ? 'finished' : 'finished_with_errors';
-          await Import.updateRawUploadStatus(uploadId, finalStatus, results.errors);
-
-          console.log(`Procesamiento completado para upload ${uploadId}:`, {
-            processed: results.processed,
-            errors: results.errors.length,
-            created: results.createdProducts,
-            inventory: results.updatedInventory
-          });
-
-        } catch (error) {
-          console.error('Error en procesamiento en segundo plano:', error);
-          await Import.updateRawUploadStatus(uploadId, 'failed', [{ error: error.message }]);
-        }
-      }, 2000); // Simulamos 2 segundos de procesamiento
+      res.json({
+        success: true,
+        message: 'Template de mapeo guardado exitosamente',
+        template
+      });
 
     } catch (error) {
-      console.error('Error al iniciar procesamiento:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      console.error('❌ Error en saveMappingTemplate:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Error al guardar el template de mapeo',
+        details: error.message 
+      });
     }
   },
 
-  // Obtener reporte de importación
-  getImportReport: async (req, res) => {
+  // Limpiar catálogo existente
+  cleanCatalog: async (req, res) => {
     try {
-      const { uploadId } = req.params;
-      
-      const query = `
-        SELECT ir.*, ru.filename, ru.supplier_id, s.name as supplier_name
-        FROM import_reports ir
-        LEFT JOIN raw_uploads ru ON ir.raw_upload_id = ru.id
-        LEFT JOIN suppliers s ON ru.supplier_id = s.id
-        WHERE ir.raw_upload_id = $1
-      `;
-      
-      const result = await db.query(query, [uploadId]);
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Reporte no encontrado' });
+      const { supplier_id, sales_category } = req.body;
+
+      console.log('🧹 Limpiando catálogo:', { supplier_id, sales_category });
+
+      if (!supplier_id || !sales_category) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'supplier_id y sales_category son requeridos' 
+        });
       }
 
-      res.json(result.rows[0]);
+      const deletedLots = await ImportModel.cleanExistingCatalog(supplier_id, sales_category);
+
+      console.log(`✅ Catálogo limpiado: ${deletedLots.length} lotes eliminados`);
+
+      res.json({
+        success: true,
+        message: `Catálogo ${sales_category} limpiado exitosamente`,
+        deleted_count: deletedLots.length
+      });
+
     } catch (error) {
-      console.error('Error al obtener reporte:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      console.error('❌ Error en cleanCatalog:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Error al limpiar el catálogo',
+        details: error.message 
+      });
+    }
+  },
+
+  // Procesar importación con mapeo - VERSIÓN CORREGIDA
+  processImport: async (req, res) => {
+    try {
+      const { upload_id, mappings, supplier_id, sales_category, supplier_name } = req.body;
+
+      console.log('⚙️ Procesando importación:', { upload_id, supplier_id, sales_category });
+
+      // 1. Obtener TODAS las filas, no solo el preview
+      const allRowsQuery = `
+        SELECT * FROM raw_rows 
+        WHERE raw_upload_id = $1 
+        ORDER BY row_index
+      `;
+      const allRowsResult = await pool.query(allRowsQuery, [upload_id]);
+      
+      if (!allRowsResult.rows || allRowsResult.rows.length === 0) {
+        return res.status(404).json({ 
+          success: false,
+          error: 'No se encontraron datos para procesar' 
+        });
+      }
+
+      console.log(`📊 Procesando ${allRowsResult.rows.length} filas en total`);
+
+      // 2. Aplicar mapeo a TODAS las filas
+      const mappedData = allRowsResult.rows.map(row => {
+        const mappedRow = {
+          supplier_id,
+          supplier_name,
+          sales_category,
+          row_index: row.row_index
+        };
+
+        // Aplicar mapeo de columnas
+        Object.keys(mappings).forEach(targetField => {
+          const sourceColumn = mappings[targetField];
+          if (sourceColumn && row.raw_data[sourceColumn] !== undefined) {
+            mappedRow[targetField] = row.raw_data[sourceColumn];
+          } else {
+            mappedRow[targetField] = ''; // Valor por defecto si no existe
+          }
+        });
+
+        return mappedRow;
+      });
+
+      // 3. Procesar datos mapeados
+      const results = await ImportModel.processMappedData(mappedData);
+
+      console.log(`✅ Importación completada:`, {
+        lotes: results.lots_created,
+        productos: results.products_created,
+        fabricantes: results.manufacturers_created,
+        errores: results.errors.length
+      });
+
+      res.json({
+        success: true,
+        message: `Importación procesada exitosamente. ${results.lots_created} lotes creados.`,
+        results: {
+          total_rows: mappedData.length,
+          successful_lots: results.lots_created,
+          errors_count: results.errors.length,
+          details: results
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error en processImport:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Error al procesar la importación',
+        details: error.message 
+      });
     }
   }
 };
