@@ -91,8 +91,8 @@ export default function Home() {
             <div className="promo-content">
               <h2>Equipamiento <span>Médico</span> </h2>
               <p>Encuentra los mejores equipos de protección.
-                Precisión que Salva. <br />
-                Suministros que Transforman.
+                Precisión que salva. <br />
+                Suministros que transforman.
               </p>
               <a href="/Products" className="intro-button">Ver productos</a>
 
@@ -131,6 +131,13 @@ export default function Home() {
         <img src="/images/mascarilla.png" alt="Mascarilla" />
         <h3>Mascarilla quirúrgica</h3>
         <p>$249.99</p>
+        <button>Agregar al carrito</button>
+      </div>
+
+      <div className="product-card">
+        <img src="/images/termometro.png" alt="Termómetro" />
+        <h3>Termómetro digital</h3>
+        <p>$599.99</p>
         <button>Agregar al carrito</button>
       </div>
 
