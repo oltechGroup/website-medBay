@@ -18,7 +18,7 @@ const navigation = [
     icon: '📦',
     submenu: [
       { name: 'Gestión de Lotes', href: '/dashboard/inventory', icon: '📋' },
-      { name: 'Parámetros Caducidad', href: '/dashboard/inventory/expiry-settings', icon: '⏰' },
+    
     ]
   },
   { name: 'Proveedores', href: '/dashboard/suppliers', icon: '🏢' },
