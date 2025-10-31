@@ -1,4 +1,4 @@
-// src/controllers/inventoryController.js - VERSIÓN COMPLETA CORREGIDA
+// src/controllers/inventoryController.js - VERSIÓN COMPLETA CORREGIDA CON DROPSHIPPING
 const pool = require('../config/database');
 
 const inventoryController = {
@@ -583,6 +583,124 @@ const inventoryController = {
 
     } catch (error) {
       console.error('❌ Error al liberar cantidad:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
+
+  // =============================================
+  // NUEVOS ENDPOINTS PARA DROPSHIPPING
+  // =============================================
+
+  // Obtener resumen de proveedores con catálogos
+  getSuppliersCatalogSummary: async (req, res) => {
+    try {
+      console.log('📊 Obteniendo resumen de catálogos por proveedor...');
+      
+      const query = `
+        SELECT 
+          s.id,
+          s.name as supplier_name,
+          COUNT(DISTINCT CASE WHEN pl.sales_category = 'regular' THEN ps.product_id END) as regular_products,
+          COUNT(DISTINCT CASE WHEN pl.sales_category = 'near_expiry' THEN ps.product_id END) as near_expiry_products,
+          COUNT(DISTINCT CASE WHEN pl.sales_category = 'expired' THEN ps.product_id END) as expired_products,
+          COUNT(DISTINCT ps.product_id) as total_products,
+          MAX(pl.created_at) as last_import
+        FROM suppliers s
+        LEFT JOIN product_suppliers ps ON s.id = ps.supplier_id
+        LEFT JOIN product_lots pl ON ps.id = pl.product_supplier_id
+        GROUP BY s.id, s.name
+        ORDER BY s.name
+      `;
+      
+      const result = await pool.query(query);
+      
+      console.log(`✅ Resumen obtenido: ${result.rows.length} proveedores`);
+      
+      res.json(result.rows);
+    } catch (error) {
+      console.error('❌ Error al obtener resumen de proveedores:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
+
+  // Obtener catálogo por proveedor y categoría - VERSIÓN CORREGIDA
+getCatalogBySupplierAndCategory: async (req, res) => {
+  try {
+    const { supplier_id, sales_category } = req.params;
+    
+    console.log(`📦 Obteniendo catálogo: proveedor ${supplier_id}, categoría ${sales_category}`);
+    
+    const query = `
+      SELECT 
+        pl.id,
+        pl.lot_number,
+        pl.expiry_date,
+        pl.quantity,
+        pl.price_amount,
+        pl.sales_category,
+        pl.status,
+        p.name as product_name,
+        p.global_sku as product_code,
+        p.description as product_description,
+        m.name as manufacturer_name,
+        ps.supplier_sku,
+        ps.supplier_name
+      FROM product_lots pl
+      LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
+      LEFT JOIN products p ON ps.product_id = p.id
+      LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
+      WHERE ps.supplier_id = $1 
+        AND pl.sales_category = $2
+        AND pl.quantity > 0
+      ORDER BY p.name, pl.expiry_date
+    `;
+    
+    const result = await pool.query(query, [supplier_id, sales_category]);
+    
+    console.log(`✅ Catálogo obtenido: ${result.rows.length} productos`);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('❌ Error al obtener catálogo:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+},
+
+  // Dashboard de inventario dropshipping
+  getInventoryDashboard: async (req, res) => {
+    try {
+      console.log('📈 Obteniendo dashboard de inventario...');
+      
+      const query = `
+        SELECT 
+          -- Totales por categoría
+          COUNT(CASE WHEN pl.sales_category = 'regular' THEN 1 END) as total_regular,
+          COUNT(CASE WHEN pl.sales_category = 'near_expiry' THEN 1 END) as total_near_expiry,
+          COUNT(CASE WHEN pl.sales_category = 'expired' THEN 1 END) as total_expired,
+          
+          -- Totales por proveedor
+          COUNT(DISTINCT ps.supplier_id) as total_suppliers,
+          
+          -- Productos únicos
+          COUNT(DISTINCT ps.product_id) as total_products,
+          
+          -- Valor total estimado
+          COALESCE(SUM(pl.quantity * pl.price_amount), 0) as total_value,
+          
+          -- Última actualización
+          MAX(pl.created_at) as last_import_date
+        FROM product_lots pl
+        LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
+        WHERE pl.quantity > 0
+      `;
+      
+      const result = await pool.query(query);
+      
+      console.log('✅ Dashboard obtenido exitosamente');
+      
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error('❌ Error al obtener dashboard:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }

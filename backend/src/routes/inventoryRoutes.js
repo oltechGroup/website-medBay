@@ -1,4 +1,4 @@
-// src/routes/inventoryRoutes.js - VERSIÓN ACTUALIZADA
+// src/routes/inventoryRoutes.js - VERSIÓN ACTUALIZADA CON DROPSHIPPING
 const express = require('express');
 const router = express.Router();
 const inventoryController = require('../controllers/inventoryController');
@@ -38,5 +38,18 @@ router.patch('/lots/:id/status', inventoryController.updateLotStatus);
 
 // Actualizar categoría de expiración de un lote
 router.patch('/lots/:id/expiry-category', inventoryController.updateExpiryCategory);
+
+// =============================================
+// NUEVAS RUTAS PARA DROPSHIPPING
+// =============================================
+
+// Resumen de proveedores y catálogos
+router.get('/suppliers-summary', inventoryController.getSuppliersCatalogSummary);
+
+// Catálogo por proveedor y categoría
+router.get('/catalog/supplier/:supplier_id/category/:sales_category', inventoryController.getCatalogBySupplierAndCategory);
+
+// Dashboard de inventario
+router.get('/dashboard', inventoryController.getInventoryDashboard);
 
 module.exports = router;

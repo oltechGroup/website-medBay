@@ -2,66 +2,43 @@ const express = require('express');
 const router = express.Router();
 const importController = require('../controllers/importController');
 const authMiddleware = require('../middleware/auth');
-const multer = require('multer');
+const uploadMiddleware = require('../middleware/upload');
 
-// Configurar multer para subida de archivos
+// Aplicar autenticación a todas las rutas
+router.use(authMiddleware.verifyToken);
+
+// Configurar multer para upload de archivos
+const multer = require('multer');
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = 'uploads/';
-    // Crear directorio si no existe
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
+    cb(null, 'uploads/');
   },
   filename: function (req, file, cb) {
-    // Guardar con timestamp para evitar duplicados
-    const timestamp = Date.now();
-    const originalName = file.originalname.replace(/[^a-zA-Z0-9.]/g, '_');
-    cb(null, `${timestamp}-${originalName}`);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'import-' + uniqueSuffix + '-' + file.originalname);
   }
 });
 
 const upload = multer({ 
   storage: storage,
-  fileFilter: function (req, file, cb) {
-    // Validar que sea un archivo Excel
-    const allowedMimes = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel',
-      'application/vnd.ms-excel.sheet.macroEnabled.12'
-    ];
-    
-    if (allowedMimes.includes(file.mimetype)) {
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.includes('excel') || file.mimetype.includes('spreadsheet')) {
       cb(null, true);
     } else {
-      cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'), false);
+      cb(new Error('Solo se permiten archivos Excel'), false);
     }
   },
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB límite para archivos grandes
+    fileSize: 10 * 1024 * 1024 // 10MB
   }
 });
 
-// Middleware para manejar errores de multer
-const handleUploadError = (error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'El archivo es demasiado grande. Límite: 50MB' });
-    }
-  }
-  res.status(400).json({ error: error.message });
-};
-
-router.use(authMiddleware.verifyToken);
-
 // Rutas de importación
-router.post('/upload', upload.single('excelFile'), importController.uploadFile, handleUploadError);
-router.get('/supplier/:supplierId', importController.getUploadsBySupplier);
-router.get('/upload/:uploadId', importController.getUploadDetails);
-router.post('/templates', importController.saveMappingTemplate);
-router.get('/templates/supplier/:supplierId', importController.getTemplatesBySupplier);
-router.post('/process/:uploadId', importController.processUpload);
-router.get('/report/:uploadId', importController.getImportReport);
+router.post('/upload', upload.single('file'), importController.uploadFile);
+router.get('/preview/:upload_id', importController.getPreview);
+router.get('/mapping-template', importController.getMappingTemplate);
+router.post('/mapping-template', importController.saveMappingTemplate);
+router.post('/clean-catalog', importController.cleanCatalog);
+router.post('/process', importController.processImport);
 
 module.exports = router;
