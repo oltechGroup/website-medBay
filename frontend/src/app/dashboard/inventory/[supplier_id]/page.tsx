@@ -10,17 +10,20 @@ import {
   Tag,
   BarChart3,
   Upload,
-  Eye
+  Eye,
+  DollarSign,
+  Box,
+  ShoppingCart
 } from 'lucide-react';
-import { useInventory, SupplierSummary } from '@/hooks/useInventory';
+import { useInventory, SupplierMetrics } from '@/hooks/useInventory';
 import Link from 'next/link';
 
 export default function SupplierDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { getSuppliersSummary, loading } = useInventory();
+  const { getSuppliersMetrics, loading } = useInventory();
   
-  const [supplier, setSupplier] = useState<SupplierSummary | null>(null);
+  const [supplier, setSupplier] = useState<SupplierMetrics | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
@@ -29,12 +32,34 @@ export default function SupplierDetailPage() {
 
   const loadSupplierData = async () => {
     try {
-      const suppliers = await getSuppliersSummary();
+      const suppliers = await getSuppliersMetrics();
       const foundSupplier = suppliers.find(s => s.id === params.supplier_id);
       setSupplier(foundSupplier || null);
     } catch (error) {
       console.error('Error loading supplier data:', error);
     }
+  };
+
+  // ✅ ACTUALIZADO: Formatear valor monetario en USD
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
+  // Formatear fecha con hora
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return 'No hay importaciones';
+    return new Date(dateString).toLocaleString('es-MX', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   if (loading && !supplier) {
@@ -78,36 +103,39 @@ export default function SupplierDetailPage() {
 
   const catalogStats = [
     {
-      title: 'Productos en Fecha',
-      value: supplier.regular_products,
+      title: 'Lotes en Fecha',
+      value: supplier.regular_lots,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
       icon: Package,
-      description: 'Productos con fecha vigente',
+      description: 'Lotes con fecha vigente',
       link: `/dashboard/inventory/${supplier.id}/regular`
     },
     {
-      title: 'Productos Fecha Corta',
-      value: supplier.near_expiry_products,
+      title: 'Lotes Fecha Corta',
+      value: supplier.near_expiry_lots,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50',
       borderColor: 'border-amber-200',
       icon: Calendar,
-      description: 'Próximos a caducar',
+      description: 'Lotes próximos a caducar',
       link: `/dashboard/inventory/${supplier.id}/near-expiry`
     },
     {
-      title: 'Productos Caducados',
-      value: supplier.expired_products,
+      title: 'Lotes Caducados',
+      value: supplier.expired_lots,
       color: 'text-red-600',
       bgColor: 'bg-red-50',
       borderColor: 'border-red-200',
       icon: Tag,
-      description: 'Productos vencidos',
+      description: 'Lotes vencidos',
       link: `/dashboard/inventory/${supplier.id}/expired`
     }
   ];
+
+  // ✅ ELIMINADO: Cálculo temporal de valor estimado
+  // const estimatedValue = supplier.total_units * 100; // ❌ ESTO YA NO SE USA
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -138,13 +166,13 @@ export default function SupplierDetailPage() {
             <div className="flex space-x-3">
               <Link
                 href={`/dashboard/import?supplier_id=${supplier.id}`}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:shadow-md transition-all"
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Importar Catálogo
               </Link>
               
-              <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+              <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 hover:shadow-md transition-all">
                 <Eye className="h-4 w-4 mr-2" />
                 Ver Detalles
               </button>
@@ -152,60 +180,72 @@ export default function SupplierDetailPage() {
           </div>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+        {/* 🎯 ESTADÍSTICAS PRINCIPALES MEJORADAS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* 🏷️ PRODUCTOS ÚNICOS */}
+          <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Productos</p>
-                <p className="text-3xl font-bold text-gray-900">{supplier.total_products}</p>
+                <p className="text-sm font-medium text-gray-600">Productos Únicos</p>
+                <p className="text-2xl font-bold text-gray-900">{supplier.unique_products}</p>
+                <p className="text-xs text-gray-500 mt-1">Productos diferentes</p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <Tag className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* 📦 LOTES ACTIVOS */}
+          <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Lotes Activos</p>
+                <p className="text-2xl font-bold text-gray-900">{supplier.active_lots}</p>
+                <p className="text-xs text-gray-500 mt-1">Con stock disponible</p>
               </div>
               <div className="p-3 bg-blue-100 rounded-lg">
-                <Package className="h-6 w-6 text-blue-600" />
+                <Box className="h-6 w-6 text-blue-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          {/* 🛒 UNIDADES EN STOCK */}
+          <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">En Fecha</p>
-                <p className="text-3xl font-bold text-green-600">{supplier.regular_products}</p>
+                <p className="text-sm font-medium text-gray-600">Unidades en Stock</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {supplier.total_units?.toLocaleString('es-MX')}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Inventario total</p>
               </div>
               <div className="p-3 bg-green-100 rounded-lg">
-                <Package className="h-6 w-6 text-green-600" />
+                <ShoppingCart className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          {/* 💰 VALOR REAL DEL INVENTARIO - ✅ ACTUALIZADO */}
+          <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Fecha Corta</p>
-                <p className="text-3xl font-bold text-amber-600">{supplier.near_expiry_products}</p>
+                <p className="text-sm font-medium text-gray-600">Valor del Inventario</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {formatCurrency(supplier.total_value)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Valor real en USD</p>
               </div>
               <div className="p-3 bg-amber-100 rounded-lg">
-                <Calendar className="h-6 w-6 text-amber-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Caducados</p>
-                <p className="text-3xl font-bold text-red-600">{supplier.expired_products}</p>
-              </div>
-              <div className="p-3 bg-red-100 rounded-lg">
-                <Tag className="h-6 w-6 text-red-600" />
+                <DollarSign className="h-6 w-6 text-amber-600" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Catalog Navigation */}
+        {/* 📊 CATEGORÍAS DE LOTES */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Catálogos del Proveedor</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Distribución de Lotes</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {catalogStats.map((stat, index) => (
               <Link
@@ -225,7 +265,7 @@ export default function SupplierDetailPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className={`text-3xl font-bold ${stat.color}`}>{stat.value}</span>
-                    <span className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                    <span className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors">
                       Ver Catálogo
                     </span>
                   </div>
@@ -235,34 +275,83 @@ export default function SupplierDetailPage() {
           </div>
         </div>
 
-        {/* Additional Info */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
+        {/* 📈 BARRA DE PROGRESO DEL PROVEEDOR */}
+        {supplier.total_lots > 0 && (
+          <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8 hover:shadow-md transition-shadow">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Distribución de Lotes</h3>
+            
+            {/* Barra de progreso */}
+            <div className="flex w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
+              {supplier.regular_lots > 0 && (
+                <div 
+                  className="bg-green-500 h-3 transition-all duration-300"
+                  style={{ width: `${(supplier.regular_lots / supplier.total_lots) * 100}%` }}
+                  title={`${supplier.regular_lots} lotes en fecha`}
+                />
+              )}
+              {supplier.near_expiry_lots > 0 && (
+                <div 
+                  className="bg-amber-500 h-3 transition-all duration-300"
+                  style={{ width: `${(supplier.near_expiry_lots / supplier.total_lots) * 100}%` }}
+                  title={`${supplier.near_expiry_lots} lotes fecha corta`}
+                />
+              )}
+              {supplier.expired_lots > 0 && (
+                <div 
+                  className="bg-red-500 h-3 transition-all duration-300"
+                  style={{ width: `${(supplier.expired_lots / supplier.total_lots) * 100}%` }}
+                  title={`${supplier.expired_lots} lotes caducados`}
+                />
+              )}
+            </div>
+
+            {/* Leyenda */}
+            <div className="flex flex-wrap justify-between text-sm text-gray-600 gap-2">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                <span>En fecha: {supplier.regular_lots} lotes</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-amber-500 rounded-full mr-2"></div>
+                <span>Fecha corta: {supplier.near_expiry_lots} lotes</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                <span>Caducados: {supplier.expired_lots} lotes</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ℹ️ INFORMACIÓN DEL PROVEEDOR MEJORADA */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Información del Proveedor</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Proveedor</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <p className="text-gray-600">Última importación:</p>
-                  <p className="font-medium text-gray-900">
-                    {supplier.last_import 
-                      ? new Date(supplier.last_import).toLocaleDateString('es-MX', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })
-                      : 'No hay importaciones registradas'
-                    }
+                  <p className="text-sm font-medium text-gray-600 mb-1">Última Importación</p>
+                  <p className="font-medium text-gray-900 mb-2">
+                    {formatDateTime(supplier.last_import)}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {/* 📝 NOTA: Aquí iría la categoría cuando tengamos el dato del backend */}
+                    Categoría: Pendiente de implementación
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Estado:</p>
-                  <p className="font-medium text-green-600">Activo</p>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Estado del Proveedor</p>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                    <p className="font-medium text-green-600">Activo</p>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {supplier.total_lots > 0 ? 'Con inventario activo' : 'Sin inventario activo'}
+                  </p>
                 </div>
               </div>
             </div>
-            <div className="p-3 bg-gray-100 rounded-lg">
+            <div className="p-3 bg-gray-100 rounded-lg ml-4">
               <BarChart3 className="h-6 w-6 text-gray-600" />
             </div>
           </div>

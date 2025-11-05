@@ -1,9 +1,145 @@
-// src/controllers/inventoryController.js - VERSIÓN COMPLETA CORREGIDA CON DROPSHIPPING
+// backend/src/controllers/inventoryController.js - VERSIÓN COMPLETA CON MÉTRICAS CLARAS
 const pool = require('../config/database');
 
 const inventoryController = {
   // =============================================
-  // ENDPOINT PRINCIPAL - INCLUYE PRODUCTOS SIN LOTES
+  // NUEVO ENDPOINT: MÉTRICAS CLARAS POR PROVEEDOR
+  // =============================================
+
+// En backend/src/controllers/inventoryController.js - FUNCIÓN getSuppliersMetrics ACTUALIZADA
+getSuppliersMetrics: async (req, res) => {
+  try {
+    console.log('📊 Obteniendo métricas claras por proveedor...');
+    
+    const query = `
+      SELECT 
+        s.id,
+        s.name as supplier_name,
+        
+        -- 🏷️ PRODUCTOS ÚNICOS (COUNT DISTINCT de productos)
+        COUNT(DISTINCT ps.product_id) as unique_products,
+        
+        -- 📦 LOTES ACTIVOS (lotes con stock > 0)
+        COUNT(DISTINCT CASE WHEN pl.quantity > 0 THEN pl.id END) as active_lots,
+        
+        -- 🛒 UNIDADES EN STOCK (SUM de cantidades)
+        COALESCE(SUM(pl.quantity), 0) as total_units,
+        
+        -- 💰 VALOR TOTAL REAL (SUM de cantidad * precio) - NUEVO
+        COALESCE(SUM(pl.quantity * pl.price_amount), 0) as total_value,
+        
+        -- 📊 LOTES POR CATEGORÍA (para compatibilidad y barras de progreso)
+        COUNT(DISTINCT CASE WHEN pl.quantity > 0 AND pl.sales_category = 'regular' THEN pl.id END) as regular_lots,
+        COUNT(DISTINCT CASE WHEN pl.quantity > 0 AND pl.sales_category = 'near_expiry' THEN pl.id END) as near_expiry_lots,
+        COUNT(DISTINCT CASE WHEN pl.quantity > 0 AND pl.sales_category = 'expired' THEN pl.id END) as expired_lots,
+        COUNT(DISTINCT CASE WHEN pl.quantity > 0 THEN pl.id END) as total_lots,
+        
+        -- 📅 ÚLTIMA IMPORTACIÓN
+        MAX(pl.created_at) as last_import
+        
+      FROM suppliers s
+      LEFT JOIN product_suppliers ps ON s.id = ps.supplier_id
+      LEFT JOIN product_lots pl ON ps.id = pl.product_supplier_id
+      GROUP BY s.id, s.name
+      ORDER BY s.name
+    `;
+    
+    const result = await pool.query(query);
+    
+    console.log(`✅ Métricas obtenidas: ${result.rows.length} proveedores`);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('❌ Error al obtener métricas de proveedores:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+},
+
+  // =============================================
+  // ENDPOINT EXISTENTE - MANTENIDO PARA COMPATIBILIDAD
+  // =============================================
+
+  getSuppliersCatalogSummary: async (req, res) => {
+    try {
+      console.log('📊 Obteniendo resumen de catálogos por proveedor...');
+      
+      const query = `
+        SELECT 
+          s.id,
+          s.name as supplier_name,
+          COUNT(DISTINCT CASE WHEN pl.sales_category = 'regular' THEN ps.product_id END) as regular_products,
+          COUNT(DISTINCT CASE WHEN pl.sales_category = 'near_expiry' THEN ps.product_id END) as near_expiry_products,
+          COUNT(DISTINCT CASE WHEN pl.sales_category = 'expired' THEN ps.product_id END) as expired_products,
+          COUNT(DISTINCT ps.product_id) as total_products,
+          MAX(pl.created_at) as last_import
+        FROM suppliers s
+        LEFT JOIN product_suppliers ps ON s.id = ps.supplier_id
+        LEFT JOIN product_lots pl ON ps.id = pl.product_supplier_id
+        GROUP BY s.id, s.name
+        ORDER BY s.name
+      `;
+      
+      const result = await pool.query(query);
+      
+      console.log(`✅ Resumen obtenido: ${result.rows.length} proveedores`);
+      
+      res.json(result.rows);
+    } catch (error) {
+      console.error('❌ Error al obtener resumen de proveedores:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
+
+  // =============================================
+  // NUEVO DASHBOARD CON MÉTRICAS CLARAS
+  // =============================================
+
+  getInventoryDashboard: async (req, res) => {
+    try {
+      console.log('📈 Obteniendo dashboard de inventario con métricas claras...');
+      
+      const query = `
+        SELECT 
+          -- 🏷️ PRODUCTOS ÚNICOS
+          COUNT(DISTINCT ps.product_id) as unique_products,
+          
+          -- 📦 LOTES ACTIVOS
+          COUNT(DISTINCT CASE WHEN pl.quantity > 0 THEN pl.id END) as active_lots,
+          
+          -- 🛒 UNIDADES EN STOCK
+          COALESCE(SUM(pl.quantity), 0) as total_units,
+          
+          -- 📊 LOTES POR CATEGORÍA
+          COUNT(CASE WHEN pl.quantity > 0 AND pl.sales_category = 'regular' THEN 1 END) as total_regular,
+          COUNT(CASE WHEN pl.quantity > 0 AND pl.sales_category = 'near_expiry' THEN 1 END) as total_near_expiry,
+          COUNT(CASE WHEN pl.quantity > 0 AND pl.sales_category = 'expired' THEN 1 END) as total_expired,
+          
+          -- 🏢 TOTAL PROVEEDORES
+          COUNT(DISTINCT ps.supplier_id) as total_suppliers,
+          
+          -- 💰 VALOR TOTAL ESTIMADO
+          COALESCE(SUM(pl.quantity * pl.price_amount), 0) as total_value,
+          
+          -- 📅 ÚLTIMA ACTUALIZACIÓN
+          MAX(pl.created_at) as last_import_date
+        FROM product_lots pl
+        LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
+        WHERE pl.quantity > 0
+      `;
+      
+      const result = await pool.query(query);
+      
+      console.log('✅ Dashboard con métricas claras obtenido exitosamente');
+      
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error('❌ Error al obtener dashboard:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
+
+  // =============================================
+  // ENDPOINTS EXISTENTES (MANTENIDOS)
   // =============================================
 
   getInventoryLots: async (req, res) => {
@@ -94,16 +230,53 @@ const inventoryController = {
     }
   },
 
-  // =============================================
-  // NUEVO ENDPOINT: CREAR LOTE PARA PRODUCTO SIN LOTE - VERSIÓN CORREGIDA
-  // =============================================
+  getCatalogBySupplierAndCategory: async (req, res) => {
+    try {
+      const { supplier_id, sales_category } = req.params;
+      
+      console.log(`📦 Obteniendo catálogo: proveedor ${supplier_id}, categoría ${sales_category}`);
+      
+      const query = `
+        SELECT 
+          pl.id,
+          pl.lot_number,
+          pl.expiry_date,
+          pl.quantity,
+          pl.price_amount,
+          pl.sales_category,
+          pl.status,
+          p.name as product_name,
+          p.global_sku as product_code,
+          p.description as product_description,
+          m.name as manufacturer_name,
+          ps.supplier_sku,
+          ps.supplier_name
+        FROM product_lots pl
+        LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
+        LEFT JOIN products p ON ps.product_id = p.id
+        LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
+        WHERE ps.supplier_id = $1 
+          AND pl.sales_category = $2
+          AND pl.quantity > 0
+        ORDER BY p.name, pl.expiry_date
+      `;
+      
+      const result = await pool.query(query, [supplier_id, sales_category]);
+      
+      console.log(`✅ Catálogo obtenido: ${result.rows.length} productos`);
+      
+      res.json(result.rows);
+    } catch (error) {
+      console.error('❌ Error al obtener catálogo:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
 
   createLotForProduct: async (req, res) => {
     try {
       const { product_id, lot_number, expiry_date, quantity, supplier_id } = req.body;
       console.log('🆕 Creando lote para producto:', { product_id, lot_number, expiry_date, quantity, supplier_id });
 
-      // Validaciones básicas
       if (!product_id) {
         return res.status(400).json({ error: 'product_id es requerido' });
       }
@@ -112,17 +285,14 @@ const inventoryController = {
         return res.status(400).json({ error: 'lot_number es requerido' });
       }
 
-      // Verificar que el producto existe
       const productCheck = await pool.query('SELECT * FROM products WHERE id = $1', [product_id]);
       if (productCheck.rows.length === 0) {
         return res.status(404).json({ error: 'Producto no encontrado' });
       }
 
-      // Buscar o crear relación con proveedor
       let productSupplierId;
       
       if (supplier_id) {
-        // Verificar si ya existe la relación producto-proveedor
         const existingRelation = await pool.query(
           'SELECT id FROM product_suppliers WHERE product_id = $1 AND supplier_id = $2',
           [product_id, supplier_id]
@@ -131,11 +301,9 @@ const inventoryController = {
         if (existingRelation.rows.length > 0) {
           productSupplierId = existingRelation.rows[0].id;
         } else {
-          // Obtener nombre del proveedor
           const supplierResult = await pool.query('SELECT name FROM suppliers WHERE id = $1', [supplier_id]);
           const supplierName = supplierResult.rows.length > 0 ? supplierResult.rows[0].name : 'Proveedor Desconocido';
           
-          // Crear nueva relación producto-proveedor
           const newRelation = await pool.query(
             `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name, units_per_box)
              VALUES ($1, $2, $3, $4, $5)
@@ -145,7 +313,6 @@ const inventoryController = {
           productSupplierId = newRelation.rows[0].id;
         }
       } else {
-        // Si no se especifica proveedor, buscar uno existente o crear uno por defecto
         const existingRelation = await pool.query(
           'SELECT id FROM product_suppliers WHERE product_id = $1 LIMIT 1',
           [product_id]
@@ -154,7 +321,6 @@ const inventoryController = {
         if (existingRelation.rows.length > 0) {
           productSupplierId = existingRelation.rows[0].id;
         } else {
-          // Buscar proveedor por defecto existente
           const defaultSupplierCheck = await pool.query(
             `SELECT id FROM suppliers WHERE name = 'Proveedor por Defecto' LIMIT 1`
           );
@@ -163,7 +329,6 @@ const inventoryController = {
           if (defaultSupplierCheck.rows.length > 0) {
             supplierId = defaultSupplierCheck.rows[0].id;
           } else {
-            // Crear proveedor por defecto
             const defaultSupplier = await pool.query(
               `INSERT INTO suppliers (name, country, default_currency) 
                VALUES ($1, $2, $3) 
@@ -173,7 +338,6 @@ const inventoryController = {
             supplierId = defaultSupplier.rows[0].id;
           }
 
-          // Crear relación con proveedor por defecto
           const newRelation = await pool.query(
             `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name, units_per_box)
              VALUES ($1, $2, $3, $4, $5)
@@ -184,7 +348,6 @@ const inventoryController = {
         }
       }
 
-      // Crear el lote - Manejo seguro de created_by
       const lotQuery = `
         INSERT INTO product_lots (
           product_supplier_id, 
@@ -205,7 +368,6 @@ const inventoryController = {
         'available'
       ];
 
-      // Solo agregar created_by si req.user existe
       if (req.user) {
         queryParams.push(req.user.id || 1);
       }
@@ -213,7 +375,6 @@ const inventoryController = {
       const lotResult = await pool.query(lotQuery, queryParams);
       const newLot = lotResult.rows[0];
 
-      // Crear registro en inventory
       await pool.query(
         'INSERT INTO inventory (product_lot_id, quantity_on_hand, last_updated) VALUES ($1, $2, CURRENT_TIMESTAMP)',
         [newLot.id, quantity || 0]
@@ -230,7 +391,6 @@ const inventoryController = {
     } catch (error) {
       console.error('❌ Error al crear lote para producto:', error);
       
-      // Manejar error de lote duplicado
       if (error.code === '23505') {
         return res.status(400).json({ 
           error: 'El número de lote ya existe para este producto' 
@@ -243,10 +403,6 @@ const inventoryController = {
       });
     }
   },
-
-  // =============================================
-  // ENDPOINTS EXISTENTES (MANTENIDOS)
-  // =============================================
 
   adjustInventory: async (req, res) => {
     try {
@@ -377,10 +533,6 @@ const inventoryController = {
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
-
-  // =============================================
-  // MÉTODOS EXISTENTES (COMPATIBILIDAD)
-  // =============================================
 
   createLot: async (req, res) => {
     try {
@@ -583,124 +735,6 @@ const inventoryController = {
 
     } catch (error) {
       console.error('❌ Error al liberar cantidad:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  // =============================================
-  // NUEVOS ENDPOINTS PARA DROPSHIPPING
-  // =============================================
-
-  // Obtener resumen de proveedores con catálogos
-  getSuppliersCatalogSummary: async (req, res) => {
-    try {
-      console.log('📊 Obteniendo resumen de catálogos por proveedor...');
-      
-      const query = `
-        SELECT 
-          s.id,
-          s.name as supplier_name,
-          COUNT(DISTINCT CASE WHEN pl.sales_category = 'regular' THEN ps.product_id END) as regular_products,
-          COUNT(DISTINCT CASE WHEN pl.sales_category = 'near_expiry' THEN ps.product_id END) as near_expiry_products,
-          COUNT(DISTINCT CASE WHEN pl.sales_category = 'expired' THEN ps.product_id END) as expired_products,
-          COUNT(DISTINCT ps.product_id) as total_products,
-          MAX(pl.created_at) as last_import
-        FROM suppliers s
-        LEFT JOIN product_suppliers ps ON s.id = ps.supplier_id
-        LEFT JOIN product_lots pl ON ps.id = pl.product_supplier_id
-        GROUP BY s.id, s.name
-        ORDER BY s.name
-      `;
-      
-      const result = await pool.query(query);
-      
-      console.log(`✅ Resumen obtenido: ${result.rows.length} proveedores`);
-      
-      res.json(result.rows);
-    } catch (error) {
-      console.error('❌ Error al obtener resumen de proveedores:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  // Obtener catálogo por proveedor y categoría - VERSIÓN CORREGIDA
-getCatalogBySupplierAndCategory: async (req, res) => {
-  try {
-    const { supplier_id, sales_category } = req.params;
-    
-    console.log(`📦 Obteniendo catálogo: proveedor ${supplier_id}, categoría ${sales_category}`);
-    
-    const query = `
-      SELECT 
-        pl.id,
-        pl.lot_number,
-        pl.expiry_date,
-        pl.quantity,
-        pl.price_amount,
-        pl.sales_category,
-        pl.status,
-        p.name as product_name,
-        p.global_sku as product_code,
-        p.description as product_description,
-        m.name as manufacturer_name,
-        ps.supplier_sku,
-        ps.supplier_name
-      FROM product_lots pl
-      LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
-      LEFT JOIN products p ON ps.product_id = p.id
-      LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
-      WHERE ps.supplier_id = $1 
-        AND pl.sales_category = $2
-        AND pl.quantity > 0
-      ORDER BY p.name, pl.expiry_date
-    `;
-    
-    const result = await pool.query(query, [supplier_id, sales_category]);
-    
-    console.log(`✅ Catálogo obtenido: ${result.rows.length} productos`);
-    
-    res.json(result.rows);
-  } catch (error) {
-    console.error('❌ Error al obtener catálogo:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-},
-
-  // Dashboard de inventario dropshipping
-  getInventoryDashboard: async (req, res) => {
-    try {
-      console.log('📈 Obteniendo dashboard de inventario...');
-      
-      const query = `
-        SELECT 
-          -- Totales por categoría
-          COUNT(CASE WHEN pl.sales_category = 'regular' THEN 1 END) as total_regular,
-          COUNT(CASE WHEN pl.sales_category = 'near_expiry' THEN 1 END) as total_near_expiry,
-          COUNT(CASE WHEN pl.sales_category = 'expired' THEN 1 END) as total_expired,
-          
-          -- Totales por proveedor
-          COUNT(DISTINCT ps.supplier_id) as total_suppliers,
-          
-          -- Productos únicos
-          COUNT(DISTINCT ps.product_id) as total_products,
-          
-          -- Valor total estimado
-          COALESCE(SUM(pl.quantity * pl.price_amount), 0) as total_value,
-          
-          -- Última actualización
-          MAX(pl.created_at) as last_import_date
-        FROM product_lots pl
-        LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
-        WHERE pl.quantity > 0
-      `;
-      
-      const result = await pool.query(query);
-      
-      console.log('✅ Dashboard obtenido exitosamente');
-      
-      res.json(result.rows[0]);
-    } catch (error) {
-      console.error('❌ Error al obtener dashboard:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }

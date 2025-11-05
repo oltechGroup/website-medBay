@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Building, Package, Calendar, ArrowRight } from 'lucide-react';
-import { SupplierSummary } from '@/hooks/useInventory';
+import { Building, Package, Calendar, ArrowRight, Tag, Box, ShoppingCart } from 'lucide-react';
+import { SupplierMetrics } from '@/hooks/useInventory';
 
 interface SupplierCardProps {
-  supplier: SupplierSummary;
+  supplier: SupplierMetrics;
   onClick: (supplierId: string) => void;
 }
 
@@ -23,6 +23,12 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({ supplier, onClick })
     if (!dateString) return 'No hay importaciones';
     return new Date(dateString).toLocaleDateString('es-MX');
   };
+
+  // Calcular porcentajes para la barra de progreso (evitar división por cero)
+  const totalLots = supplier.total_lots || 1;
+  const regularPercent = ((supplier.regular_lots || 0) / totalLots) * 100;
+  const nearExpiryPercent = ((supplier.near_expiry_lots || 0) / totalLots) * 100;
+  const expiredPercent = ((supplier.expired_lots || 0) / totalLots) * 100;
 
   return (
     <div 
@@ -43,62 +49,132 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({ supplier, onClick })
         <ArrowRight className="h-5 w-5 text-gray-400" />
       </div>
 
-      {/* Estadísticas */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      {/* 🎯 NUEVAS MÉTRICAS CLARAS - 3 COLUMNAS COMPACTAS */}
+      <div className="grid grid-cols-3 gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
+        {/* 🏷️ PRODUCTOS ÚNICOS */}
         <div className="text-center">
-          <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getCategoryColor('regular')}`}>
+          <div className="flex items-center justify-center space-x-1 text-xs font-medium text-purple-800 mb-1">
+            <Tag className="h-3 w-3" />
+            <span>Productos</span>
+          </div>
+          <p className="text-lg font-bold text-gray-900">{supplier.unique_products}</p>
+          <p className="text-xs text-gray-500">únicos</p>
+        </div>
+
+        {/* 📦 LOTES ACTIVOS */}
+        <div className="text-center">
+          <div className="flex items-center justify-center space-x-1 text-xs font-medium text-blue-800 mb-1">
+            <Box className="h-3 w-3" />
+            <span>Lotes</span>
+          </div>
+          <p className="text-lg font-bold text-gray-900">{supplier.active_lots}</p>
+          <p className="text-xs text-gray-500">activos</p>
+        </div>
+
+        {/* 🛒 UNIDADES EN STOCK */}
+        <div className="text-center">
+          <div className="flex items-center justify-center space-x-1 text-xs font-medium text-green-800 mb-1">
+            <ShoppingCart className="h-3 w-3" />
+            <span>Unidades</span>
+          </div>
+          <p className="text-lg font-bold text-gray-900">
+            {supplier.total_units?.toLocaleString('es-MX')}
+          </p>
+          <p className="text-xs text-gray-500">en stock</p>
+        </div>
+      </div>
+
+      {/* 📊 MÉTRICAS ORIGINALES - 4 CATEGORÍAS CON COLORES */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="text-center">
+          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor('regular')}`}>
             <Package className="h-3 w-3 mr-1" />
             En Fecha
           </div>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{supplier.regular_products}</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">{supplier.regular_lots}</p>
         </div>
 
         <div className="text-center">
-          <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getCategoryColor('near_expiry')}`}>
+          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor('near_expiry')}`}>
             <Calendar className="h-3 w-3 mr-1" />
             Fecha Corta
           </div>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{supplier.near_expiry_products}</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">{supplier.near_expiry_lots}</p>
         </div>
 
         <div className="text-center">
-          <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getCategoryColor('expired')}`}>
+          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor('expired')}`}>
             <Calendar className="h-3 w-3 mr-1" />
             Caducados
           </div>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{supplier.expired_products}</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">{supplier.expired_lots}</p>
         </div>
 
         <div className="text-center">
-          <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 border border-gray-200">
+          <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
             <Package className="h-3 w-3 mr-1" />
             Total
           </div>
-          <p className="text-2xl font-bold text-blue-600 mt-1">{supplier.total_products}</p>
+          <p className="text-xl font-bold text-blue-600 mt-1">{supplier.total_lots}</p>
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-        <div 
-          className="bg-green-500 h-2 rounded-full" 
-          style={{ width: `${(supplier.regular_products / supplier.total_products) * 100}%` }}
-        ></div>
-        <div 
-          className="bg-amber-500 h-2 rounded-full -mt-2" 
-          style={{ width: `${(supplier.near_expiry_products / supplier.total_products) * 100}%`, marginLeft: `${(supplier.regular_products / supplier.total_products) * 100}%` }}
-        ></div>
-        <div 
-          className="bg-red-500 h-2 rounded-full -mt-2" 
-          style={{ width: `${(supplier.expired_products / supplier.total_products) * 100}%`, marginLeft: `${((supplier.regular_products + supplier.near_expiry_products) / supplier.total_products) * 100}%` }}
-        ></div>
-      </div>
+      {/* 📊 BARRA DE PROGRESO MEJORADA - SIN SUPERPOSICIONES */}
+      {supplier.total_lots > 0 && (
+        <>
+          <div className="flex w-full bg-gray-200 rounded-full h-2 mb-2 overflow-hidden">
+            {/* Segmento Regular */}
+            {regularPercent > 0 && (
+              <div 
+                className="bg-green-500 h-2 transition-all duration-300"
+                style={{ width: `${regularPercent}%` }}
+                title={`${supplier.regular_lots} lotes en fecha`}
+              />
+            )}
+            
+            {/* Segmento Near Expiry */}
+            {nearExpiryPercent > 0 && (
+              <div 
+                className="bg-amber-500 h-2 transition-all duration-300"
+                style={{ width: `${nearExpiryPercent}%` }}
+                title={`${supplier.near_expiry_lots} lotes cerca de expirar`}
+              />
+            )}
+            
+            {/* Segmento Expired */}
+            {expiredPercent > 0 && (
+              <div 
+                className="bg-red-500 h-2 transition-all duration-300"
+                style={{ width: `${expiredPercent}%` }}
+                title={`${supplier.expired_lots} lotes expirados`}
+              />
+            )}
+          </div>
 
-      <div className="flex justify-between text-xs text-gray-500">
-        <span>En fecha: {supplier.regular_products}</span>
-        <span>Fecha corta: {supplier.near_expiry_products}</span>
-        <span>Caducados: {supplier.expired_products}</span>
-      </div>
+          {/* Leyenda de la barra de progreso */}
+          <div className="flex justify-between text-xs text-gray-600">
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+              <span>En fecha: {supplier.regular_lots}</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-amber-500 rounded-full mr-1"></div>
+              <span>Fecha corta: {supplier.near_expiry_lots}</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
+              <span>Caducados: {supplier.expired_lots}</span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Mensaje cuando no hay lotes */}
+      {supplier.total_lots === 0 && (
+        <div className="text-center py-2">
+          <p className="text-sm text-gray-500">No hay lotes activos</p>
+        </div>
+      )}
     </div>
   );
 };
