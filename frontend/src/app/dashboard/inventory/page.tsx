@@ -8,16 +8,19 @@ import {
   TrendingUp, 
   DollarSign,
   Users,
-  Calendar
+  Calendar,
+  Tag,
+  Box,
+  ShoppingCart
 } from 'lucide-react';
-import { useInventory, SupplierSummary, InventoryDashboard } from '@/hooks/useInventory';
+import { useInventory, SupplierMetrics, InventoryDashboard } from '@/hooks/useInventory';
 import { SupplierCard } from '@/components/features/inventory/SupplierCard';
 
 export default function InventoryPage() {
   const router = useRouter();
-  const { getSuppliersSummary, getInventoryDashboard, loading, error } = useInventory();
+  const { getSuppliersMetrics, getInventoryDashboard, loading, error } = useInventory();
   
-  const [suppliers, setSuppliers] = useState<SupplierSummary[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierMetrics[]>([]);
   const [dashboard, setDashboard] = useState<InventoryDashboard | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -28,7 +31,7 @@ export default function InventoryPage() {
   const loadData = async () => {
     try {
       const [suppliersData, dashboardData] = await Promise.all([
-        getSuppliersSummary(),
+        getSuppliersMetrics(),
         getInventoryDashboard()
       ]);
       setSuppliers(suppliersData);
@@ -45,6 +48,28 @@ export default function InventoryPage() {
   const filteredSuppliers = suppliers.filter(supplier =>
     supplier.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // ✅ ACTUALIZADO: Formatear valor monetario en USD
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
+  // Formatear fecha con hora
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return 'No hay datos';
+    return new Date(dateString).toLocaleString('es-MX', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   if (loading && suppliers.length === 0) {
     return (
@@ -82,23 +107,29 @@ export default function InventoryPage() {
         {/* Dashboard Stats */}
         {dashboard && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
+            {/* 🏷️ TOTAL PRODUCTOS ÚNICOS */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Productos</p>
-                  <p className="text-2xl font-bold text-gray-900">{dashboard.total_products}</p>
+                  <p className="text-sm font-medium text-gray-600">Productos Únicos</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {dashboard.unique_products || dashboard.total_products || 0}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Productos diferentes</p>
                 </div>
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <Package className="h-6 w-6 text-blue-600" />
+                <div className="p-3 bg-purple-100 rounded-lg">
+                  <Tag className="h-6 w-6 text-purple-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
+            {/* 👥 PROVEEDORES ACTIVOS */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Proveedores</p>
+                  <p className="text-sm font-medium text-gray-600">Proveedores Activos</p>
                   <p className="text-2xl font-bold text-gray-900">{dashboard.total_suppliers}</p>
+                  <p className="text-xs text-gray-500 mt-1">Con inventario</p>
                 </div>
                 <div className="p-3 bg-green-100 rounded-lg">
                   <Users className="h-6 w-6 text-green-600" />
@@ -106,13 +137,15 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
+            {/* 💰 VALOR TOTAL REAL - ✅ ACTUALIZADO */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Valor Total</p>
+                  <p className="text-sm font-medium text-gray-600">Valor del Inventario</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    ${dashboard.total_value.toLocaleString('es-MX')}
+                    {formatCurrency(dashboard.total_value)}
                   </p>
+                  <p className="text-xs text-gray-500 mt-1">Valor real en USD</p>
                 </div>
                 <div className="p-3 bg-amber-100 rounded-lg">
                   <DollarSign className="h-6 w-6 text-amber-600" />
@@ -120,55 +153,66 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
+            {/* 📅 ÚLTIMA IMPORTACIÓN DETALLADA */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Última Importación</p>
                   <p className="text-lg font-bold text-gray-900">
-                    {dashboard.last_import_date ? 
-                      new Date(dashboard.last_import_date).toLocaleDateString('es-MX') : 
-                      'No hay datos'
-                    }
+                    {formatDateTime(dashboard.last_import_date)}
                   </p>
+                  <p className="text-xs text-gray-500 mt-1">Fecha y hora</p>
                 </div>
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <Calendar className="h-6 w-6 text-purple-600" />
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <Calendar className="h-6 w-6 text-blue-600" />
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Categorías Summary */}
+        {/* 📊 CATEGORÍAS DE LOTES */}
         {dashboard && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+            {/* 🟢 LOTES EN FECHA */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-green-800">Productos en Fecha</p>
+                  <p className="text-sm font-medium text-green-800">Lotes en Fecha</p>
                   <p className="text-2xl font-bold text-green-900">{dashboard.total_regular}</p>
+                  <p className="text-xs text-green-600 mt-1">Vigentes</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-green-600" />
+                <div className="p-3 bg-green-100 rounded-lg">
+                  <TrendingUp className="h-6 w-6 text-green-600" />
+                </div>
               </div>
             </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+            {/* 🟡 LOTES FECHA CORTA */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-amber-800">Productos Fecha Corta</p>
+                  <p className="text-sm font-medium text-amber-800">Lotes Fecha Corta</p>
                   <p className="text-2xl font-bold text-amber-900">{dashboard.total_near_expiry}</p>
+                  <p className="text-xs text-amber-600 mt-1">Próximos a caducar</p>
                 </div>
-                <Calendar className="h-8 w-8 text-amber-600" />
+                <div className="p-3 bg-amber-100 rounded-lg">
+                  <Calendar className="h-6 w-6 text-amber-600" />
+                </div>
               </div>
             </div>
 
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            {/* 🔴 LOTES CADUCADOS */}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-red-800">Productos Caducados</p>
+                  <p className="text-sm font-medium text-red-800">Lotes Caducados</p>
                   <p className="text-2xl font-bold text-red-900">{dashboard.total_expired}</p>
+                  <p className="text-xs text-red-600 mt-1">Vencidos</p>
                 </div>
-                <Package className="h-8 w-8 text-red-600" />
+                <div className="p-3 bg-red-100 rounded-lg">
+                  <Package className="h-6 w-6 text-red-600" />
+                </div>
               </div>
             </div>
           </div>

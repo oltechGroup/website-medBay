@@ -12,15 +12,7 @@ const navigation = [
   { name: 'Productos', href: '/dashboard/products', icon: '💊' },
   { name: 'Categorías', href: '/dashboard/categories', icon: '🗂️' },
   { name: 'Fabricantes', href: '/dashboard/manufacturers', icon: '🏭' },
-  { 
-    name: 'Inventario', 
-    href: '/dashboard/inventory', 
-    icon: '📦',
-    submenu: [
-      { name: 'Gestión de Lotes', href: '/dashboard/inventory', icon: '📋' },
-    
-    ]
-  },
+  { name: 'Inventario', href: '/dashboard/inventory', icon:'📦' },
   { name: 'Proveedores', href: '/dashboard/suppliers', icon: '🏢' },
   // NUEVO MÓDULO - DATOS MAESTROS
   { 

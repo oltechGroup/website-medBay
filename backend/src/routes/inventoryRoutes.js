@@ -1,4 +1,4 @@
-// src/routes/inventoryRoutes.js - VERSIÓN ACTUALIZADA CON DROPSHIPPING
+// backend/src/routes/inventoryRoutes.js - VERSIÓN COMPLETA ACTUALIZADA
 const express = require('express');
 const router = express.Router();
 const inventoryController = require('../controllers/inventoryController');
@@ -45,6 +45,9 @@ router.patch('/lots/:id/expiry-category', inventoryController.updateExpiryCatego
 
 // Resumen de proveedores y catálogos
 router.get('/suppliers-summary', inventoryController.getSuppliersCatalogSummary);
+
+// ✅ NUEVO: Métricas claras por proveedor
+router.get('/suppliers-metrics', inventoryController.getSuppliersMetrics);
 
 // Catálogo por proveedor y categoría
 router.get('/catalog/supplier/:supplier_id/category/:sales_category', inventoryController.getCatalogBySupplierAndCategory);

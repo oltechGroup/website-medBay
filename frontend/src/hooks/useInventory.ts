@@ -19,6 +19,7 @@ export interface InventoryItem {
   status: string;
 }
 
+// INTERFAZ ORIGINAL - MANTENIDA PARA COMPATIBILIDAD
 export interface SupplierSummary {
   id: string;
   supplier_name: string;
@@ -26,6 +27,21 @@ export interface SupplierSummary {
   near_expiry_products: number;
   expired_products: number;
   total_products: number;
+  last_import: string;
+}
+
+// NUEVA INTERFAZ: MÉTRICAS CLARAS Y ESPECÍFICAS
+export interface SupplierMetrics {
+  id: string;
+  supplier_name: string;
+  unique_products: number;    // 🏷️ Productos únicos (COUNT DISTINCT)
+  active_lots: number;        // 📦 Lotes activos con stock > 0
+  total_units: number;        // 🛒 Unidades totales en stock
+  total_value: number;        // 💰 VALOR REAL DEL INVENTARIO - NUEVO
+  regular_lots: number;       // 📊 Lotes en fecha (para barras de progreso)
+  near_expiry_lots: number;   // 📊 Lotes cerca de expirar
+  expired_lots: number;       // 📊 Lotes expirados
+  total_lots: number;         // 📊 Total de lotes (para compatibilidad)
   last_import: string;
 }
 
@@ -37,13 +53,32 @@ export interface InventoryDashboard {
   total_products: number;
   total_value: number;
   last_import_date: string;
+  // NUEVAS MÉTRICAS CLARAS
+  unique_products?: number;
+  active_lots?: number;
+  total_units?: number;
 }
 
 export const useInventory = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Obtener resumen de proveedores
+  // ✅ NUEVO: Obtener métricas CLARAS de proveedores
+  const getSuppliersMetrics = async (): Promise<SupplierMetrics[]> => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get('/inventory/suppliers-metrics');
+      return response.data;
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Error al cargar métricas de proveedores');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔄 MANTENIDO: Obtener resumen de proveedores (compatibilidad)
   const getSuppliersSummary = async (): Promise<SupplierSummary[]> => {
     try {
       setLoading(true);
@@ -58,7 +93,7 @@ export const useInventory = () => {
     }
   };
 
-  // Obtener catálogo por proveedor y categoría - NOMBRE CORREGIDO
+  // Obtener catálogo por proveedor y categoría
   const getCatalogBySupplierAndCategory = async (
     supplierId: string, 
     salesCategory: 'regular' | 'near_expiry' | 'expired'
@@ -111,6 +146,9 @@ export const useInventory = () => {
   return {
     loading,
     error,
+    // ✅ NUEVAS FUNCIONES CON MÉTRICAS CLARAS
+    getSuppliersMetrics,
+    // 🔄 FUNCIONES EXISTENTES (COMPATIBILIDAD)
     getSuppliersSummary,
     getCatalogBySupplierAndCategory, 
     getInventoryDashboard,
