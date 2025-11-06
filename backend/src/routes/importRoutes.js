@@ -40,5 +40,7 @@ router.get('/mapping-template', importController.getMappingTemplate);
 router.post('/mapping-template', importController.saveMappingTemplate);
 router.post('/clean-catalog', importController.cleanCatalog);
 router.post('/process', importController.processImport);
-
+// Agregar esta línea a las rutas existentes
+router.get('/history', importController.getImportHistory);
+router.get('/stats', importController.getImportStats);
 module.exports = router;

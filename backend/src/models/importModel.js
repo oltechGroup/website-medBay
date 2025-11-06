@@ -2,22 +2,23 @@ const db = require('../config/database');
 
 const ImportModel = {
   // Crear registro de upload (adaptado a tu estructura)
-  createUpload: async (uploadData) => {
-    const {
-      supplier_id,
-      filename,
-      file_path,
-      uploaded_by,
-      status = 'uploaded'
-    } = uploadData;
+    createUpload: async (uploadData) => {
+  const {
+    supplier_id,
+    filename,
+    file_path,
+    uploaded_by,
+    status = 'uploaded',
+    sales_category = 'regular' // ← AGREGAR ESTE PARÁMETRO
+  } = uploadData;
 
-    const query = `
-      INSERT INTO raw_uploads (supplier_id, filename, file_path, uploaded_by, status)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-    `;
-    
-    const values = [supplier_id, filename, file_path, uploaded_by, status];
+  const query = `
+    INSERT INTO raw_uploads (supplier_id, filename, file_path, uploaded_by, status, sales_category)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *
+  `;
+  
+  const values = [supplier_id, filename, file_path, uploaded_by, status, sales_category];
     
     try {
       const result = await db.query(query, values);
@@ -102,9 +103,13 @@ const ImportModel = {
     }
   },
 
-  // Limpiar catálogo existente
-  cleanExistingCatalog: async (supplierId, salesCategory) => {
-    const query = `
+// Limpiar catálogo existente - VERSIÓN MEJORADA
+cleanExistingCatalog: async (supplierId, salesCategory) => {
+  try {
+    console.log(`🧹 Limpiando catálogo completo para supplier: ${supplierId}, categoría: ${salesCategory}`);
+    
+    // 1. Primero eliminar los lotes de productos
+    const deleteLotsQuery = `
       DELETE FROM product_lots 
       WHERE product_supplier_id IN (
         SELECT ps.id 
@@ -115,13 +120,34 @@ const ImportModel = {
       RETURNING id
     `;
     
-    try {
-      const result = await db.query(query, [supplierId, salesCategory]);
-      return result.rows;
-    } catch (error) {
-      throw error;
-    }
-  },
+    const lotsResult = await db.query(deleteLotsQuery, [supplierId, salesCategory]);
+    
+    // 2. Luego eliminar las relaciones producto-proveedor que no tengan lotes
+    const deleteProductSuppliersQuery = `
+      DELETE FROM product_suppliers 
+      WHERE supplier_id = $1 
+      AND id NOT IN (
+        SELECT DISTINCT product_supplier_id 
+        FROM product_lots 
+        WHERE product_supplier_id IS NOT NULL
+      )
+      RETURNING id
+    `;
+    
+    const suppliersResult = await db.query(deleteProductSuppliersQuery, [supplierId]);
+    
+    console.log(`✅ Catálogo limpiado completamente: ${lotsResult.rows.length} lotes y ${suppliersResult.rows.length} relaciones eliminadas`);
+    
+    return {
+      deleted_lots: lotsResult.rows,
+      deleted_suppliers: suppliersResult.rows
+    };
+    
+  } catch (error) {
+    console.error('❌ Error en cleanExistingCatalog:', error);
+    throw error;
+  }
+},
 
   // FUNCIÓN AUXILIAR: Limpiar y convertir precio
   cleanPrice: (priceValue) => {

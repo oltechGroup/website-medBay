@@ -7,6 +7,17 @@ import { FileUploadZone } from '@/components/features/import/FileUploadZone';
 import { ColumnMapper } from '@/components/features/import/ColumnMapper';
 import { ImportProgress } from '@/components/features/import/ImportProgress';
 import { ImportResults } from '@/components/features/import/ImportResults';
+import { 
+  Building, 
+  Package, 
+  Calendar, 
+  CheckCircle2,
+  AlertCircle,
+  Upload,
+  Map,
+  FileCheck,
+  Sparkles
+} from 'lucide-react';
 
 interface UploadWizardProps {
   session: any;
@@ -29,7 +40,7 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
   const [uploadId, setUploadId] = useState<string>('');
   const [previewData, setPreviewData] = useState<any>(null);
   const [mappings, setMappings] = useState<any>(null);
-  const [newlyCreatedSuppliers, setNewlyCreatedSuppliers] = useState<Supplier[]>([]); // ✅ REEMPLAZA tempSuppliers
+  const [newlyCreatedSuppliers, setNewlyCreatedSuppliers] = useState<Supplier[]>([]);
   const [totalRows, setTotalRows] = useState<number>(0);
 
   const {
@@ -39,59 +50,51 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
     getPreview,
     getMappingTemplate,
     saveMappingTemplate,
-    createSupplier, // ✅ NUEVA FUNCIÓN
+    createSupplier,
     isUploading,
     isCleaning,
     isProcessing,
-    isCreatingSupplier, // ✅ NUEVO LOADING STATE
+    isCreatingSupplier,
   } = useImport();
 
-  // Combinar proveedores existentes con NUEVAMENTE CREADOS (no temporales)
+  // Combinar proveedores existentes con nuevos creados
   const allSuppliers = [...suppliers, ...newlyCreatedSuppliers];
 
   const handleSupplierSelect = (supplierId: string) => {
     setSelectedSupplierId(supplierId);
-    setNewSupplierName(''); // Limpiar nuevo proveedor si se selecciona existente
+    setNewSupplierName('');
     setSession({ ...session, supplier_id: supplierId });
   };
 
-  // EN LA FUNCIÓN handleCreateSupplier, CAMBIAR:
-const handleCreateSupplier = async () => {
-  if (!newSupplierName.trim()) return;
-  
-  try {
-    // Crear proveedor REAL en el backend - CORREGIDO
-    const newSupplier = await createSupplier({
-      name: newSupplierName.trim(),
-      // ✅ CORREGIDO: Usar undefined en lugar de null
-      country_id: undefined, // TypeScript ahora acepta esto
-      currency_id: undefined,
-      contact_info: undefined
-    });
+  const handleCreateSupplier = async () => {
+    if (!newSupplierName.trim()) return;
     
-    // ✅ Ahora tenemos UUID VÁLIDO de PostgreSQL
-    setNewlyCreatedSuppliers(prev => [...prev, newSupplier]);
-    setSelectedSupplierId(newSupplier.id);
-    setSession({ 
-      ...session, 
-      supplier_id: newSupplier.id, 
-      supplier_name: newSupplier.name 
-    });
-    setNewSupplierName('');
-    
-    console.log('✅ Proveedor creado con ID real:', newSupplier.id);
-  } catch (error) {
-    console.error('❌ Error creando proveedor:', error);
-    // Aquí puedes agregar un toast o mensaje de error al usuario
-    alert('Error al crear el proveedor. Por favor, intenta nuevamente.');
-  }
-};
+    try {
+      const newSupplier = await createSupplier({
+        name: newSupplierName.trim(),
+        country_id: undefined,
+        currency_id: undefined,
+        contact_info: undefined
+      });
+      
+      setNewlyCreatedSuppliers(prev => [...prev, newSupplier]);
+      setSelectedSupplierId(newSupplier.id);
+      setSession({ 
+        ...session, 
+        supplier_id: newSupplier.id, 
+        supplier_name: newSupplier.name 
+      });
+      setNewSupplierName('');
+    } catch (error) {
+      console.error('❌ Error creando proveedor:', error);
+      alert('Error al crear el proveedor. Por favor, intenta nuevamente.');
+    }
+  };
 
   const handleCleanCatalog = async () => {
     if (!selectedSupplierId) return;
     
     try {
-      // ✅ Ahora supplier_id es UUID VÁLIDO, no fallará
       await cleanCatalog({
         supplier_id: selectedSupplierId,
         sales_category: salesCategory
@@ -117,11 +120,9 @@ const handleCreateSupplier = async () => {
       setUploadId(result.upload_id);
       setTotalRows(result.total_rows);
       
-      // Obtener preview para mapeo
       const preview = await getPreview(result.upload_id);
       setPreviewData(preview);
       
-      // Obtener template de mapeo
       const template = await getMappingTemplate(selectedSupplierId);
       setMappings(template.template.mappings);
       
@@ -135,13 +136,11 @@ const handleCreateSupplier = async () => {
     if (!uploadId || !selectedSupplierId) return;
     
     try {
-      // Guardar template de mapeo
       await saveMappingTemplate({
         supplier_id: selectedSupplierId,
         mappings: finalMappings
       });
       
-      // Procesar importación
       const supplier = allSuppliers.find(s => s.id === selectedSupplierId);
       const result = await processImport({
         upload_id: uploadId,
@@ -163,7 +162,6 @@ const handleCreateSupplier = async () => {
   };
 
   const handleNewImport = () => {
-    // Resetear todo el estado para nueva importación
     setStep(1);
     setSelectedSupplierId('');
     setNewSupplierName('');
@@ -173,7 +171,7 @@ const handleCreateSupplier = async () => {
     setPreviewData(null);
     setMappings(null);
     setTotalRows(0);
-    setNewlyCreatedSuppliers([]); // ✅ Limpiar proveedores nuevos también
+    setNewlyCreatedSuppliers([]);
     setSession({
       id: '1',
       status: 'selecting',
@@ -181,23 +179,47 @@ const handleCreateSupplier = async () => {
     });
   };
 
+  // Configuración de pasos para el indicador
+  const steps = [
+    { number: 1, title: 'Proveedor & Categoría', icon: Building, status: step >= 1 ? 'completed' : 'current' },
+    { number: 2, title: 'Subir Archivo', icon: Upload, status: step >= 2 ? 'completed' : step === 2 ? 'current' : 'upcoming' },
+    { number: 3, title: 'Mapear Columnas', icon: Map, status: step >= 3 ? 'completed' : step === 3 ? 'current' : 'upcoming' },
+    { number: 4, title: 'Resultados', icon: FileCheck, status: step >= 4 ? 'completed' : step === 4 ? 'current' : 'upcoming' },
+  ];
+
   return (
-    <div className="bg-white rounded-lg border shadow-sm p-6 space-y-6">
-      {/* Indicador de Pasos */}
-      <div className="flex justify-center">
-        <div className="flex items-center space-x-4">
-          {[1, 2, 3, 4].map((stepNumber) => (
-            <div key={stepNumber} className="flex items-center">
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                step >= stepNumber
-                  ? 'bg-blue-600 border-blue-600 text-white'
-                  : 'bg-white border-gray-300 text-gray-500'
-              }`}>
-                {stepNumber}
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
+      {/* Indicador de Pasos Mejorado */}
+      <div className="mb-12">
+        <div className="flex items-center justify-between">
+          {steps.map((stepItem, index) => (
+            <div key={stepItem.number} className="flex items-center flex-1">
+              {/* Paso Individual */}
+              <div className="flex flex-col items-center">
+                <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300 ${
+                  step > stepItem.number
+                    ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-200'
+                    : step === stepItem.number
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200'
+                    : 'bg-white border-gray-300 text-gray-400'
+                }`}>
+                  {step > stepItem.number ? (
+                    <CheckCircle2 className="h-6 w-6" />
+                  ) : (
+                    <stepItem.icon className="h-5 w-5" />
+                  )}
+                </div>
+                <span className={`mt-3 text-sm font-medium transition-colors ${
+                  step >= stepItem.number ? 'text-gray-900' : 'text-gray-500'
+                }`}>
+                  {stepItem.title}
+                </span>
               </div>
-              {stepNumber < 4 && (
-                <div className={`w-12 h-0.5 mx-2 ${
-                  step > stepNumber ? 'bg-blue-600' : 'bg-gray-300'
+
+              {/* Línea Conectora */}
+              {index < steps.length - 1 && (
+                <div className={`flex-1 h-0.5 mx-4 transition-colors ${
+                  step > stepItem.number ? 'bg-green-500' : 'bg-gray-200'
                 }`} />
               )}
             </div>
@@ -205,145 +227,183 @@ const handleCreateSupplier = async () => {
         </div>
       </div>
 
-      {/* Paso 1: Selección de proveedor y categoría */}
+      {/* Paso 1: Selección de proveedor y categoría - REDISEÑADO */}
       {step === 1 && (
-        <div className="space-y-6">
+        <div className="space-y-8">
           <div className="text-center">
-            <h3 className="text-xl font-semibold text-gray-900">🏢 Seleccionar Proveedor y Categoría</h3>
-            <p className="text-gray-600 mt-1">Elige el proveedor y tipo de catálogo a importar</p>
-          </div>
-
-          {/* Proveedores existentes */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">
-              Proveedor Existente
-            </label>
-            <select
-              value={selectedSupplierId}
-              onChange={(e) => handleSupplierSelect(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              disabled={suppliersLoading}
-            >
-              <option value="">Selecciona un proveedor existente...</option>
-              {allSuppliers.map(supplier => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name} 
-                  {supplier.country_name && ` - ${supplier.country_name}`}
-                  {newlyCreatedSuppliers.some(s => s.id === supplier.id) && ' (Nuevo)'}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Separador */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+              <Building className="h-8 w-8 text-blue-600" />
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">O</span>
-            </div>
-          </div>
-
-          {/* Crear nuevo proveedor */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">
-              Crear Nuevo Proveedor (Rápido)
-            </label>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={newSupplierName}
-                onChange={(e) => setNewSupplierName(e.target.value)}
-                placeholder="Ingresa el nombre del nuevo proveedor"
-                className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                disabled={isCreatingSupplier} // ✅ Deshabilitar durante creación
-              />
-              <button
-                onClick={handleCreateSupplier}
-                disabled={!newSupplierName.trim() || isCreatingSupplier}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-              >
-                {isCreatingSupplier ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Creando...
-                  </>
-                ) : (
-                  'Crear'
-                )}
-              </button>
-            </div>
-            <p className="text-sm text-gray-500">
-              ✅ El proveedor se creará inmediatamente con un ID válido. Podrás completar su información después en el módulo de proveedores.
+            <h3 className="text-2xl font-bold text-gray-900">Configurar Importación</h3>
+            <p className="text-gray-600 mt-2 text-lg">
+              Selecciona el proveedor y tipo de catálogo a importar
             </p>
           </div>
 
-          {/* Selección de categoría */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">
-              Categoría de Caducidad
-            </label>
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { 
-                  value: 'regular', 
-                  label: '🟢 En Fecha', 
-                  description: 'Productos con fecha vigente',
-                  color: 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
-                },
-                { 
-                  value: 'near_expiry', 
-                  label: '🟡 Fecha Cerca', 
-                  description: 'Próximos a caducar',
-                  color: 'bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100' 
-                },
-                { 
-                  value: 'expired', 
-                  label: '🔴 Caducados', 
-                  description: 'Productos vencidos',
-                  color: 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100' 
-                }
-              ].map(category => (
-                <button
-                  key={category.value}
-                  onClick={() => setSalesCategory(category.value as any)}
-                  className={`p-4 border-2 rounded-lg text-center transition-all duration-200 ${
-                    salesCategory === category.value 
-                      ? `${category.color} ring-2 ring-offset-2 ring-blue-500` 
-                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                  }`}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Panel de Proveedores */}
+            <div className="space-y-6">
+              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                  <Package className="h-5 w-5 text-blue-600" />
+                  <span>Proveedores Existentes</span>
+                </h4>
+                
+                <select
+                  value={selectedSupplierId}
+                  onChange={(e) => handleSupplierSelect(e.target.value)}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  disabled={suppliersLoading}
                 >
-                  <div className="font-semibold text-lg mb-1">{category.label}</div>
-                  <div className="text-sm opacity-80">{category.description}</div>
-                </button>
-              ))}
-            </div>
-          </div>
+                  <option value="">Selecciona un proveedor...</option>
+                  {allSuppliers.map(supplier => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name} 
+                      {supplier.country_name && ` - ${supplier.country_name}`}
+                      {newlyCreatedSuppliers.some(s => s.id === supplier.id) && ' (Nuevo)'}
+                    </option>
+                  ))}
+                </select>
 
-          {/* Botón Limpiar */}
-          <div className="border-t pt-6">
-            <div className="flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <div className="flex-1">
-                <h4 className="font-medium text-amber-900">⚠️ Limpieza Requerida</h4>
-                <p className="text-sm text-amber-700 mt-1">
-                  Antes de subir un nuevo catálogo, debes limpiar el existente para evitar duplicados.
-                </p>
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center space-x-2 text-blue-700">
+                    <Sparkles className="h-4 w-4" />
+                    <span className="text-sm font-medium">Proveedor seleccionado:</span>
+                  </div>
+                  <p className="text-blue-900 font-semibold mt-1">
+                    {selectedSupplierId 
+                      ? allSuppliers.find(s => s.id === selectedSupplierId)?.name 
+                      : 'Ninguno seleccionado'
+                    }
+                  </p>
+                </div>
               </div>
-              <button
-                onClick={handleCleanCatalog}
-                disabled={!selectedSupplierId || isCleaning}
-                className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                {isCleaning ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Limpiando...
-                  </>
-                ) : (
-                  '🧹 Limpiar Catálogo Anterior'
-                )}
-              </button>
+
+              {/* Crear Nuevo Proveedor */}
+              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                  <Building className="h-5 w-5 text-green-600" />
+                  <span>Crear Nuevo Proveedor</span>
+                </h4>
+                
+                <div className="space-y-4">
+                  <input
+                    type="text"
+                    value={newSupplierName}
+                    onChange={(e) => setNewSupplierName(e.target.value)}
+                    placeholder="Ingresa el nombre del nuevo proveedor"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                    disabled={isCreatingSupplier}
+                  />
+                  
+                  <button
+                    onClick={handleCreateSupplier}
+                    disabled={!newSupplierName.trim() || isCreatingSupplier}
+                    className="w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-semibold hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
+                  >
+                    {isCreatingSupplier ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                        Creando Proveedor...
+                      </>
+                    ) : (
+                      <>
+                        <Building className="h-5 w-5 mr-2" />
+                        Crear Proveedor
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Panel de Categoría */}
+            <div className="space-y-6">
+              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                  <Calendar className="h-5 w-5 text-purple-600" />
+                  <span>Categoría de Caducidad</span>
+                </h4>
+
+                <div className="space-y-4">
+                  {[
+                    { 
+                      value: 'regular', 
+                      label: 'En Fecha', 
+                      description: 'Productos con fecha vigente',
+                      icon: '🟢',
+                      color: 'border-green-200 bg-green-50 hover:bg-green-100 text-green-700',
+                      activeColor: 'ring-2 ring-green-500 ring-offset-2 bg-green-100 border-green-300'
+                    },
+                    { 
+                      value: 'near_expiry', 
+                      label: 'Fecha Cerca', 
+                      description: 'Próximos a caducar',
+                      icon: '🟡',
+                      color: 'border-yellow-200 bg-yellow-50 hover:bg-yellow-100 text-yellow-700',
+                      activeColor: 'ring-2 ring-yellow-500 ring-offset-2 bg-yellow-100 border-yellow-300'
+                    },
+                    { 
+                      value: 'expired', 
+                      label: 'Caducados', 
+                      description: 'Productos vencidos',
+                      icon: '🔴',
+                      color: 'border-red-200 bg-red-50 hover:bg-red-100 text-red-700',
+                      activeColor: 'ring-2 ring-red-500 ring-offset-2 bg-red-100 border-red-300'
+                    }
+                  ].map(category => (
+                    <button
+                      key={category.value}
+                      onClick={() => setSalesCategory(category.value as any)}
+                      className={`w-full p-4 border-2 rounded-xl text-left transition-all duration-200 ${category.color} ${
+                        salesCategory === category.value ? category.activeColor : ''
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-2xl">{category.icon}</span>
+                        <div className="flex-1">
+                          <div className="font-semibold text-lg">{category.label}</div>
+                          <div className="text-sm opacity-80">{category.description}</div>
+                        </div>
+                        {salesCategory === category.value && (
+                          <CheckCircle2 className="h-6 w-6 text-current" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Panel de Limpieza */}
+              <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-6 border border-amber-200">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="h-6 w-6 text-amber-600 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-amber-900 text-lg">Limpieza Requerida</h4>
+                    <p className="text-amber-700 mt-2">
+                      Antes de subir un nuevo catálogo, debes limpiar el existente para evitar duplicados y mantener la integridad del inventario.
+                    </p>
+                    
+                    <button
+                      onClick={handleCleanCatalog}
+                      disabled={!selectedSupplierId || isCleaning}
+                      className="mt-4 w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-semibold hover:from-amber-700 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
+                    >
+                      {isCleaning ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                          Limpiando Catálogo...
+                        </>
+                      ) : (
+                        <>
+                          <Package className="h-5 w-5 mr-2" />
+                          Limpiar Catálogo Anterior
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -351,10 +411,15 @@ const handleCreateSupplier = async () => {
 
       {/* Paso 2: Subir archivo */}
       {step === 2 && (
-        <div className="space-y-6">
+        <div className="space-y-8">
           <div className="text-center">
-            <h3 className="text-xl font-semibold text-gray-900">📤 Subir Archivo Excel</h3>
-            <p className="text-gray-600 mt-1">Sube el archivo Excel con el catálogo del proveedor</p>
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+              <Upload className="h-8 w-8 text-blue-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900">Subir Archivo Excel</h3>
+            <p className="text-gray-600 mt-2 text-lg">
+              Carga el archivo Excel con el catálogo del proveedor
+            </p>
           </div>
 
           <FileUploadZone 
@@ -363,25 +428,27 @@ const handleCreateSupplier = async () => {
             acceptedFormats=".xlsx, .xls, .csv"
           />
 
-          {/* Información del proveedor seleccionado */}
+          {/* Información del Contexto Actual */}
           {selectedSupplierId && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center space-x-3">
-                <div className="flex-1">
-                  <h4 className="font-medium text-blue-900">Proveedor Seleccionado</h4>
-                  <p className="text-sm text-blue-700">
-                    {allSuppliers.find(s => s.id === selectedSupplierId)?.name} • {
-                      salesCategory === 'regular' ? '🟢 En Fecha' :
-                      salesCategory === 'near_expiry' ? '🟡 Fecha Cerca' : '🔴 Caducados'
-                    }
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    ID: {selectedSupplierId}
-                  </p>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg">
+                    <Building className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-blue-900">Configuración Actual</h4>
+                    <p className="text-blue-700">
+                      <span className="font-medium">{allSuppliers.find(s => s.id === selectedSupplierId)?.name}</span> • {
+                        salesCategory === 'regular' ? '🟢 En Fecha' :
+                        salesCategory === 'near_expiry' ? '🟡 Fecha Cerca' : '🔴 Caducados'
+                      }
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => setStep(1)}
-                  className="px-4 py-2 text-sm text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors"
+                  className="px-4 py-2 text-sm text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors font-medium"
                 >
                   Cambiar
                 </button>
@@ -393,10 +460,13 @@ const handleCreateSupplier = async () => {
 
       {/* Paso 3: Mapeo de columnas */}
       {step === 3 && previewData && (
-        <div className="space-y-6">
+        <div className="space-y-8">
           <div className="text-center">
-            <h3 className="text-xl font-semibold text-gray-900">🗺️ Mapear Columnas</h3>
-            <p className="text-gray-600 mt-1">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+              <Map className="h-8 w-8 text-blue-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900">Mapear Columnas</h3>
+            <p className="text-gray-600 mt-2 text-lg">
               Asigna las columnas de tu Excel a los campos del sistema
             </p>
           </div>
@@ -415,10 +485,13 @@ const handleCreateSupplier = async () => {
 
       {/* Paso 4: Progreso y resultados */}
       {step === 4 && (
-        <div className="space-y-6">
+        <div className="space-y-8">
           <div className="text-center">
-            <h3 className="text-xl font-semibold text-gray-900">📊 Resultados de la Importación</h3>
-            <p className="text-gray-600 mt-1">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+              <FileCheck className="h-8 w-8 text-blue-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900">Resultados de la Importación</h3>
+            <p className="text-gray-600 mt-2 text-lg">
               {session.status === 'processing' ? 'Procesando tu importación...' : 'Importación completada'}
             </p>
           </div>
@@ -438,20 +511,19 @@ const handleCreateSupplier = async () => {
 
       {/* Navegación entre pasos */}
       {step > 1 && step < 4 && (
-        <div className="border-t pt-6">
-          <div className="flex justify-between">
+        <div className="border-t border-gray-200 pt-8 mt-8">
+          <div className="flex justify-between items-center">
             <button
               onClick={() => setStep(step - 1)}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              className="flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200"
             >
               ← Anterior
             </button>
             
             {step === 2 && file && (
-              <div className="text-sm text-gray-600 flex items-center">
-                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
-                  ✅ Archivo listo: {file.name}
-                </span>
+              <div className="flex items-center space-x-2 bg-green-50 text-green-700 px-4 py-2 rounded-lg border border-green-200">
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="font-medium">Archivo listo: {file.name}</span>
               </div>
             )}
           </div>

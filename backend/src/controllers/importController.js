@@ -45,13 +45,14 @@ const importController = {
         });
       }
 
-      // Crear registro de upload (adaptado a tu estructura)
-      const upload = await ImportModel.createUpload({
-        supplier_id,
-        filename: file.filename,
-        file_path: file.path,
-        uploaded_by: req.user?.id || 1
-      });
+      // En uploadFile, modificar la creación del upload para incluir sales_category
+    const upload = await ImportModel.createUpload({
+      supplier_id,
+      filename: file.filename,
+      file_path: file.path,
+      uploaded_by: req.user?.id || 1,
+      sales_category: sales_category // ← AGREGAR ESTA LÍNEA
+    });
 
       // Guardar filas crudas (adaptado a tu estructura)
       const rawRows = jsonData.map((row, index) => ({
@@ -315,7 +316,128 @@ const importController = {
         details: error.message 
       });
     }
+  },
+
+// Endpoint CORREGIDO para historial - SIN ERRORES DE SINTAXIS
+getImportHistory: async (req, res) => {
+  try {
+    console.log('📊 Obteniendo historial CORREGIDO de importaciones...');
+    
+    // Query CORREGIDA - eliminamos la expresión regular problemática
+    const query = `
+      SELECT 
+        ru.id,
+        ru.filename,
+        ru.created_at,
+        s.name as supplier_name,
+        ru.status,
+        ru.uploaded_by,
+        ru.sales_category,
+        (SELECT COUNT(*) FROM raw_rows rr WHERE rr.raw_upload_id = ru.id) as row_count,
+        COALESCE((
+          SELECT COUNT(DISTINCT pl.id) 
+          FROM product_lots pl
+          JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
+          WHERE ps.supplier_id = ru.supplier_id
+          AND DATE(pl.created_at) = DATE(ru.created_at)
+          AND pl.sales_category = ru.sales_category
+        ), 0) as lots_created
+      FROM raw_uploads ru
+      LEFT JOIN suppliers s ON ru.supplier_id = s.id
+      ORDER BY ru.created_at DESC
+      LIMIT 50
+    `;
+    
+    const result = await pool.query(query);
+    
+    console.log(`✅ Historial CORREGIDO obtenido: ${result.rows.length} registros`);
+    
+    // Limpiar los nombres de archivo en JavaScript (no en SQL)
+    const cleanedResults = result.rows.map(item => {
+      let cleanFilename = item.filename;
+      
+      // Limpiar el nombre del archivo - remover el patrón "import-timestamp-"
+      if (cleanFilename) {
+        // Remover "import-" y todo hasta el siguiente guión
+        cleanFilename = cleanFilename.replace(/^import-\d+-/, '');
+      }
+      
+      return {
+        ...item,
+        clean_filename: cleanFilename || item.filename
+      };
+    });
+    
+    res.json(cleanedResults);
+  } catch (error) {
+    console.error('❌ Error al obtener historial CORREGIDO:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Error interno del servidor',
+      details: error.message 
+    });
   }
+},
+
+// NUEVO ENDPOINT: Obtener estadísticas de importación
+getImportStats: async (req, res) => {
+  try {
+    console.log('📈 Obteniendo estadísticas de importación...');
+    
+    const statsQuery = `
+      SELECT 
+        -- Importaciones hoy
+        COUNT(CASE WHEN DATE(created_at) = CURRENT_DATE THEN 1 END) as imports_today,
+        
+        -- Importaciones este mes
+        COUNT(CASE WHEN DATE(created_at) >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as imports_this_month,
+        
+        -- Total de importaciones
+        COUNT(*) as total_imports,
+        
+        -- Última importación
+        MAX(created_at) as last_import_date,
+        
+        -- Proveedor de la última importación
+        (
+          SELECT s.name 
+          FROM raw_uploads ru2 
+          LEFT JOIN suppliers s ON ru2.supplier_id = s.id 
+          WHERE ru2.created_at = (SELECT MAX(created_at) FROM raw_uploads)
+          LIMIT 1
+        ) as last_import_supplier,
+        
+        -- Categoría de la última importación
+        (
+          SELECT sales_category 
+          FROM raw_uploads 
+          WHERE created_at = (SELECT MAX(created_at) FROM raw_uploads)
+          LIMIT 1
+        ) as last_import_category
+        
+      FROM raw_uploads
+    `;
+    
+    const statsResult = await pool.query(statsQuery);
+    const stats = statsResult.rows[0];
+    
+    console.log('✅ Estadísticas obtenidas:', stats);
+    
+    res.json({
+      success: true,
+      stats
+    });
+    
+  } catch (error) {
+    console.error('❌ Error al obtener estadísticas:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+},
+
+
 };
 
 module.exports = importController;

@@ -75,6 +75,21 @@ export interface SupplierResponse {
   };
 }
 
+// NUEVAS INTERFACES PARA ESTADÍSTICAS
+export interface ImportStats {
+  imports_today: number;
+  imports_this_month: number;
+  total_imports: number;
+  last_import_date: string;
+  last_import_supplier: string;
+  last_import_category: string;
+}
+
+export interface ImportStatsResponse {
+  success: boolean;
+  stats: ImportStats;
+}
+
 export const useImport = () => {
   const queryClient = useQueryClient();
 
@@ -150,6 +165,30 @@ export const useImport = () => {
     },
   });
 
+  // NUEVA FUNCIÓN: Obtener estadísticas de importación
+  const getImportStats = async (): Promise<ImportStats> => {
+    try {
+      const response = await api.get<ImportStatsResponse>('/import/stats');
+      
+      if (response.data.success) {
+        return response.data.stats;
+      } else {
+        throw new Error('Error al obtener estadísticas');
+      }
+    } catch (error) {
+      console.error('Error en getImportStats:', error);
+      // Retornar valores por defecto en caso de error
+      return {
+        imports_today: 0,
+        imports_this_month: 0,
+        total_imports: 0,
+        last_import_date: '',
+        last_import_supplier: '',
+        last_import_category: 'regular'
+      };
+    }
+  };
+
   return {
     // NUEVA FUNCIÓN: Crear proveedor
     createSupplier: createSupplierMutation.mutateAsync,
@@ -163,6 +202,7 @@ export const useImport = () => {
     // Queries
     getPreview,
     getMappingTemplate,
+    getImportStats, // ✅ NUEVA FUNCIÓN AGREGADA
     
     // Loading states
     isCreatingSupplier: createSupplierMutation.isPending,
