@@ -25,10 +25,15 @@
   border-radius: 10px;
 }
 
-.logo-text {
+.logo-text1 {
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: 2rem;
   color: #2563eb;
+}
+.logo-text2 {
+  font-weight: 700;
+  font-size: 2rem;
+  color: #53555a;
 }
 
 .nav {

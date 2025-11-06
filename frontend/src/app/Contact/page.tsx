@@ -2,6 +2,7 @@
 import Link from "next/link";
 import "./Contact.css";
 
+
 export default function Contacto() {
   return (
     <div className="contacto">

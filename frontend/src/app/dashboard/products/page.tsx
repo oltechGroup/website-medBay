@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { Search, Plus, RefreshCw } from 'lucide-react';
 
+
 export default function ProductsPage() {
   const { products, isLoading, error, refetch, deleteProduct, isDeleting } = useProducts();
   const [searchTerm, setSearchTerm] = useState('');

@@ -3,10 +3,10 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import Providers from './providers';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'] });7
 
 export const metadata: Metadata = {
-  title: 'MedBay - Marketplace Médico',
+  title: 'MedBay',
   description: 'Plataforma B2B especializada en insumos médicos',
 };
 
