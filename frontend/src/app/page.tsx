@@ -1,10 +1,33 @@
 /* eslint-disable @next/next/no-img-element */
+"use client";
 import Link from "next/link";
 import { ShoppingCart, Heart } from "lucide-react";
 import { CreditCard, Truck, ShieldCheck } from "lucide-react";
 import "./Home.css";
-
+import { useState } from "react";
+import { useProducts } from "@/hooks/useProducts";   // ✅ Hook de productos
+import { useRouter } from "next/navigation";
 export default function Home() {
+
+const router = useRouter();
+
+  const { products } = useProducts();        // ✅ productos del backend
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // ✅ Filtrar productos dinámicamente
+  const filteredProducts = products?.filter((product) =>
+    product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.global_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.manufacturer_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSearch = () => {
+    if (filteredProducts?.length > 0) {
+      router.push(`/products/${filteredProducts[0].id}`);
+    }
+  };
+
+
   return (
     <div className="home">
       
@@ -49,16 +72,45 @@ export default function Home() {
     </header>
   
       <section className="intro-section">
-        <div className="intro-overlay">
+         <div className="intro-overlay">
           <div className="intro-container">
             <div className="intro-search">
-              <input
-                type="text"
-                placeholder="Buscar productos..."
-                className="search-input"
-              />
-              <button className="search-button">Buscar</button>
+              <div className="search-wrapper">
+                <input
+                  type="text"
+                  placeholder="Buscar productos..."
+                  className="search-input"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                <div className="search-suggestions">
+                  {filteredProducts?.length ? (
+                    filteredProducts.map((product) => (
+                      <Link
+                        key={product.id}
+                        href={`/products/${product.id}`}   // ✅ click → nueva vista
+                        className="suggestion-item"
+                      >
+                        <img
+                           alt={product.name}
+                          className="suggestion-thumb"
+                        />
+                        <span>{product.name}</span>
+                      </Link>
+                    ))
+                  ) : (
+                    <p className="no-results">No se encontraron productos</p>
+                  )}
+                </div>
+              )}
+              </div>
+              <button className="search-button" onClick={handleSearch}>
+                Buscar
+              </button>
+              
             </div>
+
             <div className="intro-top-cards">
               <a href="/products/active" className="intro-card">
                 <img src="/icons/enfecha.png" alt="Productos en fecha" className="intro-icon" />
@@ -104,52 +156,40 @@ export default function Home() {
         </div>
       </section>
       <section className="hero products-section">
-  <div className="container">
-    <h1>
-      Lo más solicitado en <span>Insumos Médicos</span>
-    </h1>
-    <p>
-      Enfocados en la excelencia ortopédica, proveemos el instrumental y los insumos de más alta calidad, garantizando procedimientos seguros y resultados óptimos para el paciente. Calidad certificada, a tiempo, en cada entrega.
-    </p>
+        <div className="container">
+          <h1>
+            Lo más solicitado en <span>Insumos Médicos</span>
+          </h1>
+          <p>
+            Enfocados en la excelencia ortopédica, proveemos el instrumental y los insumos de más alta calidad,
+            garantizando procedimientos seguros y resultados óptimos para el paciente. Calidad certificada, a tiempo,
+            en cada entrega.
+          </p>
 
-    <div className="product-grid">
-      <div className="product-card">
-        <img src="/images/guantes.png" alt="Guantes" />
-        <h3>Guantes de Nitrilo</h3>
-        <p>$189.99</p>
-        <button>Agregar al carrito</button>
-      </div>
+          <div className="product-grid">
+            {products && products.length > 0 ? (
+              // ✅ Mostrar 4 productos al azar
+              [...products]
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 4)
+                .map((product) => (
+                  <div key={product.id} className="product-card">
+                    <img
+                      src={product.image_url || "/images/placeholder.png"} // imagen del producto
+                      alt="image"
+                    />
+                    <h3>{product.name}</h3>
+                    <p>${product.price?.toFixed(2) || "N/A"}</p>
+                    <button>Agregar al carrito</button>
+                  </div>
+                ))
+            ) : (
+              <p>No hay productos disponibles.</p>
+            )}
+          </div>
+        </div>
+      </section>
 
-      <div className="product-card">
-        <img src="/images/bata.png" alt="Bata médica" />
-        <h3>Bata médica</h3>
-        <p>$149.99</p>
-        <button>Agregar al carrito</button>
-      </div>
-
-      <div className="product-card">
-        <img src="/images/mascarilla.png" alt="Mascarilla" />
-        <h3>Mascarilla quirúrgica</h3>
-        <p>$249.99</p>
-        <button>Agregar al carrito</button>
-      </div>
-
-      <div className="product-card">
-        <img src="/images/termometro.png" alt="Termómetro" />
-        <h3>Termómetro digital</h3>
-        <p>$599.99</p>
-        <button>Agregar al carrito</button>
-      </div>
-
-      <div className="product-card">
-        <img src="/images/termometro.png" alt="Termómetro" />
-        <h3>Termómetro digital</h3>
-        <p>$599.99</p>
-        <button>Agregar al carrito</button>
-      </div>
-    </div>
-  </div>
-</section>
 
 <section className="benefits-section">
       <div className="benefits-container">
@@ -179,7 +219,6 @@ export default function Home() {
         </div>
       </div>
     </section>
-
       <section id="features" className="features">
         <div className="container">
           <h2>Características Principales</h2>
