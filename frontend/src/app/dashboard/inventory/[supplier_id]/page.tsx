@@ -1,3 +1,5 @@
+// frontend/src/app/dashboard/inventory/[supplier_id]/page.tsx
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -24,7 +26,6 @@ export default function SupplierDetailPage() {
   const { getSuppliersMetrics, loading } = useInventory();
   
   const [supplier, setSupplier] = useState<SupplierMetrics | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     loadSupplierData();
@@ -40,17 +41,15 @@ export default function SupplierDetailPage() {
     }
   };
 
-  // ✅ ACTUALIZADO: Formatear valor monetario en USD
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('es-MX', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'MXN',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(amount);
   };
 
-  // Formatear fecha con hora
   const formatDateTime = (dateString: string) => {
     if (!dateString) return 'No hay importaciones';
     return new Date(dateString).toLocaleString('es-MX', {
@@ -104,13 +103,13 @@ export default function SupplierDetailPage() {
   const catalogStats = [
     {
       title: 'Lotes en Fecha',
-      value: supplier.regular_lots,
+      value: supplier.available_lots,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
       icon: Package,
       description: 'Lotes con fecha vigente',
-      link: `/dashboard/inventory/${supplier.id}/regular`
+      link: `/dashboard/inventory/${supplier.id}/available`
     },
     {
       title: 'Lotes Fecha Corta',
@@ -134,8 +133,11 @@ export default function SupplierDetailPage() {
     }
   ];
 
-  // ✅ ELIMINADO: Cálculo temporal de valor estimado
-  // const estimatedValue = supplier.total_units * 100; // ❌ ESTO YA NO SE USA
+  // Calcular porcentajes para la barra de progreso
+  const totalLots = supplier.total_lots || 1;
+  const availablePercent = (supplier.available_lots / totalLots) * 100;
+  const nearExpiryPercent = (supplier.near_expiry_lots / totalLots) * 100;
+  const expiredPercent = (supplier.expired_lots / totalLots) * 100;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -226,7 +228,7 @@ export default function SupplierDetailPage() {
             </div>
           </div>
 
-          {/* 💰 VALOR REAL DEL INVENTARIO - ✅ ACTUALIZADO */}
+          {/* 💰 VALOR REAL DEL INVENTARIO */}
           <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -234,7 +236,7 @@ export default function SupplierDetailPage() {
                 <p className="text-xl font-bold text-gray-900">
                   {formatCurrency(supplier.total_value)}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Valor real en USD</p>
+                <p className="text-xs text-gray-500 mt-1">Valor real en MXN</p>
               </div>
               <div className="p-3 bg-amber-100 rounded-lg">
                 <DollarSign className="h-6 w-6 text-amber-600" />
@@ -282,24 +284,24 @@ export default function SupplierDetailPage() {
             
             {/* Barra de progreso */}
             <div className="flex w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
-              {supplier.regular_lots > 0 && (
+              {supplier.available_lots > 0 && (
                 <div 
                   className="bg-green-500 h-3 transition-all duration-300"
-                  style={{ width: `${(supplier.regular_lots / supplier.total_lots) * 100}%` }}
-                  title={`${supplier.regular_lots} lotes en fecha`}
+                  style={{ width: `${availablePercent}%` }}
+                  title={`${supplier.available_lots} lotes en fecha`}
                 />
               )}
               {supplier.near_expiry_lots > 0 && (
                 <div 
                   className="bg-amber-500 h-3 transition-all duration-300"
-                  style={{ width: `${(supplier.near_expiry_lots / supplier.total_lots) * 100}%` }}
+                  style={{ width: `${nearExpiryPercent}%` }}
                   title={`${supplier.near_expiry_lots} lotes fecha corta`}
                 />
               )}
               {supplier.expired_lots > 0 && (
                 <div 
                   className="bg-red-500 h-3 transition-all duration-300"
-                  style={{ width: `${(supplier.expired_lots / supplier.total_lots) * 100}%` }}
+                  style={{ width: `${expiredPercent}%` }}
                   title={`${supplier.expired_lots} lotes caducados`}
                 />
               )}
@@ -309,7 +311,7 @@ export default function SupplierDetailPage() {
             <div className="flex flex-wrap justify-between text-sm text-gray-600 gap-2">
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                <span>En fecha: {supplier.regular_lots} lotes</span>
+                <span>En fecha: {supplier.available_lots} lotes</span>
               </div>
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-amber-500 rounded-full mr-2"></div>
@@ -335,7 +337,6 @@ export default function SupplierDetailPage() {
                     {formatDateTime(supplier.last_import)}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {/* 📝 NOTA: Aquí iría la categoría cuando tengamos el dato del backend */}
                     Categoría: Pendiente de implementación
                   </p>
                 </div>

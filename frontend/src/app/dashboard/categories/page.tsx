@@ -1,170 +1,75 @@
+// frontend/src/app/dashboard/categories/page.tsx
+
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { useCategories } from '@/hooks/useCategories';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import { Search, Plus, RefreshCw, Folder } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { CategoryStatsCards } from '@/components/features/categories/CategoryStatsCards';
+import { CategoryTable } from '@/components/features/categories/CategoryTable';
+import { CategoryTree } from '@/components/features/categories/CategoryTree';
+import { Category } from '@/hooks/useCategories';
 
 export default function CategoriesPage() {
-  const { categories, isLoading, error, refetch, deleteCategory, isDeleting } = useCategories();
-  const [searchTerm, setSearchTerm] = useState('');
+  const router = useRouter();
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
-  const filteredCategories = categories?.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    category.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
-
-  const handleDelete = async (id: string) => {
-    if (confirm('¿Estás seguro de que quieres eliminar esta categoría?')) {
-      try {
-        await deleteCategory(id);
-      } catch (error) {
-        console.error('Error eliminando categoría:', error);
-        alert('Error al eliminar la categoría');
-      }
-    }
+  const handleEditCategory = (category: Category) => {
+    router.push(`/dashboard/categories/edit/${category.id}`);
   };
 
-  const handleRefresh = () => {
-    refetch();
+  const handleCategorySelect = (category: Category) => {
+    setSelectedCategory(category);
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-center">
-          <RefreshCw className="animate-spin h-8 w-8 mx-auto mb-2" />
-          <p>Cargando categorías...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-8">
-        <div className="text-red-600 mb-4">Error al cargar las categorías</div>
-        <Button onClick={handleRefresh} variant="outline">
-          Reintentar
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Categorías</h1>
-          <p className="text-gray-600">Gestiona las categorías de productos médicos</p>
+          <h1 className="text-2xl font-bold text-gray-900">Gestión de Categorías</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Organiza tus productos en categorías y subcategorías
+          </p>
         </div>
-        <div className="flex space-x-3">
-          <Button variant="outline" onClick={handleRefresh}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualizar
-          </Button>
-          <Link href="/dashboard/categories/new">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Agregar Categoría
-            </Button>
-          </Link>
+        <div className="flex space-x-3 mt-4 sm:mt-0">
+          <button
+            onClick={() => router.push('/dashboard/categories/assign')}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Asignar Productos
+          </button>
+          <button
+            onClick={() => router.push('/dashboard/categories/new')}
+            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nueva Categoría
+          </button>
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <Input
-          label="Buscar categorías"
-          placeholder="Buscar por nombre, descripción..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          icon={<Search className="h-4 w-4 text-gray-400" />}
-        />
-      </div>
+      {/* Stats Cards */}
+      <CategoryStatsCards />
 
-      {/* Lista de categorías */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Categoría
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Descripción
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Categoría Padre
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha de Registro
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredCategories.map((category) => (
-                <tr key={category.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <Folder className="h-5 w-5 text-gray-400 mr-3" />
-                      <div className="text-sm font-medium text-gray-900">{category.name}</div>
-                    </div>
-                    {category.slug && (
-                      <div className="text-sm text-gray-500">/{category.slug}</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {category.description || 'Sin descripción'}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {category.parent_name || 'Ninguna'}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {new Date(category.created_at).toLocaleDateString('es-MX')}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium space-x-2">
-                    <Link href={`/dashboard/categories/edit/${category.id}`}>
-                      <Button variant="outline" size="sm">
-                        Editar
-                      </Button>
-                    </Link>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      loading={isDeleting}
-                      onClick={() => handleDelete(category.id)}
-                    >
-                      Eliminar
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Category Tree */}
+        <div className="lg:col-span-1">
+          <CategoryTree 
+            onCategorySelect={handleCategorySelect}
+            selectedCategoryId={selectedCategory?.id}
+          />
         </div>
 
-        {filteredCategories.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-500 mb-4">
-              {searchTerm ? 'No se encontraron categorías que coincidan con tu búsqueda' : 'No hay categorías registradas'}
-            </div>
-            {!searchTerm && (
-              <Link href="/dashboard/categories/new">
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar primera categoría
-                </Button>
-              </Link>
-            )}
-          </div>
-        )}
+        {/* Category Table */}
+        <div className="lg:col-span-2">
+          <CategoryTable onEdit={handleEditCategory} />
+        </div>
       </div>
     </div>
   );

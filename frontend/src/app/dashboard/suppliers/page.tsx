@@ -1,261 +1,144 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
-import Badge from '@/components/ui/Badge';
+import { useState } from 'react';
+import Link from 'next/link';
 import { useSuppliers } from '@/hooks/useSuppliers';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
+import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import { Search, Plus, RefreshCw, Building } from 'lucide-react';
+import SupplierStatsCards from '@/components/features/suppliers/SupplierStatsCards';
+import SupplierTable from '@/components/features/suppliers/SupplierTable';
+import SupplierFilters from '@/components/features/suppliers/SupplierFilters';
 
 export default function SuppliersPage() {
-  const router = useRouter();
-  const { suppliers, isLoading, deleteSupplier, isDeleting } = useSuppliers();
+  const { 
+    suppliers = [], 
+    isLoading, 
+    error, 
+    stats,
+    deleteSupplier,
+    isDeleting,
+    refetch
+  } = useSuppliers();
+  
   const [searchTerm, setSearchTerm] = useState('');
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [filters, setFilters] = useState({
+    search: '',
+    country: '',
+    status: ''
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
-  // Filtrar proveedores basado en la búsqueda
-  const filteredSuppliers = suppliers?.filter(supplier =>
-    supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supplier.tax_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supplier.country_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filtrar proveedores
+  const filteredSuppliers = suppliers.filter(supplier => {
+    const matchesSearch = 
+      supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.contact_info?.persona_contacto?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.contact_info?.direccion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.contact_info?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesCountry = filters.country ? supplier.country_code === filters.country : true;
+    const matchesStatus = filters.status 
+      ? (filters.status === 'active' ? supplier.is_active : !supplier.is_active)
+      : true;
+
+    return matchesSearch && matchesCountry && matchesStatus;
+  });
+
+  // Paginación
+  const totalPages = Math.ceil(filteredSuppliers.length / itemsPerPage);
+  const paginatedSuppliers = filteredSuppliers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteSupplier(id);
-      setDeleteId(null);
-    } catch (error) {
-      console.error('Error al eliminar proveedor:', error);
-    }
+  const handleSearch = (search: string) => {
+    setSearchTerm(search);
+    setFilters(prev => ({ ...prev, search }));
+    setCurrentPage(1);
   };
 
-  const formatContactInfo = (contactInfo: any) => {
-    if (!contactInfo) return 'No disponible';
-    
-    const parts = [];
-    if (contactInfo.persona_contacto) parts.push(contactInfo.persona_contacto);
-    if (contactInfo.telefono) parts.push(contactInfo.telefono);
-    if (contactInfo.email) parts.push(contactInfo.email);
-    
-    return parts.length > 0 ? parts.join(' • ') : 'No disponible';
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
   };
 
-  if (isLoading) {
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  if (error) {
     return (
-      <div className="container mx-auto py-6">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-lg text-gray-600">Cargando proveedores...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Building className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error al cargar proveedores</h2>
+          <p className="text-gray-600 mb-6">Ocurrió un problema al cargar la información de proveedores.</p>
+          <Button onClick={handleRefresh} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Reintentar
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Proveedores</h1>
-          <p className="text-gray-600 mt-2">
-            Gestiona los proveedores de productos médicos
-          </p>
+          <p className="text-gray-600 mt-2">Gestiona tus proveedores y su información de contacto</p>
         </div>
-        
-        <Button
-          onClick={() => router.push('/dashboard/suppliers/new')}
-          icon={<Plus className="h-4 w-4" />}
-        >
-          Nuevo Proveedor
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh}
+            className="justify-center"
+            disabled={isLoading}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualizar
+          </Button>
+          <Link href="/dashboard/suppliers/new" className="w-full sm:w-auto">
+            <Button className="w-full justify-center">
+              <Plus className="h-4 w-4 mr-2" />
+              Agregar Proveedor
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      {/* Barra de búsqueda */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <Input
-                icon={<Search className="h-4 w-4 text-gray-400" />}
-                placeholder="Buscar por nombre, RFC o país..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="text-sm text-gray-500 flex items-center">
-              {filteredSuppliers?.length || 0} de {suppliers?.length || 0} proveedores
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Tarjetas de estadísticas */}
+      <SupplierStatsCards stats={stats} isLoading={isLoading} />
+
+      {/* Filtros */}
+      <SupplierFilters
+        filters={filters}
+        onSearch={handleSearch}
+        onFilterChange={handleFilterChange}
+      />
 
       {/* Tabla de proveedores */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Proveedores</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {filteredSuppliers && filteredSuppliers.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Proveedor</TableHead>
-                    <TableHead>RFC / Tax ID</TableHead>
-                    <TableHead>País</TableHead>
-                    <TableHead>Moneda</TableHead>
-                    <TableHead>Contacto</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSuppliers.map((supplier) => (
-                    <TableRow key={supplier.id}>
-                      <TableCell>
-                        <div className="font-medium text-gray-900">
-                          {supplier.name}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        {supplier.tax_id ? (
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {supplier.tax_id}
-                          </Badge>
-                        ) : (
-                          <span className="text-gray-400 text-sm">No especificado</span>
-                        )}
-                      </TableCell>
-                      
-                      <TableCell>
-                        {supplier.country_name ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">📍</span>
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {supplier.country_name}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {supplier.country_code}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-sm">No asignado</span>
-                        )}
-                      </TableCell>
-                      
-                      <TableCell>
-                        {supplier.currency_name ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">💰</span>
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {supplier.currency_name}
-                              </div>
-                              <div className="text-xs text-gray-500 flex items-center gap-1">
-                                <span>{supplier.currency_symbol}</span>
-                                <Badge variant="secondary" className="text-xs">
-                                  {supplier.currency_id}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-sm">No asignada</span>
-                        )}
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="max-w-xs">
-                          <div className="text-sm text-gray-900 line-clamp-2">
-                            {formatContactInfo(supplier.contact_info)}
-                          </div>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push(`/dashboard/suppliers/edit/${supplier.id}`)}
-                            icon={<Edit className="h-4 w-4" />}
-                          >
-                            Editar
-                          </Button>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setDeleteId(supplier.id)}
-                            disabled={isDeleting}
-                            icon={<Trash2 className="h-4 w-4" />}
-                          >
-                            Eliminar
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="text-gray-400 text-lg mb-2">
-                {searchTerm ? 'No se encontraron proveedores' : 'No hay proveedores registrados'}
-              </div>
-              <p className="text-gray-500 mb-4">
-                {searchTerm 
-                  ? 'Intenta con otros términos de búsqueda'
-                  : 'Comienza agregando tu primer proveedor'
-                }
-              </p>
-              {!searchTerm && (
-                <Button
-                  onClick={() => router.push('/dashboard/suppliers/new')}
-                  icon={<Plus className="h-4 w-4" />}
-                >
-                  Agregar Primer Proveedor
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <SupplierTable
+        suppliers={paginatedSuppliers}
+        loading={isLoading}
+        onDelete={deleteSupplier}
+        isDeleting={isDeleting}
+        pagination={{
+          page: currentPage,
+          totalPages,
+          onPageChange: setCurrentPage,
+        }}
+      />
 
-      {/* Modal de confirmación de eliminación */}
-      {deleteId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="max-w-md w-full">
-            <CardHeader>
-              <CardTitle>Confirmar Eliminación</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
-                ¿Estás seguro de que quieres eliminar este proveedor? Esta acción no se puede deshacer.
-              </p>
-              <div className="flex gap-4">
-                <Button
-                  variant="destructive" // ✅ Ahora funciona con la variante corregida
-                  onClick={() => handleDelete(deleteId)}
-                  loading={isDeleting}
-                >
-                  Eliminar
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setDeleteId(null)}
-                  disabled={isDeleting}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Información de paginación */}
+      {filteredSuppliers.length > 0 && (
+        <div className="text-center text-sm text-gray-600">
+          Mostrando {paginatedSuppliers.length} de {filteredSuppliers.length} proveedores
+          {totalPages > 1 && ` - Página ${currentPage} de ${totalPages}`}
         </div>
       )}
     </div>

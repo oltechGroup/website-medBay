@@ -5,44 +5,50 @@ const supplierController = {
     try {
       console.log('📦 Creando proveedor - Datos recibidos:', req.body);
       
-      const { name, tax_id, country_id, currency_id, contact_info } = req.body;
+      const { name, country_code, contact_info, is_active = true } = req.body;
 
-      if (!name) {
-        return res.status(400).json({ error: 'El nombre del proveedor es requerido' });
+      // ✅ VALIDACIONES MEJORADAS
+      if (!name || !name.trim()) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'El nombre del proveedor es requerido' 
+        });
       }
 
-      // ✅ NUEVO: Validar que country_id y currency_id existan si se proporcionan
-      if (country_id && country_id.length !== 2) {
+      // ✅ PAÍS OBLIGATORIO
+      if (!country_code) {
         return res.status(400).json({ 
+          success: false,
+          error: 'El código de país es requerido' 
+        });
+      }
+
+      // Validar que country_code tenga 2 caracteres
+      if (country_code.length !== 2) {
+        return res.status(400).json({ 
+          success: false,
           error: 'El código de país debe tener exactamente 2 caracteres. Ejemplos: MX, US, CA' 
         });
       }
 
-      if (currency_id && currency_id.length !== 3) {
-        return res.status(400).json({ 
-          error: 'El código de moneda debe tener exactamente 3 caracteres. Ejemplos: MXN, USD, EUR' 
-        });
-      }
-
-      // Verificar si ya existe
+      // ✅ MEJORADO: Verificar si ya existe un proveedor con el mismo nombre (case-insensitive)
       const existingSupplier = await Supplier.findByName(name);
       if (existingSupplier) {
         return res.status(409).json({
-          error: 'Ya existe un proveedor con este nombre'
+          success: false,
+          error: `Ya existe un proveedor con el nombre "${name}". Por favor, usa un nombre diferente.`
         });
       }
 
       const newSupplier = await Supplier.create({
-        name,
-        tax_id,
-        country_id, // ✅ NUEVO: Usar country_id en lugar de country
-        currency_id, // ✅ NUEVO: Usar currency_id en lugar de default_currency
-        contact_info
+        name: name.trim(),
+        country_code,
+        contact_info,
+        is_active
       });
 
       console.log('✅ Proveedor creado exitosamente:', newSupplier.id);
       
-      // ✅ NUEVO: Respuesta unificada con estructura consistente
       res.status(201).json({
         success: true,
         message: 'Proveedor creado exitosamente',
@@ -51,18 +57,33 @@ const supplierController = {
     } catch (error) {
       console.error('❌ Error al crear proveedor:', error);
       
-      // ✅ MEJORADO: Manejo específico de errores de foreign key
+      // ✅ MANEJO MEJORADO DE ERRORES
       if (error.code === '23503') {
         return res.status(400).json({ 
           success: false,
-          error: 'El país o la moneda especificada no existe en el sistema' 
+          error: 'El país especificado no existe en el sistema' 
         });
       }
       
       if (error.code === '23505') {
         return res.status(400).json({ 
           success: false,
-          error: 'Ya existe un proveedor con este nombre o tax_id' 
+          error: 'Ya existe un proveedor con este nombre. Por favor, usa un nombre diferente.' 
+        });
+      }
+      
+      // Manejo de errores de validación del modelo
+      if (error.message.includes('El código de país es requerido')) {
+        return res.status(400).json({ 
+          success: false,
+          error: error.message 
+        });
+      }
+      
+      if (error.message.includes('Ya existe un proveedor con el nombre')) {
+        return res.status(409).json({ 
+          success: false,
+          error: error.message 
         });
       }
       
@@ -78,7 +99,6 @@ const supplierController = {
     try {
       const suppliers = await Supplier.findAll();
       
-      // ✅ NUEVO: Respuesta unificada
       res.json({
         success: true,
         data: suppliers
@@ -104,7 +124,6 @@ const supplierController = {
         });
       }
       
-      // ✅ NUEVO: Respuesta unificada
       res.json({
         success: true,
         data: supplier
@@ -121,29 +140,46 @@ const supplierController = {
   update: async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, tax_id, country_id, currency_id, contact_info } = req.body;
+      const { name, country_code, contact_info, is_active } = req.body;
 
-      // ✅ NUEVO: Validaciones actualizadas
-      if (country_id && country_id.length !== 2) {
+      // ✅ VALIDACIONES MEJORADAS
+      if (!name || !name.trim()) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'El nombre del proveedor es requerido' 
+        });
+      }
+
+      // ✅ PAÍS OBLIGATORIO
+      if (!country_code) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'El código de país es requerido' 
+        });
+      }
+
+      // Validar que country_code tenga 2 caracteres
+      if (country_code.length !== 2) {
         return res.status(400).json({ 
           success: false,
           error: 'El código de país debe tener exactamente 2 caracteres' 
         });
       }
 
-      if (currency_id && currency_id.length !== 3) {
-        return res.status(400).json({ 
+      // ✅ MEJORADO: Verificar duplicados (excluyendo el propio proveedor)
+      const existingSupplier = await Supplier.findByName(name);
+      if (existingSupplier && existingSupplier.id !== id) {
+        return res.status(409).json({
           success: false,
-          error: 'El código de moneda debe tener exactamente 3 caracteres' 
+          error: `Ya existe otro proveedor con el nombre "${name}". Por favor, usa un nombre diferente.`
         });
       }
 
       const updatedSupplier = await Supplier.update(id, {
-        name,
-        tax_id,
-        country_id,
-        currency_id,
-        contact_info
+        name: name.trim(),
+        country_code,
+        contact_info,
+        is_active
       });
       
       if (!updatedSupplier) {
@@ -153,7 +189,6 @@ const supplierController = {
         });
       }
 
-      // ✅ NUEVO: Respuesta unificada
       res.json({
         success: true,
         message: 'Proveedor actualizado exitosamente',
@@ -162,11 +197,26 @@ const supplierController = {
     } catch (error) {
       console.error('Error al actualizar proveedor:', error);
       
-      // ✅ MEJORADO: Manejo específico de errores
+      // ✅ MANEJO MEJORADO DE ERRORES
       if (error.code === '23503') {
         return res.status(400).json({ 
           success: false,
-          error: 'El país o la moneda especificada no existe en el sistema' 
+          error: 'El país especificado no existe en el sistema' 
+        });
+      }
+      
+      // Manejo de errores de validación del modelo
+      if (error.message.includes('El código de país es requerido')) {
+        return res.status(400).json({ 
+          success: false,
+          error: error.message 
+        });
+      }
+      
+      if (error.message.includes('Ya existe un proveedor con el nombre')) {
+        return res.status(409).json({ 
+          success: false,
+          error: error.message 
         });
       }
       
@@ -189,7 +239,6 @@ const supplierController = {
         });
       }
 
-      // ✅ NUEVO: Respuesta unificada
       res.json({
         success: true,
         message: 'Proveedor eliminado exitosamente',
@@ -198,7 +247,7 @@ const supplierController = {
     } catch (error) {
       console.error('Error al eliminar proveedor:', error);
       
-      // ✅ NUEVO: Manejo de errores de foreign key
+      // Manejo de errores de foreign key
       if (error.code === '23503') {
         return res.status(400).json({ 
           success: false,
@@ -206,6 +255,32 @@ const supplierController = {
         });
       }
       
+      res.status(500).json({ 
+        success: false,
+        error: 'Error interno del servidor' 
+      });
+    }
+  },
+
+  // Obtener estadísticas de proveedores
+  getStats: async (req, res) => {
+    try {
+      const [count, statsByCountry] = await Promise.all([
+        Supplier.count(),
+        Supplier.getStatsByCountry()
+      ]);
+
+      res.json({
+        success: true,
+        data: {
+          total: count.total,
+          active: count.active,
+          inactive: count.inactive,
+          byCountry: statsByCountry
+        }
+      });
+    } catch (error) {
+      console.error('Error al obtener estadísticas de proveedores:', error);
       res.status(500).json({ 
         success: false,
         error: 'Error interno del servidor' 

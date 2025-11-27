@@ -1,12 +1,12 @@
 const Manufacturer = require('../models/manufacturerModel');
 
 const manufacturerController = {
-  // Crear fabricante con validación de duplicados
+  // Crear fabricante con validación de duplicados (ACTUALIZADO)
   create: async (req, res) => {
     try {
-      const { name, country_id } = req.body;
+      const { name, contact_info, website } = req.body;
 
-      if (!name) {
+      if (!name || name.trim() === '') {
         return res.status(400).json({ 
           success: false,
           error: 'El nombre del fabricante es requerido' 
@@ -14,7 +14,7 @@ const manufacturerController = {
       }
 
       // Verificar si ya existe
-      const existingManufacturer = await Manufacturer.findByName(name);
+      const existingManufacturer = await Manufacturer.findByName(name.trim());
       if (existingManufacturer) {
         return res.status(409).json({ 
           success: false,
@@ -24,8 +24,9 @@ const manufacturerController = {
       }
 
       const newManufacturer = await Manufacturer.create({ 
-        name, 
-        country_id 
+        name: name.trim(),
+        contact_info: contact_info || {},
+        website: website || null
       });
       
       res.status(201).json({
@@ -37,13 +38,6 @@ const manufacturerController = {
     } catch (error) {
       console.error('Error al crear fabricante:', error);
       
-      if (error.code === '23503') {
-        return res.status(400).json({ 
-          success: false,
-          error: 'El país especificado no existe en el sistema' 
-        });
-      }
-      
       res.status(500).json({ 
         success: false,
         error: 'Error interno del servidor',
@@ -52,7 +46,7 @@ const manufacturerController = {
     }
   },
 
-  // Obtener todos los fabricantes
+  // Obtener todos los fabricantes (ACTUALIZADO)
   getAll: async (req, res) => {
     try {
       const manufacturers = await Manufacturer.findAll();
@@ -69,7 +63,7 @@ const manufacturerController = {
     }
   },
 
-  // Obtener fabricante por ID
+  // Obtener fabricante por ID (ACTUALIZADO)
   getById: async (req, res) => {
     try {
       const { id } = req.params;
@@ -95,7 +89,7 @@ const manufacturerController = {
     }
   },
 
-  // Buscar fabricante por nombre
+  // Buscar fabricante por nombre (ACTUALIZADO)
   getByName: async (req, res) => {
     try {
       const { name } = req.params;
@@ -121,20 +115,24 @@ const manufacturerController = {
     }
   },
 
-  // Actualizar fabricante
+  // Actualizar fabricante (ACTUALIZADO)
   update: async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, country_id } = req.body;
+      const { name, contact_info, website } = req.body;
 
-      if (!name) {
+      if (!name || name.trim() === '') {
         return res.status(400).json({ 
           success: false,
           error: 'El nombre del fabricante es requerido' 
         });
       }
 
-      const updatedManufacturer = await Manufacturer.update(id, { name, country_id });
+      const updatedManufacturer = await Manufacturer.update(id, { 
+        name: name.trim(),
+        contact_info: contact_info || {},
+        website: website || null
+      });
       
       if (!updatedManufacturer) {
         return res.status(404).json({ 
@@ -151,13 +149,6 @@ const manufacturerController = {
     } catch (error) {
       console.error('Error al actualizar fabricante:', error);
       
-      if (error.code === '23503') {
-        return res.status(400).json({ 
-          success: false,
-          error: 'El país especificado no existe en el sistema' 
-        });
-      }
-      
       res.status(500).json({ 
         success: false,
         error: 'Error interno del servidor',
@@ -166,7 +157,7 @@ const manufacturerController = {
     }
   },
 
-  // Eliminar fabricante
+  // Eliminar fabricante (MANTENIDO)
   delete: async (req, res) => {
     try {
       const { id } = req.params;
@@ -190,7 +181,7 @@ const manufacturerController = {
       if (error.code === '23503') {
         return res.status(400).json({ 
           success: false,
-          error: 'No se puede eliminar el fabricante porque está siendo utilizado en otros registros' 
+          error: 'No se puede eliminar el fabricante porque está siendo utilizado en productos' 
         });
       }
 

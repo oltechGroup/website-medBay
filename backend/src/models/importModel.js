@@ -1,24 +1,150 @@
 const db = require('../config/database');
 
 const ImportModel = {
-  // Crear registro de upload (adaptado a tu estructura)
-    createUpload: async (uploadData) => {
-  const {
-    supplier_id,
-    filename,
-    file_path,
-    uploaded_by,
-    status = 'uploaded',
-    sales_category = 'regular' // ← AGREGAR ESTE PARÁMETRO
-  } = uploadData;
+  // =============================================
+  // NUEVAS FUNCIONES DE PROGRESO
+  // =============================================
 
-  const query = `
-    INSERT INTO raw_uploads (supplier_id, filename, file_path, uploaded_by, status, sales_category)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING *
-  `;
-  
-  const values = [supplier_id, filename, file_path, uploaded_by, status, sales_category];
+  // Crear registro de progreso
+  createImportProgress: async (progressData) => {
+    const {
+      upload_id,
+      user_id,
+      total_rows = 0,
+      processed_rows = 0,
+      status = 'processing',
+      current_operation = 'Iniciando...',
+      estimated_time_remaining = 0,
+      error_messages = null
+    } = progressData;
+
+    const query = `
+      INSERT INTO import_progress 
+        (upload_id, user_id, total_rows, processed_rows, status, current_operation, estimated_time_remaining, error_messages)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `;
+    
+    const values = [
+      upload_id, 
+      user_id, 
+      total_rows, 
+      processed_rows, 
+      status, 
+      current_operation, 
+      estimated_time_remaining, 
+      error_messages
+    ];
+
+    try {
+      const result = await db.query(query, values);
+      console.log(`✅ Progreso creado para upload: ${upload_id}`);
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ Error creando progreso:', error);
+      throw error;
+    }
+  },
+
+  // Actualizar progreso
+  updateImportProgress: async (upload_id, progressData) => {
+    const {
+      total_rows,
+      processed_rows,
+      status,
+      current_operation,
+      estimated_time_remaining,
+      error_messages
+    } = progressData;
+
+    const query = `
+      UPDATE import_progress 
+      SET 
+        total_rows = COALESCE($2, total_rows),
+        processed_rows = COALESCE($3, processed_rows),
+        status = COALESCE($4, status),
+        current_operation = COALESCE($5, current_operation),
+        estimated_time_remaining = COALESCE($6, estimated_time_remaining),
+        error_messages = COALESCE($7, error_messages),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE upload_id = $1
+      RETURNING *
+    `;
+    
+    const values = [
+      upload_id,
+      total_rows,
+      processed_rows,
+      status,
+      current_operation,
+      estimated_time_remaining,
+      error_messages
+    ];
+
+    try {
+      const result = await db.query(query, values);
+      if (result.rows.length === 0) {
+        console.warn(`⚠️ No se encontró progreso para upload: ${upload_id}`);
+        return null;
+      }
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ Error actualizando progreso:', error);
+      throw error;
+    }
+  },
+
+  // Obtener progreso
+  getImportProgress: async (upload_id) => {
+    const query = `
+      SELECT * FROM import_progress 
+      WHERE upload_id = $1 
+      ORDER BY updated_at DESC 
+      LIMIT 1
+    `;
+
+    try {
+      const result = await db.query(query, [upload_id]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('❌ Error obteniendo progreso:', error);
+      throw error;
+    }
+  },
+
+  // =============================================
+  // FUNCIONES EXISTENTES (MANTENIDAS Y MEJORADAS)
+  // =============================================
+
+  // Crear registro de upload (MEJORADO con currency e imágenes)
+  createUpload: async (uploadData) => {
+    const {
+      supplier_id,
+      filename,
+      file_path,
+      uploaded_by,
+      status = 'uploaded',
+      sales_category = 'regular',
+      currency_code = 'USD',
+      image_column = null
+    } = uploadData;
+
+    const query = `
+      INSERT INTO raw_uploads (supplier_id, filename, file_path, uploaded_by, status, sales_category, currency_code, image_column)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `;
+    
+    const values = [
+      supplier_id, 
+      filename, 
+      file_path, 
+      uploaded_by, 
+      status, 
+      sales_category, 
+      currency_code, 
+      image_column
+    ];
     
     try {
       const result = await db.query(query, values);
@@ -28,7 +154,7 @@ const ImportModel = {
     }
   },
 
-  // Crear filas raw (adaptado a tu estructura)
+  // Crear filas raw (mantenida igual)
   createRawRows: async (rawRowsData) => {
     const query = `
       INSERT INTO raw_rows (raw_upload_id, row_index, raw_data)
@@ -48,7 +174,7 @@ const ImportModel = {
     }
   },
 
-  // Obtener preview de 5 filas
+  // Obtener preview de 5 filas (mantenida igual)
   getPreviewRows: async (uploadId) => {
     const query = `
       SELECT * FROM raw_rows 
@@ -65,7 +191,7 @@ const ImportModel = {
     }
   },
 
-  // Buscar template de mapeo por proveedor
+  // Buscar template de mapeo por proveedor (mantenida igual)
   findMappingTemplate: async (supplierId, name) => {
     const query = `
       SELECT * FROM mapping_templates 
@@ -80,7 +206,7 @@ const ImportModel = {
     }
   },
 
-  // En saveMappingTemplate - Asegurar que la consulta sea correcta
+  // Guardar template de mapeo (mantenida igual)
   saveMappingTemplate: async (templateData) => {
     const { supplier_id, name, mappings, created_by } = templateData;
     
@@ -103,67 +229,59 @@ const ImportModel = {
     }
   },
 
-// Limpiar catálogo existente - VERSIÓN MEJORADA
-cleanExistingCatalog: async (supplierId, salesCategory) => {
-  try {
-    console.log(`🧹 Limpiando catálogo completo para supplier: ${supplierId}, categoría: ${salesCategory}`);
-    
-    // 1. Primero eliminar los lotes de productos
-    const deleteLotsQuery = `
-      DELETE FROM product_lots 
-      WHERE product_supplier_id IN (
-        SELECT ps.id 
-        FROM product_suppliers ps 
-        WHERE ps.supplier_id = $1
-      ) 
-      AND sales_category = $2
-      RETURNING id
-    `;
-    
-    const lotsResult = await db.query(deleteLotsQuery, [supplierId, salesCategory]);
-    
-    // 2. Luego eliminar las relaciones producto-proveedor que no tengan lotes
-    const deleteProductSuppliersQuery = `
-      DELETE FROM product_suppliers 
-      WHERE supplier_id = $1 
-      AND id NOT IN (
-        SELECT DISTINCT product_supplier_id 
-        FROM product_lots 
-        WHERE product_supplier_id IS NOT NULL
-      )
-      RETURNING id
-    `;
-    
-    const suppliersResult = await db.query(deleteProductSuppliersQuery, [supplierId]);
-    
-    console.log(`✅ Catálogo limpiado completamente: ${lotsResult.rows.length} lotes y ${suppliersResult.rows.length} relaciones eliminadas`);
-    
-    return {
-      deleted_lots: lotsResult.rows,
-      deleted_suppliers: suppliersResult.rows
-    };
-    
-  } catch (error) {
-    console.error('❌ Error en cleanExistingCatalog:', error);
-    throw error;
-  }
-},
+  // Limpiar catálogo existente (mantenida igual)
+  cleanExistingCatalog: async (supplierId, salesCategory) => {
+    try {
+      console.log(`🧹 Limpiando catálogo completo para supplier: ${supplierId}, categoría: ${salesCategory}`);
+      
+      const deleteLotsQuery = `
+        DELETE FROM product_lots 
+        WHERE product_supplier_id IN (
+          SELECT ps.id 
+          FROM product_suppliers ps 
+          WHERE ps.supplier_id = $1
+        ) 
+        AND sales_category = $2
+        RETURNING id
+      `;
+      
+      const lotsResult = await db.query(deleteLotsQuery, [supplierId, salesCategory]);
+      
+      const deleteProductSuppliersQuery = `
+        DELETE FROM product_suppliers 
+        WHERE supplier_id = $1 
+        AND id NOT IN (
+          SELECT DISTINCT product_supplier_id 
+          FROM product_lots 
+          WHERE product_supplier_id IS NOT NULL
+        )
+        RETURNING id
+      `;
+      
+      const suppliersResult = await db.query(deleteProductSuppliersQuery, [supplierId]);
+      
+      console.log(`✅ Catálogo limpiado completamente: ${lotsResult.rows.length} lotes y ${suppliersResult.rows.length} relaciones eliminadas`);
+      
+      return {
+        deleted_lots: lotsResult.rows,
+        deleted_suppliers: suppliersResult.rows
+      };
+      
+    } catch (error) {
+      console.error('❌ Error en cleanExistingCatalog:', error);
+      throw error;
+    }
+  },
 
-  // FUNCIÓN AUXILIAR: Limpiar y convertir precio
+  // FUNCIÓN AUXILIAR: Limpiar y convertir precio (mantenida igual)
   cleanPrice: (priceValue) => {
     if (!priceValue) return 0;
     
     try {
-      // Convertir a string y limpiar
       let priceString = priceValue.toString().trim();
-      
-      // Remover símbolos de moneda y espacios
       priceString = priceString.replace(/[$,]/g, '').trim();
-      
-      // Convertir a número
       const price = parseFloat(priceString);
       
-      // Validar que sea un número válido y positivo
       if (isNaN(price) || price < 0) {
         console.log(`⚠️ Precio inválido: "${priceValue}" -> usando 0`);
         return 0;
@@ -177,20 +295,18 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
     }
   },
 
-  // FUNCIÓN AUXILIAR: Validar y formatear fecha
+  // FUNCIÓN AUXILIAR: Validar y formatear fecha (mantenida igual)
   validateDate: (dateValue) => {
     if (!dateValue) return null;
     
     try {
       const date = new Date(dateValue);
       
-      // Verificar si la fecha es válida
       if (isNaN(date.getTime())) {
         console.log(`⚠️ Fecha inválida: "${dateValue}" -> usando null`);
         return null;
       }
       
-      // Formatear como YYYY-MM-DD
       const formattedDate = date.toISOString().split('T')[0];
       console.log(`✅ Fecha convertida: "${dateValue}" -> ${formattedDate}`);
       return formattedDate;
@@ -200,17 +316,15 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
     }
   },
 
-  // FUNCIÓN AUXILIAR: Obtener o crear fabricante - VERSIÓN MEJORADA
+  // FUNCIÓN AUXILIAR: Obtener o crear fabricante (mantenida igual)
   getOrCreateManufacturer: async (manufacturerName) => {
     try {
-      // Si no hay nombre de fabricante, usar "Desconocido"
       const name = manufacturerName && manufacturerName.toString().trim() !== '' 
         ? manufacturerName.toString().trim() 
         : 'Desconocido';
 
       console.log(`🔍 Buscando fabricante: "${name}"`);
 
-      // Buscar fabricante existente
       let manufacturer = await db.query(
         'SELECT id FROM manufacturers WHERE name = $1',
         [name]
@@ -222,12 +336,11 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
       if (manufacturer.rows.length === 0) {
         console.log(`🆕 Creando nuevo fabricante: "${name}"`);
         
-        // Crear nuevo fabricante
         const newManufacturer = await db.query(
           `INSERT INTO manufacturers (name, country_id) 
            VALUES ($1, $2) 
            RETURNING id`,
-          [name, 'US'] // País por defecto
+          [name, 'US']
         );
         manufacturerId = newManufacturer.rows[0].id;
         created = true;
@@ -245,24 +358,21 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
     }
   },
 
-  // FUNCIÓN AUXILIAR: Obtener o crear producto - VERSIÓN MEJORADA
+  // FUNCIÓN AUXILIAR: Obtener o crear producto (mantenida igual)
   getOrCreateProduct: async (productData) => {
     try {
       const { codigo, descripcion, manufacturerId } = productData;
       
-      // Si no hay código, generar uno único
       const sku = codigo && codigo.toString().trim() !== '' 
         ? codigo.toString().trim() 
         : `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
-      // Si no hay descripción, usar una por defecto
       const name = descripcion && descripcion.toString().trim() !== '' 
         ? descripcion.toString().trim() 
         : 'Producto sin descripción';
 
       console.log(`🔍 Buscando producto: "${sku}" - "${name}"`);
 
-      // Buscar producto por SKU
       let product = await db.query(
         'SELECT id FROM products WHERE global_sku = $1',
         [sku]
@@ -274,7 +384,6 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
       if (product.rows.length === 0) {
         console.log(`🆕 Creando nuevo producto: "${sku}"`);
         
-        // Crear nuevo producto
         const newProduct = await db.query(
           `INSERT INTO products (name, global_sku, manufacturer_id) 
            VALUES ($1, $2, $3) 
@@ -297,14 +406,13 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
     }
   },
 
-  // FUNCIÓN AUXILIAR: Obtener o crear relación producto-proveedor
+  // FUNCIÓN AUXILIAR: Obtener o crear relación producto-proveedor (mantenida igual)
   getOrCreateProductSupplier: async (productSupplierData) => {
     try {
       const { productId, supplierId, codigo, supplierName } = productSupplierData;
       
       console.log(`🔍 Buscando relación producto-proveedor: ${productId} - ${supplierId}`);
 
-      // Buscar relación existente
       let productSupplier = await db.query(
         `SELECT id FROM product_suppliers 
          WHERE product_id = $1 AND supplier_id = $2`,
@@ -315,12 +423,10 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
       if (productSupplier.rows.length === 0) {
         console.log(`🆕 Creando nueva relación producto-proveedor`);
         
-        // Usar código como supplier_sku, o generar uno si no existe
         const supplierSku = codigo && codigo.toString().trim() !== '' 
           ? codigo.toString().trim() 
           : `SUP-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        // Crear nueva relación
         const newProductSupplier = await db.query(
           `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name) 
            VALUES ($1, $2, $3, $4) 
@@ -342,7 +448,32 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
     }
   },
 
-  // NUEVA FUNCIÓN: Agrupación inteligente de productos
+  // NUEVA FUNCIÓN: Convertir precio a USD usando countries
+  convertPriceToUSD: async (price, currencyCode) => {
+    if (!price || currencyCode === 'USD') return parseFloat(price) || 0;
+
+    try {
+      const result = await db.query(
+        'SELECT exchange_rate FROM countries WHERE currency_code = $1 LIMIT 1',
+        [currencyCode]
+      );
+      
+      if (result.rows.length > 0) {
+        const exchangeRate = result.rows[0].exchange_rate;
+        const convertedPrice = (parseFloat(price) / exchangeRate);
+        console.log(`💰 Conversión: ${price} ${currencyCode} → ${convertedPrice} USD (tasa: ${exchangeRate})`);
+        return convertedPrice;
+      } else {
+        console.warn(`⚠️ No se encontró tasa de cambio para: ${currencyCode}, usando precio original`);
+        return parseFloat(price) || 0;
+      }
+    } catch (error) {
+      console.error(`❌ Error convirtiendo ${price} ${currencyCode} a USD:`, error);
+      return parseFloat(price) || 0;
+    }
+  },
+
+  // Agrupación inteligente de productos (mantenida igual)
   groupSimilarProducts: (mappedData) => {
     const groupedMap = new Map();
     let totalAgrupaciones = 0;
@@ -351,16 +482,13 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
     
     mappedData.forEach(row => {
       try {
-        // 1. OBTENER VALORES LIMPIOS PARA COMPARACIÓN (igual que en el procesamiento normal)
         const codigo = (row.codigo || '').toString().trim();
-        const precio = ImportModel.cleanPrice(row.precio); // Convierte "$16" → 16
-        const fecha = ImportModel.validateDate(row.fecha_caducidad); // Asegura formato fecha
+        const precio = ImportModel.cleanPrice(row.precio);
+        const fecha = ImportModel.validateDate(row.fecha_caducidad);
         
-        // 2. CLAVE ÚNICA EXACTA: código + precio + fecha
         const groupKey = `${codigo}_${precio}_${fecha}`;
         
         if (groupedMap.has(groupKey)) {
-          // SUMAR cantidades al lote existente
           const existing = groupedMap.get(groupKey);
           const cantidadActual = parseInt(row.cantidad) || 0;
           const cantidadExistente = existing.cantidad;
@@ -371,19 +499,16 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
           
           console.log(`🔄 Agrupando fila ${row.row_index} con fila(s) ${existing.sourceRows.slice(0, -1).join(', ')} → Cantidad total: ${existing.cantidad}`);
         } else {
-          // Nuevo grupo
           groupedMap.set(groupKey, {
             ...row,
             cantidad: parseInt(row.cantidad) || 0,
             sourceRows: [row.row_index],
-            // Mantener valores limpios para procesamiento posterior
             precio_limpio: precio,
             fecha_limpia: fecha
           });
         }
       } catch (error) {
         console.error(`❌ Error en agrupación para fila ${row.row_index}:`, error);
-        // Si hay error en agrupación, procesar la fila individualmente
         groupedMap.set(`error_${row.row_index}`, {
           ...row,
           cantidad: parseInt(row.cantidad) || 0,
@@ -396,7 +521,6 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
     
     const consolidatedData = Array.from(groupedMap.values());
     
-    // Log de resumen de consolidación
     if (totalAgrupaciones > 0) {
       console.log(`🎯 RESUMEN AGRUPACIÓN: ${mappedData.length} filas → ${consolidatedData.length} lotes únicos (${totalAgrupaciones} agrupación(es))`);
     } else {
@@ -406,8 +530,8 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
     return consolidatedData;
   },
 
-  // FUNCIÓN processMappedData MODIFICADA con agrupación inteligente
-  processMappedData: async (mappedData) => {
+  // FUNCIÓN processMappedData MEJORADA con conversión de moneda
+  processMappedData: async (mappedData, currencyCode = 'USD') => {
     const results = {
       manufacturers_created: 0,
       products_created: 0,
@@ -421,7 +545,7 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
     };
 
     try {
-      console.log(`📦 Procesando ${mappedData.length} filas mapeadas...`);
+      console.log(`📦 Procesando ${mappedData.length} filas mapeadas con moneda: ${currencyCode}`);
 
       // 1. AGRUPAR PRODUCTOS SIMILARES
       const consolidatedData = ImportModel.groupSimilarProducts(mappedData);
@@ -431,29 +555,20 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
       // 2. PROCESAR DATOS CONSOLIDADOS
       for (const row of consolidatedData) {
         try {
-          // Mostrar información de consolidación
           if (row.sourceRows.length > 1) {
             console.log(`\n--- Procesando LOTE CONSOLIDADO de ${row.sourceRows.length} filas: ${row.sourceRows.join(', ')} ---`);
-            console.log(`🔀 Este lote consolidó ${row.sourceRows.length} filas con mismo código, precio y fecha`);
           } else {
             console.log(`\n--- Procesando fila ${row.row_index} ---`);
           }
 
-          console.log('Datos crudos:', {
-            codigo: row.codigo,
-            precio: row.precio,
-            cantidad: row.cantidad,
-            fabricante: row.fabricante,
-            descripcion: row.descripcion,
-            fecha_caducidad: row.fecha_caducidad
-          });
+          // CONVERTIR PRECIO A USD
+          const precioOriginal = row.precio_limpio;
+          const precioUSD = await ImportModel.convertPriceToUSD(precioOriginal, currencyCode);
 
-          // Usar los valores ya limpiados de la agrupación
           const cantidad = row.cantidad;
-          const precio = row.precio_limpio;
           const fechaCaducidad = row.fecha_limpia;
 
-          console.log(`📊 Datos limpios: cantidad=${cantidad}, precio=${precio}, fecha=${fechaCaducidad}`);
+          console.log(`📊 Datos procesados: cantidad=${cantidad}, precio=${precioUSD} USD (original: ${precioOriginal} ${currencyCode}), fecha=${fechaCaducidad}`);
 
           // 3. OBTENER O CREAR FABRICANTE
           const manufacturerResult = await ImportModel.getOrCreateManufacturer(row.fabricante);
@@ -494,7 +609,7 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
               fechaCaducidad,
               cantidad,
               'pz',
-              precio,
+              precioUSD,
               'USD',
               row.sales_category,
               'available',
@@ -504,9 +619,8 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
 
           results.lots_created++;
           
-          // Mensaje especial para lotes consolidados
           if (row.sourceRows.length > 1) {
-            console.log(`✅ LOTE CONSOLIDADO creado: ${lotResult.rows[0].id} | ${row.codigo} | $${precio} | ${fechaCaducidad} | Cantidad: ${cantidad} (de ${row.sourceRows.length} filas)`);
+            console.log(`✅ LOTE CONSOLIDADO creado: ${lotResult.rows[0].id} | ${row.codigo} | $${precioUSD} USD | ${fechaCaducidad} | Cantidad: ${cantidad} (de ${row.sourceRows.length} filas)`);
           } else {
             console.log(`✅ Lote creado: ${lotResult.rows[0].id}`);
           }
@@ -518,7 +632,6 @@ cleanExistingCatalog: async (supplierId, salesCategory) => {
           
           results.errors.push(errorMsg);
           console.error(`❌ Error en ${row.sourceRows.length > 1 ? 'lote consolidado' : 'fila'} ${row.sourceRows.join(', ')}:`, rowError);
-          // CONTINUAR con la siguiente fila en lugar de detenerse
         }
       }
 

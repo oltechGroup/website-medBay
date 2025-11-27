@@ -10,6 +10,8 @@ export interface UploadSession {
   status: 'selecting' | 'cleaning' | 'ready' | 'uploading' | 'processing' | 'complete' | 'error';
   upload_id?: string;
   results?: any;
+  currency_code?: string; // NUEVO: Soporte para moneda
+  image_column?: string; // NUEVO: Soporte para columna de imágenes
 }
 
 export interface CleanCatalogRequest {
@@ -17,10 +19,13 @@ export interface CleanCatalogRequest {
   sales_category: 'regular' | 'near_expiry' | 'expired';
 }
 
+// INTERFAZ ACTUALIZADA: Agregar currency_code e image_column
 export interface UploadCatalogRequest {
   supplier_id: string;
   sales_category: 'regular' | 'near_expiry' | 'expired';
   file: File;
+  currency_code?: string; // NUEVO
+  image_column?: string; // NUEVO
 }
 
 export interface MappingTemplate {
@@ -33,6 +38,7 @@ export interface MappingTemplate {
     cantidad: string;
     precio: string;
     fecha_caducidad: string;
+    imagen_url?: string; // NUEVO: Campo opcional para imágenes
   };
 }
 
@@ -43,6 +49,7 @@ export interface PreviewData {
   total_preview_rows: number;
 }
 
+// INTERFAZ ACTUALIZADA: Para procesar importación
 export interface ProcessImportRequest {
   upload_id: string;
   mappings: any;
@@ -90,6 +97,40 @@ export interface ImportStatsResponse {
   stats: ImportStats;
 }
 
+// NUEVA INTERFAZ: Progreso de importación en tiempo real
+export interface ImportProgress {
+  id: number;
+  upload_id: string;
+  user_id: string;
+  total_rows: number;
+  processed_rows: number;
+  percentage: number; // Calculado
+  status: 'uploaded' | 'processing' | 'completed' | 'completed_with_errors' | 'error';
+  current_operation: string;
+  estimated_time_remaining: number;
+  estimated_time_minutes: number; // Calculado
+  error_messages?: any[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ImportProgressResponse {
+  success: boolean;
+  progress: ImportProgress;
+}
+
+// NUEVA INTERFAZ: Respuesta de upload con nuevos campos
+export interface UploadResponse {
+  success: boolean;
+  message: string;
+  upload_id: string;
+  sales_category: string;
+  currency_code?: string; // NUEVO
+  image_column?: string; // NUEVO
+  total_rows: number;
+  preview_available: boolean;
+}
+
 export const useImport = () => {
   const queryClient = useQueryClient();
 
@@ -112,15 +153,23 @@ export const useImport = () => {
     },
   });
 
-  // Upload file mutation
+  // NUEVA MUTATION: Upload file con soporte para moneda e imágenes
   const uploadFileMutation = useMutation({
-    mutationFn: async (data: UploadCatalogRequest) => {
+    mutationFn: async (data: UploadCatalogRequest): Promise<UploadResponse> => {
       const formData = new FormData();
       formData.append('file', data.file);
       formData.append('supplier_id', data.supplier_id);
       formData.append('sales_category', data.sales_category);
+      
+      // NUEVO: Agregar campos opcionales si existen
+      if (data.currency_code) {
+        formData.append('currency_code', data.currency_code);
+      }
+      if (data.image_column) {
+        formData.append('image_column', data.image_column);
+      }
 
-      const response = await api.post('/import/upload', formData, {
+      const response = await api.post<UploadResponse>('/import/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       return response.data;
@@ -165,7 +214,60 @@ export const useImport = () => {
     },
   });
 
-  // NUEVA FUNCIÓN: Obtener estadísticas de importación
+  // NUEVA FUNCIÓN: Obtener progreso en tiempo real
+  const getImportProgress = async (uploadId: string): Promise<ImportProgress | null> => {
+    try {
+      const response = await api.get<ImportProgressResponse>(`/import/progress/${uploadId}`);
+      
+      if (response.data.success) {
+        return response.data.progress;
+      } else {
+        console.warn('No se pudo obtener el progreso');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error obteniendo progreso:', error);
+      return null;
+    }
+  };
+
+  // NUEVA FUNCIÓN: Polling para progreso en tiempo real
+  const pollImportProgress = async (
+    uploadId: string, 
+    onProgress: (progress: ImportProgress) => void,
+    interval: number = 2000 // 2 segundos
+  ): Promise<void> => {
+    let isCompleted = false;
+    
+    const poll = async () => {
+      if (isCompleted) return;
+      
+      try {
+        const progress = await getImportProgress(uploadId);
+        
+        if (progress) {
+          onProgress(progress);
+          
+          // Detener polling si la importación está completa
+          if (['completed', 'completed_with_errors', 'error'].includes(progress.status)) {
+            isCompleted = true;
+            return;
+          }
+        }
+        
+        // Continuar polling
+        setTimeout(poll, interval);
+      } catch (error) {
+        console.error('Error en polling de progreso:', error);
+        setTimeout(poll, interval);
+      }
+    };
+    
+    // Iniciar polling
+    poll();
+  };
+
+  // FUNCIÓN: Obtener estadísticas de importación
   const getImportStats = async (): Promise<ImportStats> => {
     try {
       const response = await api.get<ImportStatsResponse>('/import/stats');
@@ -202,7 +304,11 @@ export const useImport = () => {
     // Queries
     getPreview,
     getMappingTemplate,
-    getImportStats, // ✅ NUEVA FUNCIÓN AGREGADA
+    getImportStats,
+    
+    // NUEVAS FUNCIONES: Progreso en tiempo real
+    getImportProgress,
+    pollImportProgress,
     
     // Loading states
     isCreatingSupplier: createSupplierMutation.isPending,
@@ -217,5 +323,8 @@ export const useImport = () => {
     cleanError: cleanCatalogMutation.error,
     processError: processImportMutation.error,
     templateError: saveMappingTemplateMutation.error,
+    
+    // NUEVO: Datos de respuesta de upload
+    uploadResponse: uploadFileMutation.data,
   };
 };

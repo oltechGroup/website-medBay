@@ -1,29 +1,21 @@
 const db = require('../config/database');
 
 const Manufacturer = {
-  // Crear fabricante (COMPATIBILIDAD DUAL)
+  // Crear fabricante (SIMPLIFICADO - SIN PAÍSES)
   create: async (manufacturerData) => {
-    const { name, country_id } = manufacturerData;
+    const { name, contact_info, website } = manufacturerData;
     
-    // Obtener nombre del país si se proporciona country_id
-    let countryName = null;
-    if (country_id) {
-      const countryQuery = 'SELECT name FROM countries WHERE code = $1';
-      try {
-        const countryResult = await db.query(countryQuery, [country_id]);
-        countryName = countryResult.rows[0]?.name || null;
-      } catch (error) {
-        console.error('Error al obtener nombre del país:', error);
-      }
-    }
-
     const query = `
-      INSERT INTO manufacturers (name, country, country_id)
+      INSERT INTO manufacturers (name, contact_info, website)
       VALUES ($1, $2, $3)
       RETURNING *
     `;
     
-    const values = [name, countryName, country_id];
+    const values = [
+      name, 
+      contact_info || {}, 
+      website || null
+    ];
     
     try {
       const result = await db.query(query, values);
@@ -34,16 +26,18 @@ const Manufacturer = {
     }
   },
 
-  // Obtener todos los fabricantes (COMPATIBILIDAD DUAL)
+  // Obtener todos los fabricantes (SIMPLIFICADO - SIN PAÍSES)
   findAll: async () => {
     const query = `
       SELECT 
-        m.*,
-        COALESCE(c.name, m.country, 'País no especificado') as country_name,
-        COALESCE(c.code, m.country_id) as country_code
-      FROM manufacturers m
-      LEFT JOIN countries c ON m.country_id = c.code
-      ORDER BY m.name
+        id,
+        name,
+        contact_info,
+        website,
+        created_at,
+        updated_at
+      FROM manufacturers 
+      ORDER BY name
     `;
     try {
       const result = await db.query(query);
@@ -54,16 +48,18 @@ const Manufacturer = {
     }
   },
 
-  // Buscar fabricante por nombre (COMPATIBILIDAD DUAL)
+  // Buscar fabricante por nombre (SIMPLIFICADO)
   findByName: async (name) => {
     const query = `
       SELECT 
-        m.*,
-        COALESCE(c.name, m.country, 'País no especificado') as country_name,
-        COALESCE(c.code, m.country_id) as country_code
-      FROM manufacturers m
-      LEFT JOIN countries c ON m.country_id = c.code
-      WHERE LOWER(m.name) = LOWER($1)
+        id,
+        name,
+        contact_info,
+        website,
+        created_at,
+        updated_at
+      FROM manufacturers 
+      WHERE LOWER(name) = LOWER($1)
     `;
     try {
       const result = await db.query(query, [name]);
@@ -74,16 +70,18 @@ const Manufacturer = {
     }
   },
 
-  // Obtener fabricante por ID (COMPATIBILIDAD DUAL)
+  // Obtener fabricante por ID (SIMPLIFICADO)
   findById: async (id) => {
     const query = `
       SELECT 
-        m.*,
-        COALESCE(c.name, m.country, 'País no especificado') as country_name,
-        COALESCE(c.code, m.country_id) as country_code
-      FROM manufacturers m
-      LEFT JOIN countries c ON m.country_id = c.code
-      WHERE m.id = $1
+        id,
+        name,
+        contact_info,
+        website,
+        created_at,
+        updated_at
+      FROM manufacturers 
+      WHERE id = $1
     `;
     try {
       const result = await db.query(query, [id]);
@@ -94,30 +92,30 @@ const Manufacturer = {
     }
   },
 
-  // Actualizar fabricante (COMPATIBILIDAD DUAL) - CORREGIDO: sin updated_at
+  // Actualizar fabricante (SIMPLIFICADO - SIN PAÍSES)
   update: async (id, manufacturerData) => {
-    const { name, country_id } = manufacturerData;
-    
-    // Obtener nombre del país si se proporciona country_id
-    let countryName = null;
-    if (country_id) {
-      const countryQuery = 'SELECT name FROM countries WHERE code = $1';
-      try {
-        const countryResult = await db.query(countryQuery, [country_id]);
-        countryName = countryResult.rows[0]?.name || null;
-      } catch (error) {
-        console.error('Error al obtener nombre del país:', error);
-      }
-    }
+    const { name, contact_info, website } = manufacturerData;
 
     const query = `
       UPDATE manufacturers 
-      SET name = $1, country = $2, country_id = $3
+      SET 
+        name = $1, 
+        contact_info = $2, 
+        website = $3,
+        updated_at = CURRENT_TIMESTAMP
       WHERE id = $4
       RETURNING *
     `;
+    
+    const values = [
+      name, 
+      contact_info || {}, 
+      website || null, 
+      id
+    ];
+    
     try {
-      const result = await db.query(query, [name, countryName, country_id, id]);
+      const result = await db.query(query, values);
       return result.rows[0];
     } catch (error) {
       console.error('Error en Manufacturer.update:', error);
@@ -125,7 +123,7 @@ const Manufacturer = {
     }
   },
 
-  // Eliminar fabricante
+  // Eliminar fabricante (MANTENIDO)
   delete: async (id) => {
     const query = 'DELETE FROM manufacturers WHERE id = $1 RETURNING *';
     try {

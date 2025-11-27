@@ -16,7 +16,9 @@ import {
   Upload,
   Map,
   FileCheck,
-  Sparkles
+  Sparkles,
+  Currency,
+  Image
 } from 'lucide-react';
 
 interface UploadWizardProps {
@@ -25,6 +27,14 @@ interface UploadWizardProps {
   suppliers: Supplier[];
   suppliersLoading: boolean;
 }
+
+// Opciones de moneda (basadas en la tabla countries)
+const currencyOptions = [
+  { code: 'USD', name: 'Dólar Estadounidense', symbol: '$' },
+  { code: 'MXN', name: 'Peso Mexicano', symbol: '$' },
+  { code: 'EUR', name: 'Euro', symbol: '€' },
+  { code: 'BRL', name: 'Real Brasileño', symbol: 'R$' },
+];
 
 export const UploadWizard: React.FC<UploadWizardProps> = ({
   session,
@@ -36,12 +46,15 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [newSupplierName, setNewSupplierName] = useState('');
   const [salesCategory, setSalesCategory] = useState<'regular' | 'near_expiry' | 'expired'>('regular');
+  const [currencyCode, setCurrencyCode] = useState('USD');
+  const [imageColumn, setImageColumn] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [uploadId, setUploadId] = useState<string>('');
   const [previewData, setPreviewData] = useState<any>(null);
   const [mappings, setMappings] = useState<any>(null);
   const [newlyCreatedSuppliers, setNewlyCreatedSuppliers] = useState<Supplier[]>([]);
   const [totalRows, setTotalRows] = useState<number>(0);
+  const [importProgress, setImportProgress] = useState<any>(null);
 
   const {
     uploadFile,
@@ -51,6 +64,7 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
     getMappingTemplate,
     saveMappingTemplate,
     createSupplier,
+    pollImportProgress,
     isUploading,
     isCleaning,
     isProcessing,
@@ -87,7 +101,9 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
       setNewSupplierName('');
     } catch (error) {
       console.error('❌ Error creando proveedor:', error);
-      alert('Error al crear el proveedor. Por favor, intenta nuevamente.');
+      // CORRECCIÓN 1: Manejo seguro de errores
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al crear el proveedor';
+      alert(`Error al crear el proveedor: ${errorMessage}`);
     }
   };
 
@@ -102,7 +118,9 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
       setStep(2);
     } catch (error) {
       console.error('Error en limpieza:', error);
-      alert('Error al limpiar el catálogo. Verifica que el proveedor exista.');
+      // CORRECCIÓN 2: Manejo seguro de errores
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al limpiar el catálogo';
+      alert(`Error al limpiar el catálogo: ${errorMessage}`);
     }
   };
 
@@ -114,7 +132,9 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
       const result = await uploadFile({
         supplier_id: selectedSupplierId,
         sales_category: salesCategory,
-        file: selectedFile
+        file: selectedFile,
+        currency_code: currencyCode,
+        image_column: imageColumn || undefined
       });
       
       setUploadId(result.upload_id);
@@ -129,6 +149,9 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
       setStep(3);
     } catch (error) {
       console.error('Error en upload:', error);
+      // CORRECCIÓN 3: Manejo seguro de errores
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al subir el archivo';
+      alert(`Error al subir el archivo: ${errorMessage}`);
     }
   };
 
@@ -142,7 +165,9 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
       });
       
       const supplier = allSuppliers.find(s => s.id === selectedSupplierId);
-      const result = await processImport({
+      
+      // Iniciar procesamiento
+      await processImport({
         upload_id: uploadId,
         mappings: finalMappings,
         supplier_id: selectedSupplierId,
@@ -150,14 +175,40 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
         supplier_name: supplier?.name || 'Proveedor'
       });
       
+      // Iniciar monitoreo de progreso en tiempo real
       setSession({ 
         ...session, 
-        status: 'complete',
-        results: result 
+        status: 'processing'
       });
       setStep(4);
+      
+      // Iniciar polling para progreso
+      pollImportProgress(uploadId, (progress) => {
+        setImportProgress(progress);
+        
+        // Si la importación terminó, actualizar estado
+        if (progress && ['completed', 'completed_with_errors', 'error'].includes(progress.status)) {
+          setSession({ 
+            ...session, 
+            status: 'complete',
+            results: {
+              total_rows: progress.total_rows,
+              successful_lots: progress.processed_rows,
+              errors_count: progress.error_messages?.length || 0
+            }
+          });
+        }
+      });
+      
     } catch (error) {
       console.error('Error en procesamiento:', error);
+      // CORRECCIÓN 4: Manejo seguro de errores
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al procesar la importación';
+      setSession({ 
+        ...session, 
+        status: 'error',
+        error: errorMessage 
+      });
     }
   };
 
@@ -166,12 +217,15 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
     setSelectedSupplierId('');
     setNewSupplierName('');
     setSalesCategory('regular');
+    setCurrencyCode('USD');
+    setImageColumn('');
     setFile(null);
     setUploadId('');
     setPreviewData(null);
     setMappings(null);
     setTotalRows(0);
     setNewlyCreatedSuppliers([]);
+    setImportProgress(null);
     setSession({
       id: '1',
       status: 'selecting',
@@ -181,10 +235,10 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
 
   // Configuración de pasos para el indicador
   const steps = [
-    { number: 1, title: 'Proveedor & Categoría', icon: Building, status: step >= 1 ? 'completed' : 'current' },
+    { number: 1, title: 'Configuración', icon: Building, status: step >= 1 ? 'completed' : 'current' },
     { number: 2, title: 'Subir Archivo', icon: Upload, status: step >= 2 ? 'completed' : step === 2 ? 'current' : 'upcoming' },
     { number: 3, title: 'Mapear Columnas', icon: Map, status: step >= 3 ? 'completed' : step === 3 ? 'current' : 'upcoming' },
-    { number: 4, title: 'Resultados', icon: FileCheck, status: step >= 4 ? 'completed' : step === 4 ? 'current' : 'upcoming' },
+    { number: 4, title: 'Progreso', icon: FileCheck, status: step >= 4 ? 'completed' : step === 4 ? 'current' : 'upcoming' },
   ];
 
   return (
@@ -227,7 +281,7 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
         </div>
       </div>
 
-      {/* Paso 1: Selección de proveedor y categoría - REDISEÑADO */}
+      {/* Paso 1: Configuración */}
       {step === 1 && (
         <div className="space-y-8">
           <div className="text-center">
@@ -236,13 +290,14 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
             </div>
             <h3 className="text-2xl font-bold text-gray-900">Configurar Importación</h3>
             <p className="text-gray-600 mt-2 text-lg">
-              Selecciona el proveedor y tipo de catálogo a importar
+              Selecciona el proveedor, categoría y configuración de moneda
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Panel de Proveedores */}
+            {/* Panel Izquierdo: Proveedor y Moneda */}
             <div className="space-y-6">
+              {/* Proveedores Existentes */}
               <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                 <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
                   <Package className="h-5 w-5 text-blue-600" />
@@ -275,6 +330,42 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
                       ? allSuppliers.find(s => s.id === selectedSupplierId)?.name 
                       : 'Ninguno seleccionado'
                     }
+                  </p>
+                </div>
+              </div>
+
+              {/* Selector de Moneda */}
+              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                  <Currency className="h-5 w-5 text-purple-600" />
+                  <span>Moneda del Archivo</span>
+                </h4>
+                
+                <div className="space-y-3">
+                  {currencyOptions.map(currency => (
+                    <label key={currency.code} className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
+                      <input
+                        type="radio"
+                        name="currency"
+                        value={currency.code}
+                        checked={currencyCode === currency.code}
+                        onChange={(e) => setCurrencyCode(e.target.value)}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{currency.name}</div>
+                        <div className="text-sm text-gray-600">{currency.symbol} • {currency.code}</div>
+                      </div>
+                      {currencyCode === currency.code && (
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      )}
+                    </label>
+                  ))}
+                </div>
+
+                <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <p className="text-sm text-purple-700">
+                    <strong>Nota:</strong> Los precios se convertirán automáticamente a USD usando las tasas de cambio actuales.
                   </p>
                 </div>
               </div>
@@ -317,8 +408,9 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
               </div>
             </div>
 
-            {/* Panel de Categoría */}
+            {/* Panel Derecho: Categoría y Configuración Avanzada */}
             <div className="space-y-6">
+              {/* Categoría de Caducidad */}
               <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                 <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
                   <Calendar className="h-5 w-5 text-purple-600" />
@@ -371,6 +463,34 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
                       </div>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Configuración de Imágenes (Opcional) */}
+              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                  <Image className="h-5 w-5 text-indigo-600" />
+                  <span>Imágenes (Opcional)</span>
+                </h4>
+                
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600 mb-3">
+                    Si tu archivo incluye una columna con URLs de imágenes, especifica su nombre:
+                  </p>
+                  
+                  <input
+                    type="text"
+                    value={imageColumn}
+                    onChange={(e) => setImageColumn(e.target.value)}
+                    placeholder="Ej: imagen_url, image, foto"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  />
+                  
+                  <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <p className="text-sm text-indigo-700">
+                      <strong>Tip:</strong> Las imágenes se procesarán de forma opcional y no detendrán la importación si hay errores.
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -442,7 +562,8 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
                       <span className="font-medium">{allSuppliers.find(s => s.id === selectedSupplierId)?.name}</span> • {
                         salesCategory === 'regular' ? '🟢 En Fecha' :
                         salesCategory === 'near_expiry' ? '🟡 Fecha Cerca' : '🔴 Caducados'
-                      }
+                      } • 💰 {currencyOptions.find(c => c.code === currencyCode)?.name}
+                      {imageColumn && ` • 🖼️ Columna: ${imageColumn}`}
                     </p>
                   </div>
                 </div>
@@ -471,6 +592,7 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
             </p>
           </div>
 
+          {/* CORRECCIÓN 5: Quitar propiedades no soportadas por ahora */}
           <ColumnMapper
             previewData={previewData.preview}
             availableColumns={previewData.available_columns}
@@ -490,17 +612,24 @@ export const UploadWizard: React.FC<UploadWizardProps> = ({
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
               <FileCheck className="h-8 w-8 text-blue-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900">Resultados de la Importación</h3>
+            <h3 className="text-2xl font-bold text-gray-900">
+              {session.status === 'processing' ? 'Procesando Importación' : 'Resultados de la Importación'}
+            </h3>
             <p className="text-gray-600 mt-2 text-lg">
-              {session.status === 'processing' ? 'Procesando tu importación...' : 'Importación completada'}
+              {session.status === 'processing' 
+                ? 'Tu importación está siendo procesada...' 
+                : 'Importación completada'
+              }
             </p>
           </div>
 
           {session.status === 'processing' && (
+            // CORRECCIÓN 6: Usar ImportProgress sin propiedades adicionales por ahora
             <ImportProgress />
           )}
           
           {session.status === 'complete' && session.results && (
+            // CORRECCIÓN 7: Usar ImportResults sin propiedades adicionales por ahora
             <ImportResults 
               results={session.results} 
               onNewImport={handleNewImport}

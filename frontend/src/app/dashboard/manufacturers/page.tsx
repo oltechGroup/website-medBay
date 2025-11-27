@@ -1,207 +1,140 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
-import Badge from '@/components/ui/Badge';
+import { useState } from 'react';
+import Link from 'next/link';
 import { useManufacturers } from '@/hooks/useManufacturers';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import Input from '@/components/ui/Input';
+import { ManufacturerStatsCards } from '@/components/features/manufacturers/ManufacturerStatsCards';
+import ManufacturerTable from '@/components/features/manufacturers/ManufacturerTable';
+import { ManufacturerFilters } from '@/components/features/manufacturers/ManufacturerFilters';
+import { Plus, RefreshCw, Factory } from 'lucide-react';
 
 export default function ManufacturersPage() {
-  const router = useRouter();
-  const { manufacturers, isLoading, deleteManufacturer, isDeleting } = useManufacturers();
+  const { 
+    manufacturers = [], 
+    isLoading, 
+    error, 
+    deleteManufacturer,
+    isDeleting,
+    refetch
+  } = useManufacturers();
+  
   const [searchTerm, setSearchTerm] = useState('');
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
-  // Filtrar fabricantes basado en la búsqueda
-  const filteredManufacturers = manufacturers?.filter(manufacturer =>
+  // Filtrar fabricantes
+  const filteredManufacturers = manufacturers.filter(manufacturer =>
     manufacturer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    manufacturer.country_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    manufacturer.contact_info?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    manufacturer.contact_info?.contact_person?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    manufacturer.contact_info?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    manufacturer.website?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Paginación
+  const totalPages = Math.ceil(filteredManufacturers.length / itemsPerPage);
+  const paginatedManufacturers = filteredManufacturers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  const handleSearchSubmit = () => {
+    // La búsqueda se hace en tiempo real, esto es para logging
+    console.log('Búsqueda ejecutada:', searchTerm);
+  };
+
+  const handleRefresh = () => {
+    refetch();
+  };
+
   const handleDelete = async (id: string) => {
-    try {
-      await deleteManufacturer(id);
-      setDeleteId(null);
-    } catch (error) {
-      console.error('Error al eliminar fabricante:', error);
+    if (confirm('¿Estás seguro de que quieres eliminar este fabricante?')) {
+      try {
+        await deleteManufacturer(id);
+        refetch();
+      } catch (error) {
+        console.error('Error al eliminar fabricante:', error);
+        alert('Error al eliminar el fabricante. Puede que esté siendo utilizado en productos.');
+      }
     }
   };
 
-  if (isLoading) {
+  if (error) {
     return (
-      <div className="container mx-auto py-6">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-lg text-gray-600">Cargando fabricantes...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Factory className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error al cargar fabricantes</h2>
+          <p className="text-gray-600 mb-6">Ocurrió un problema al cargar la información de fabricantes.</p>
+          <button
+            onClick={handleRefresh}
+            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Reintentar
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Fabricantes</h1>
-          <p className="text-gray-600 mt-2">
-            Gestiona los fabricantes de productos médicos
-          </p>
+          <p className="text-gray-600 mt-2">Gestiona los fabricantes de productos médicos en el sistema</p>
         </div>
-        
-        <Button
-          onClick={() => router.push('/dashboard/manufacturers/new')}
-          icon={<Plus className="h-4 w-4" />}
-        >
-          Nuevo Fabricante
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <button 
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualizar
+          </button>
+          <Link href="/dashboard/manufacturers/new" className="w-full sm:w-auto">
+            <button className="flex items-center justify-center w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 shadow-sm hover:shadow-md">
+              <Plus className="h-4 w-4 mr-2" />
+              Agregar Fabricante
+            </button>
+          </Link>
+        </div>
       </div>
 
-      {/* Barra de búsqueda */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <Input
-                icon={<Search className="h-4 w-4 text-gray-400" />}
-                placeholder="Buscar por nombre o país..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="text-sm text-gray-500 flex items-center">
-              {filteredManufacturers?.length || 0} de {manufacturers?.length || 0} fabricantes
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Tarjetas de estadísticas */}
+      <ManufacturerStatsCards 
+        totalCount={manufacturers.length} 
+        isLoading={isLoading}
+      />
+
+      {/* Filtros */}
+      <ManufacturerFilters
+        searchTerm={searchTerm}
+        onSearchChange={handleSearchChange}
+        onSearchSubmit={handleSearchSubmit}
+      />
 
       {/* Tabla de fabricantes */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Fabricantes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {filteredManufacturers && filteredManufacturers.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fabricante</TableHead>
-                    <TableHead>País</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredManufacturers.map((manufacturer) => (
-                    <TableRow key={manufacturer.id}>
-                      <TableCell>
-                        <div className="font-medium text-gray-900">
-                          {manufacturer.name}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        {manufacturer.country_name ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">📍</span>
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {manufacturer.country_name}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {manufacturer.country_code}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-sm">No asignado</span>
-                        )}
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push(`/dashboard/manufacturers/edit/${manufacturer.id}`)}
-                            icon={<Edit className="h-4 w-4" />}
-                          >
-                            Editar
-                          </Button>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setDeleteId(manufacturer.id)}
-                            disabled={isDeleting}
-                            icon={<Trash2 className="h-4 w-4" />}
-                          >
-                            Eliminar
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="text-gray-400 text-lg mb-2">
-                {searchTerm ? 'No se encontraron fabricantes' : 'No hay fabricantes registrados'}
-              </div>
-              <p className="text-gray-500 mb-4">
-                {searchTerm 
-                  ? 'Intenta con otros términos de búsqueda'
-                  : 'Comienza agregando tu primer fabricante'
-                }
-              </p>
-              {!searchTerm && (
-                <Button
-                  onClick={() => router.push('/dashboard/manufacturers/new')}
-                  icon={<Plus className="h-4 w-4" />}
-                >
-                  Agregar Primer Fabricante
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <ManufacturerTable
+        manufacturers={paginatedManufacturers}
+        loading={isLoading}
+        onDelete={handleDelete}
+        isDeleting={isDeleting}
+      />
 
-      {/* Modal de confirmación de eliminación */}
-      {deleteId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="max-w-md w-full">
-            <CardHeader>
-              <CardTitle>Confirmar Eliminación</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
-                ¿Estás seguro de que quieres eliminar este fabricante? Esta acción no se puede deshacer.
-              </p>
-              <div className="flex gap-4">
-                <Button
-                  variant="destructive"
-                  onClick={() => handleDelete(deleteId)}
-                  loading={isDeleting}
-                >
-                  Eliminar
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setDeleteId(null)}
-                  disabled={isDeleting}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Información de paginación */}
+      {filteredManufacturers.length > 0 && (
+        <div className="text-center text-sm text-gray-600">
+          Mostrando {paginatedManufacturers.length} de {filteredManufacturers.length} fabricantes
+          {totalPages > 1 && ` - Página ${currentPage} de ${totalPages}`}
         </div>
       )}
     </div>

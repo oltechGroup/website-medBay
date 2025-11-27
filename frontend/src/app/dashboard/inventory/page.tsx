@@ -1,3 +1,5 @@
+// frontend/src/app/dashboard/inventory/page.tsx
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,18 +9,21 @@ import {
   Building, 
   TrendingUp, 
   DollarSign,
-  Users,
-  Calendar,
-  Tag,
-  Box,
-  ShoppingCart
+  Users, 
+  Calendar, 
+  Tag, 
+  Box, 
+  ShoppingCart,
+  Grid3X3,
+  List,
+  Plus
 } from 'lucide-react';
 import { useInventory, SupplierMetrics, InventoryDashboard } from '@/hooks/useInventory';
 import { SupplierCard } from '@/components/features/inventory/SupplierCard';
 
 export default function InventoryPage() {
   const router = useRouter();
-  const { getSuppliersMetrics, getInventoryDashboard, loading, error } = useInventory();
+  const { getSuppliersMetrics, getDashboard, loading, error } = useInventory();
   
   const [suppliers, setSuppliers] = useState<SupplierMetrics[]>([]);
   const [dashboard, setDashboard] = useState<InventoryDashboard | null>(null);
@@ -32,7 +37,7 @@ export default function InventoryPage() {
     try {
       const [suppliersData, dashboardData] = await Promise.all([
         getSuppliersMetrics(),
-        getInventoryDashboard()
+        getDashboard()
       ]);
       setSuppliers(suppliersData);
       setDashboard(dashboardData);
@@ -49,17 +54,15 @@ export default function InventoryPage() {
     supplier.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // ✅ ACTUALIZADO: Formatear valor monetario en USD
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('es-MX', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'MXN',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(amount);
   };
 
-  // Formatear fecha con hora
   const formatDateTime = (dateString: string) => {
     if (!dateString) return 'No hay datos';
     return new Date(dateString).toLocaleString('es-MX', {
@@ -70,6 +73,31 @@ export default function InventoryPage() {
       minute: '2-digit'
     });
   };
+
+  // Navegación rápida
+  const quickActions = [
+    {
+      title: 'Ver Todos los Lotes',
+      description: 'Gestión completa de todos los lotes del sistema',
+      icon: List,
+      color: 'blue',
+      action: () => router.push('/dashboard/inventory/lots')
+    },
+    {
+      title: 'Crear Nuevo Lote',
+      description: 'Agregar un nuevo lote al inventario',
+      icon: Plus,
+      color: 'green', 
+      action: () => router.push('/dashboard/inventory/lots/new')
+    },
+    {
+      title: 'Dashboard Avanzado',
+      description: 'Estadísticas y reportes detallados',
+      icon: TrendingUp,
+      color: 'purple',
+      action: () => router.push('/dashboard/inventory?view=advanced')
+    }
+  ];
 
   if (loading && suppliers.length === 0) {
     return (
@@ -104,17 +132,36 @@ export default function InventoryPage() {
           </p>
         </div>
 
-        {/* Dashboard Stats */}
+        {/* 🚀 ACCIONES RÁPIDAS */}
+<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+  {quickActions.map((action, index) => {
+    const Icon = action.icon;
+    
+    return (
+      <button
+        key={index}
+        onClick={action.action}
+        className="bg-white border border-gray-300 rounded-lg p-6 text-left transition-all hover:shadow-md hover:border-blue-500 w-full"
+      >
+        <div className="flex items-center space-x-3 mb-3">
+          <Icon className="h-6 w-6 text-gray-600" />
+          <h3 className="text-lg font-semibold text-gray-900">{action.title}</h3>
+        </div>
+        <p className="text-sm text-gray-600">{action.description}</p>
+      </button>
+    );
+  })}
+</div>
+
+        {/* 📊 DASHBOARD STATS */}
         {dashboard && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* 🏷️ TOTAL PRODUCTOS ÚNICOS */}
+            {/* Productos Únicos */}
             <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Productos Únicos</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {dashboard.unique_products || dashboard.total_products || 0}
-                  </p>
+                  <p className="text-2xl font-bold text-gray-900">{dashboard.unique_products}</p>
                   <p className="text-xs text-gray-500 mt-1">Productos diferentes</p>
                 </div>
                 <div className="p-3 bg-purple-100 rounded-lg">
@@ -123,7 +170,7 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            {/* 👥 PROVEEDORES ACTIVOS */}
+            {/* Proveedores Activos */}
             <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
@@ -137,7 +184,7 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            {/* 💰 VALOR TOTAL REAL - ✅ ACTUALIZADO */}
+            {/* Valor Total */}
             <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
@@ -145,7 +192,7 @@ export default function InventoryPage() {
                   <p className="text-2xl font-bold text-gray-900">
                     {formatCurrency(dashboard.total_value)}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">Valor real en USD</p>
+                  <p className="text-xs text-gray-500 mt-1">Valor total</p>
                 </div>
                 <div className="p-3 bg-amber-100 rounded-lg">
                   <DollarSign className="h-6 w-6 text-amber-600" />
@@ -153,13 +200,13 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            {/* 📅 ÚLTIMA IMPORTACIÓN DETALLADA */}
+            {/* Última Importación */}
             <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Última Importación</p>
                   <p className="text-lg font-bold text-gray-900">
-                    {formatDateTime(dashboard.last_import_date)}
+                    {formatDateTime(dashboard.last_import)}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">Fecha y hora</p>
                 </div>
@@ -171,15 +218,23 @@ export default function InventoryPage() {
           </div>
         )}
 
-        {/* 📊 CATEGORÍAS DE LOTES */}
+        {/* 📈 CATEGORÍAS DE LOTES */}
         {dashboard && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {/* 🟢 LOTES EN FECHA */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            {/* Lotes en Fecha */}
+            <div 
+              className="bg-green-50 border border-green-200 rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => {
+                // Navegar al primer proveedor con lotes disponibles, o mostrar todos
+                if (suppliers.length > 0) {
+                  router.push(`/dashboard/inventory/${suppliers[0].id}/available`);
+                }
+              }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-green-800">Lotes en Fecha</p>
-                  <p className="text-2xl font-bold text-green-900">{dashboard.total_regular}</p>
+                  <p className="text-2xl font-bold text-green-900">{dashboard.available_lots}</p>
                   <p className="text-xs text-green-600 mt-1">Vigentes</p>
                 </div>
                 <div className="p-3 bg-green-100 rounded-lg">
@@ -188,12 +243,19 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            {/* 🟡 LOTES FECHA CORTA */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            {/* Lotes Fecha Corta */}
+            <div 
+              className="bg-amber-50 border border-amber-200 rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => {
+                if (suppliers.length > 0) {
+                  router.push(`/dashboard/inventory/${suppliers[0].id}/near-expiry`);
+                }
+              }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-amber-800">Lotes Fecha Corta</p>
-                  <p className="text-2xl font-bold text-amber-900">{dashboard.total_near_expiry}</p>
+                  <p className="text-2xl font-bold text-amber-900">{dashboard.near_expiry_lots}</p>
                   <p className="text-xs text-amber-600 mt-1">Próximos a caducar</p>
                 </div>
                 <div className="p-3 bg-amber-100 rounded-lg">
@@ -202,12 +264,19 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            {/* 🔴 LOTES CADUCADOS */}
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            {/* Lotes Caducados */}
+            <div 
+              className="bg-red-50 border border-red-200 rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => {
+                if (suppliers.length > 0) {
+                  router.push(`/dashboard/inventory/${suppliers[0].id}/expired`);
+                }
+              }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-red-800">Lotes Caducados</p>
-                  <p className="text-2xl font-bold text-red-900">{dashboard.total_expired}</p>
+                  <p className="text-2xl font-bold text-red-900">{dashboard.expired_lots}</p>
                   <p className="text-xs text-red-600 mt-1">Vencidos</p>
                 </div>
                 <div className="p-3 bg-red-100 rounded-lg">
@@ -218,10 +287,10 @@ export default function InventoryPage() {
           </div>
         )}
 
-        {/* Search and Header */}
+        {/* 🔍 BUSCAR PROVEEDORES */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4 sm:mb-0">
-            Proveedores ({suppliers.length})
+            Proveedores Activos ({suppliers.length})
           </h2>
           <div className="w-full sm:w-64">
             <input
@@ -234,13 +303,14 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {/* Suppliers Grid */}
+        {/* ❌ ERROR */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <p className="text-red-800">{error}</p>
           </div>
         )}
 
+        {/* 📦 GRILLA DE PROVEEDORES */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredSuppliers.map((supplier) => (
             <SupplierCard

@@ -1,129 +1,55 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
-import Label from '@/components/ui/Label';
-import { useManufacturers } from '@/hooks/useManufacturers';
-import { useCountries } from '@/hooks/useCountries';
+import { ManufacturerForm } from '@/components/features/manufacturers/ManufacturerForm';
+import { useManufacturers, CreateManufacturerData } from '@/hooks/useManufacturers';
 
 export default function NewManufacturerPage() {
   const router = useRouter();
   const { createManufacturer, isCreating } = useManufacturers();
-  const { data: countries, isLoading: isLoadingCountries } = useCountries();
+  const [error, setError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    country_id: '',
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'El nombre del fabricante es requerido';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
+  const handleSubmit = async (data: CreateManufacturerData) => {
     try {
-      await createManufacturer({
-        name: formData.name,
-        country_id: formData.country_id || undefined,
-      });
-
+      setError(null);
+      await createManufacturer(data);
+      // Redirigir a la lista después de crear exitosamente
       router.push('/dashboard/manufacturers');
-    } catch (error) {
-      console.error('Error al crear fabricante:', error);
+    } catch (err: any) {
+      console.error('Error al crear fabricante:', err);
+      setError(
+        err.response?.data?.error || 
+        'Error al crear el fabricante. Por favor, intenta de nuevo.'
+      );
     }
   };
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Nuevo Fabricante</h1>
-        <p className="text-gray-600 mt-2">
-          Complete la información del nuevo fabricante
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Información del Fabricante</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input
-                label="Nombre del Fabricante *"
-                value={formData.name}
-                onChange={(e) => handleChange('name', e.target.value)}
-                error={errors.name}
-                placeholder="Ej: Pfizer"
-                required
-              />
-
-              <div className="space-y-2">
-                <Label htmlFor="country_id">País de Origen</Label>
-                <Select
-                  value={formData.country_id}
-                  onChange={(e) => handleChange('country_id', e.target.value)}
-                  options={[
-                    { value: '', label: 'Selecciona un país...' },
-                    ...(countries?.map(country => ({
-                      value: country.code,
-                      label: `📍 ${country.name} (${country.code})`
-                    })) || [])
-                  ]}
-                  disabled={isLoadingCountries}
-                />
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Mostrar error general */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
               </div>
             </div>
+          </div>
+        )}
 
-            <div className="flex gap-4 pt-6 border-t">
-              <Button
-                type="submit"
-                loading={isCreating}
-                disabled={isCreating || isLoadingCountries}
-              >
-                Crear Fabricante
-              </Button>
-              
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push('/dashboard/manufacturers')}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+        <ManufacturerForm
+          onSubmit={handleSubmit}
+          isSubmitting={isCreating}
+        />
+      </div>
     </div>
   );
 }

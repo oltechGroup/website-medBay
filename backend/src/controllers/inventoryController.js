@@ -1,402 +1,192 @@
-// backend/src/controllers/inventoryController.js - VERSIÓN COMPLETA CON MÉTRICAS CLARAS
-const pool = require('../config/database');
+//backend/src/controllers/inventoryController.js
+
+const { pool } = require('../config/database'); // ✅ AGREGAR importación de pool
+const ProductLot = require('../models/productLotModel');
 
 const inventoryController = {
-  // =============================================
-  // NUEVO ENDPOINT: MÉTRICAS CLARAS POR PROVEEDOR
-  // =============================================
-
-// En backend/src/controllers/inventoryController.js - FUNCIÓN getSuppliersMetrics ACTUALIZADA
-getSuppliersMetrics: async (req, res) => {
-  try {
-    console.log('📊 Obteniendo métricas claras por proveedor...');
-    
-    const query = `
-      SELECT 
-        s.id,
-        s.name as supplier_name,
-        
-        -- 🏷️ PRODUCTOS ÚNICOS (COUNT DISTINCT de productos)
-        COUNT(DISTINCT ps.product_id) as unique_products,
-        
-        -- 📦 LOTES ACTIVOS (lotes con stock > 0)
-        COUNT(DISTINCT CASE WHEN pl.quantity > 0 THEN pl.id END) as active_lots,
-        
-        -- 🛒 UNIDADES EN STOCK (SUM de cantidades)
-        COALESCE(SUM(pl.quantity), 0) as total_units,
-        
-        -- 💰 VALOR TOTAL REAL (SUM de cantidad * precio) - NUEVO
-        COALESCE(SUM(pl.quantity * pl.price_amount), 0) as total_value,
-        
-        -- 📊 LOTES POR CATEGORÍA (para compatibilidad y barras de progreso)
-        COUNT(DISTINCT CASE WHEN pl.quantity > 0 AND pl.sales_category = 'regular' THEN pl.id END) as regular_lots,
-        COUNT(DISTINCT CASE WHEN pl.quantity > 0 AND pl.sales_category = 'near_expiry' THEN pl.id END) as near_expiry_lots,
-        COUNT(DISTINCT CASE WHEN pl.quantity > 0 AND pl.sales_category = 'expired' THEN pl.id END) as expired_lots,
-        COUNT(DISTINCT CASE WHEN pl.quantity > 0 THEN pl.id END) as total_lots,
-        
-        -- 📅 ÚLTIMA IMPORTACIÓN
-        MAX(pl.created_at) as last_import
-        
-      FROM suppliers s
-      LEFT JOIN product_suppliers ps ON s.id = ps.supplier_id
-      LEFT JOIN product_lots pl ON ps.id = pl.product_supplier_id
-      GROUP BY s.id, s.name
-      ORDER BY s.name
-    `;
-    
-    const result = await pool.query(query);
-    
-    console.log(`✅ Métricas obtenidas: ${result.rows.length} proveedores`);
-    
-    res.json(result.rows);
-  } catch (error) {
-    console.error('❌ Error al obtener métricas de proveedores:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-},
-
-  // =============================================
-  // ENDPOINT EXISTENTE - MANTENIDO PARA COMPATIBILIDAD
-  // =============================================
-
-  getSuppliersCatalogSummary: async (req, res) => {
+  // ✅ DASHBOARD PRINCIPAL
+  getDashboard: async (req, res) => {
     try {
-      console.log('📊 Obteniendo resumen de catálogos por proveedor...');
-      
-      const query = `
-        SELECT 
-          s.id,
-          s.name as supplier_name,
-          COUNT(DISTINCT CASE WHEN pl.sales_category = 'regular' THEN ps.product_id END) as regular_products,
-          COUNT(DISTINCT CASE WHEN pl.sales_category = 'near_expiry' THEN ps.product_id END) as near_expiry_products,
-          COUNT(DISTINCT CASE WHEN pl.sales_category = 'expired' THEN ps.product_id END) as expired_products,
-          COUNT(DISTINCT ps.product_id) as total_products,
-          MAX(pl.created_at) as last_import
-        FROM suppliers s
-        LEFT JOIN product_suppliers ps ON s.id = ps.supplier_id
-        LEFT JOIN product_lots pl ON ps.id = pl.product_supplier_id
-        GROUP BY s.id, s.name
-        ORDER BY s.name
-      `;
-      
-      const result = await pool.query(query);
-      
-      console.log(`✅ Resumen obtenido: ${result.rows.length} proveedores`);
-      
-      res.json(result.rows);
+      const metrics = await ProductLot.getDashboardMetrics();
+      res.json(metrics);
     } catch (error) {
-      console.error('❌ Error al obtener resumen de proveedores:', error);
+      console.error('Error en getDashboard:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
 
-  // =============================================
-  // NUEVO DASHBOARD CON MÉTRICAS CLARAS
-  // =============================================
-
-  getInventoryDashboard: async (req, res) => {
+  // ✅ MÉTRICAS POR PROVEEDOR
+  getSuppliersMetrics: async (req, res) => {
     try {
-      console.log('📈 Obteniendo dashboard de inventario con métricas claras...');
-      
-      const query = `
-        SELECT 
-          -- 🏷️ PRODUCTOS ÚNICOS
-          COUNT(DISTINCT ps.product_id) as unique_products,
-          
-          -- 📦 LOTES ACTIVOS
-          COUNT(DISTINCT CASE WHEN pl.quantity > 0 THEN pl.id END) as active_lots,
-          
-          -- 🛒 UNIDADES EN STOCK
-          COALESCE(SUM(pl.quantity), 0) as total_units,
-          
-          -- 📊 LOTES POR CATEGORÍA
-          COUNT(CASE WHEN pl.quantity > 0 AND pl.sales_category = 'regular' THEN 1 END) as total_regular,
-          COUNT(CASE WHEN pl.quantity > 0 AND pl.sales_category = 'near_expiry' THEN 1 END) as total_near_expiry,
-          COUNT(CASE WHEN pl.quantity > 0 AND pl.sales_category = 'expired' THEN 1 END) as total_expired,
-          
-          -- 🏢 TOTAL PROVEEDORES
-          COUNT(DISTINCT ps.supplier_id) as total_suppliers,
-          
-          -- 💰 VALOR TOTAL ESTIMADO
-          COALESCE(SUM(pl.quantity * pl.price_amount), 0) as total_value,
-          
-          -- 📅 ÚLTIMA ACTUALIZACIÓN
-          MAX(pl.created_at) as last_import_date
-        FROM product_lots pl
-        LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
-        WHERE pl.quantity > 0
-      `;
-      
-      const result = await pool.query(query);
-      
-      console.log('✅ Dashboard con métricas claras obtenido exitosamente');
-      
-      res.json(result.rows[0]);
+      const metrics = await ProductLot.getSuppliersMetrics();
+      res.json(metrics);
     } catch (error) {
-      console.error('❌ Error al obtener dashboard:', error);
+      console.error('Error en getSuppliersMetrics:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
 
-  // =============================================
-  // ENDPOINTS EXISTENTES (MANTENIDOS)
-  // =============================================
-
-  getInventoryLots: async (req, res) => {
+  // ✅ OBTENER TODOS LOS LOTES (CON FILTROS)
+  getLots: async (req, res) => {
     try {
-      console.log('📦 Obteniendo lotes de inventario...');
+      const filters = {
+        supplier_id: req.query.supplier_id,
+        status: req.query.status,
+        search: req.query.search
+      };
       
-      const query = `
-        -- PRODUCTOS CON LOTES (inventario existente)
-        SELECT 
-          pl.id,
-          pl.lot_number,
-          pl.expiry_date,
-          pl.status,
-          pl.sales_category,
-          pl.discount_price_amount,
-          pl.manual_discount,
-          pl.expiry_category_id,
-          pl.quantity as lot_quantity,
-          ps.product_id,
-          p.name as product_name,
-          p.global_sku as product_code,
-          p.description as product_description,
-          NULL as product_price,
-          COALESCE(i.quantity_on_hand, pl.quantity, 0) as quantity_on_hand,
-          ec.name as expiry_category_name,
-          ec.discount_percentage,
-          m.name as manufacturer_name,
-          s.name as supplier_name,
-          'has_lot' as record_type
-        FROM product_lots pl
-        LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
-        LEFT JOIN products p ON ps.product_id = p.id
-        LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
-        LEFT JOIN suppliers s ON ps.supplier_id = s.id
-        LEFT JOIN inventory i ON pl.id = i.product_lot_id
-        LEFT JOIN expiry_categories ec ON pl.expiry_category_id = ec.id
-
-        UNION ALL
-
-        -- PRODUCTOS SIN LOTES (solo en catálogo)
-        SELECT 
-          NULL as id,
-          NULL as lot_number,
-          NULL as expiry_date,
-          'available' as status,
-          'regular' as sales_category,
-          NULL as discount_price_amount,
-          false as manual_discount,
-          NULL as expiry_category_id,
-          0 as lot_quantity,
-          p.id as product_id,
-          p.name as product_name,
-          p.global_sku as product_code,
-          p.description as product_description,
-          NULL as product_price,
-          0 as quantity_on_hand,
-          NULL as expiry_category_name,
-          NULL as discount_percentage,
-          m.name as manufacturer_name,
-          NULL as supplier_name,
-          'no_lot' as record_type
-        FROM products p
-        LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
-        WHERE p.id NOT IN (
-          SELECT DISTINCT ps.product_id 
-          FROM product_suppliers ps 
-          JOIN product_lots pl ON ps.id = pl.product_supplier_id
-          WHERE ps.product_id IS NOT NULL
-        )
-        
-        ORDER BY 
-          record_type DESC,
-          expiry_date ASC NULLS LAST, 
-          product_name ASC
-      `;
-      
-      const result = await pool.query(query);
-      
-      const withLots = result.rows.filter(row => row.record_type === 'has_lot').length;
-      const withoutLots = result.rows.filter(row => row.record_type === 'no_lot').length;
-      
-      console.log(`✅ Se encontraron ${result.rows.length} registros (${withLots} con lotes, ${withoutLots} sin lotes)`);
-      
-      res.json(result.rows);
+      const lots = await ProductLot.findAll(filters);
+      res.json(lots);
     } catch (error) {
-      console.error('❌ Error al obtener lotes de inventario:', error);
+      console.error('Error en getLots:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
 
-  getCatalogBySupplierAndCategory: async (req, res) => {
+  // ✅ OBTENER LOTE POR ID
+  getLotById: async (req, res) => {
     try {
-      const { supplier_id, sales_category } = req.params;
+      const { id } = req.params;
+      const lot = await ProductLot.findById(id);
       
-      console.log(`📦 Obteniendo catálogo: proveedor ${supplier_id}, categoría ${sales_category}`);
+      if (!lot) {
+        return res.status(404).json({ error: 'Lote no encontrado' });
+      }
       
-      const query = `
-        SELECT 
-          pl.id,
-          pl.lot_number,
-          pl.expiry_date,
-          pl.quantity,
-          pl.price_amount,
-          pl.sales_category,
-          pl.status,
-          p.name as product_name,
-          p.global_sku as product_code,
-          p.description as product_description,
-          m.name as manufacturer_name,
-          ps.supplier_sku,
-          ps.supplier_name
-        FROM product_lots pl
-        LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
-        LEFT JOIN products p ON ps.product_id = p.id
-        LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
-        WHERE ps.supplier_id = $1 
-          AND pl.sales_category = $2
-          AND pl.quantity > 0
-        ORDER BY p.name, pl.expiry_date
-      `;
-      
-      const result = await pool.query(query, [supplier_id, sales_category]);
-      
-      console.log(`✅ Catálogo obtenido: ${result.rows.length} productos`);
-      
-      res.json(result.rows);
+      res.json(lot);
     } catch (error) {
-      console.error('❌ Error al obtener catálogo:', error);
+      console.error('Error en getLotById:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
 
-  createLotForProduct: async (req, res) => {
+  // ✅ CREAR NUEVO LOTE - SIN unit
+  createLot: async (req, res) => {
     try {
-      const { product_id, lot_number, expiry_date, quantity, supplier_id } = req.body;
-      console.log('🆕 Creando lote para producto:', { product_id, lot_number, expiry_date, quantity, supplier_id });
-
-      if (!product_id) {
-        return res.status(400).json({ error: 'product_id es requerido' });
-      }
-
-      if (!lot_number) {
-        return res.status(400).json({ error: 'lot_number es requerido' });
-      }
-
-      const productCheck = await pool.query('SELECT * FROM products WHERE id = $1', [product_id]);
-      if (productCheck.rows.length === 0) {
-        return res.status(404).json({ error: 'Producto no encontrado' });
-      }
-
-      let productSupplierId;
-      
-      if (supplier_id) {
-        const existingRelation = await pool.query(
-          'SELECT id FROM product_suppliers WHERE product_id = $1 AND supplier_id = $2',
-          [product_id, supplier_id]
-        );
-
-        if (existingRelation.rows.length > 0) {
-          productSupplierId = existingRelation.rows[0].id;
-        } else {
-          const supplierResult = await pool.query('SELECT name FROM suppliers WHERE id = $1', [supplier_id]);
-          const supplierName = supplierResult.rows.length > 0 ? supplierResult.rows[0].name : 'Proveedor Desconocido';
-          
-          const newRelation = await pool.query(
-            `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name, units_per_box)
-             VALUES ($1, $2, $3, $4, $5)
-             RETURNING id`,
-            [product_id, supplier_id, lot_number, supplierName, 1]
-          );
-          productSupplierId = newRelation.rows[0].id;
-        }
-      } else {
-        const existingRelation = await pool.query(
-          'SELECT id FROM product_suppliers WHERE product_id = $1 LIMIT 1',
-          [product_id]
-        );
-
-        if (existingRelation.rows.length > 0) {
-          productSupplierId = existingRelation.rows[0].id;
-        } else {
-          const defaultSupplierCheck = await pool.query(
-            `SELECT id FROM suppliers WHERE name = 'Proveedor por Defecto' LIMIT 1`
-          );
-
-          let supplierId;
-          if (defaultSupplierCheck.rows.length > 0) {
-            supplierId = defaultSupplierCheck.rows[0].id;
-          } else {
-            const defaultSupplier = await pool.query(
-              `INSERT INTO suppliers (name, country, default_currency) 
-               VALUES ($1, $2, $3) 
-               RETURNING id`,
-              ['Proveedor por Defecto', 'MX', 'MXN']
-            );
-            supplierId = defaultSupplier.rows[0].id;
-          }
-
-          const newRelation = await pool.query(
-            `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name, units_per_box)
-             VALUES ($1, $2, $3, $4, $5)
-             RETURNING id`,
-            [product_id, supplierId, lot_number, 'Proveedor por Defecto', 1]
-          );
-          productSupplierId = newRelation.rows[0].id;
-        }
-      }
-
-      const lotQuery = `
-        INSERT INTO product_lots (
-          product_supplier_id, 
-          lot_number, 
-          expiry_date, 
-          quantity, 
-          status
-          ${req.user ? ', created_by' : ''}
-        ) VALUES ($1, $2, $3, $4, $5 ${req.user ? ', $6' : ''})
-        RETURNING *
-      `;
-
-      const queryParams = [
-        productSupplierId,
+      const {
+        product_supplier_id,
         lot_number,
-        expiry_date || null,
-        quantity || 0,
-        'available'
-      ];
+        expiry_date,
+        quantity,
+        price,
+        status,
+        received_at
+      } = req.body;
 
-      if (req.user) {
-        queryParams.push(req.user.id || 1);
+      // Validaciones básicas (sin unit)
+      if (!product_supplier_id || !lot_number || !expiry_date || !quantity || !price || !status) {
+        return res.status(400).json({ 
+          error: 'Faltan campos requeridos: product_supplier_id, lot_number, expiry_date, quantity, price, status' 
+        });
       }
 
-      const lotResult = await pool.query(lotQuery, queryParams);
-      const newLot = lotResult.rows[0];
+      const newLot = await ProductLot.create({
+        product_supplier_id,
+        lot_number,
+        expiry_date,
+        quantity,
+        price,
+        status,
+        received_at
+      });
 
-      await pool.query(
-        'INSERT INTO inventory (product_lot_id, quantity_on_hand, last_updated) VALUES ($1, $2, CURRENT_TIMESTAMP)',
-        [newLot.id, quantity || 0]
-      );
-
-      console.log(`✅ Lote creado exitosamente para producto ${product_id}, ID: ${newLot.id}`);
-      
-      res.json({
-        success: true,
+      res.status(201).json({
         message: 'Lote creado exitosamente',
         lot: newLot
       });
-
     } catch (error) {
-      console.error('❌ Error al crear lote para producto:', error);
+      console.error('Error en createLot:', error);
       
-      if (error.code === '23505') {
-        return res.status(400).json({ 
-          error: 'El número de lote ya existe para este producto' 
-        });
+      if (error.code === '23505') { // Violación de unique constraint
+        return res.status(400).json({ error: 'El número de lote ya existe' });
       }
       
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
+
+  // ✅ ACTUALIZAR LOTE - SIN unit
+  updateLot: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        product_supplier_id,
+        lot_number,
+        expiry_date,
+        quantity,
+        price,
+        status,
+        received_at
+      } = req.body;
+
+      const updatedLot = await ProductLot.update(id, {
+        product_supplier_id,
+        lot_number,
+        expiry_date,
+        quantity,
+        price,
+        status,
+        received_at
+      });
+
+      if (!updatedLot) {
+        return res.status(404).json({ error: 'Lote no encontrado' });
+      }
+
+      res.json({
+        message: 'Lote actualizado exitosamente',
+        lot: updatedLot
+      });
+    } catch (error) {
+      console.error('Error en updateLot:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
+
+  // ✅ ELIMINAR LOTE
+  deleteLot: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deletedLot = await ProductLot.delete(id);
+
+      if (!deletedLot) {
+        return res.status(404).json({ error: 'Lote no encontrado' });
+      }
+
+      res.json({
+        message: 'Lote eliminado exitosamente',
+        lot: deletedLot
+      });
+    } catch (error) {
+      console.error('Error en deleteLot:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
+
+  // ✅ CATÁLOGO POR PROVEEDOR Y ESTADO
+  getCatalogBySupplier: async (req, res) => {
+    try {
+      const { supplier_id, status } = req.params;
+      
+      console.log(`📦 Buscando catálogo: proveedor ${supplier_id}, estado ${status}`);
+
+      // Validar que el estado sea válido
+      const validStatuses = ['available', 'near_expiry', 'expired'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Estado no válido' });
+      }
+
+      // Usar el modelo con filtros
+      const lots = await ProductLot.findAll({
+        supplier_id: supplier_id,
+        status: status
+      });
+
+      console.log(`✅ Catálogo obtenido: ${lots.length} lotes`);
+      
+      res.json(lots);
+    } catch (error) {
+      console.error('❌ Error en getCatalogBySupplier:', error);
       res.status(500).json({ 
         error: 'Error interno del servidor',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -404,337 +194,89 @@ getSuppliersMetrics: async (req, res) => {
     }
   },
 
-  adjustInventory: async (req, res) => {
+  // ✅ OBTENER PRODUCTOS Y PROVEEDORES PARA FORMULARIO
+  getFormData: async (req, res) => {
     try {
-      const { lot_id, adjustment, reason, adjusted_by } = req.body;
-      console.log(`🔄 Ajustando inventario para lote ${lot_id}: ${adjustment}`);
-
-      const lotCheck = await pool.query('SELECT * FROM product_lots WHERE id = $1', [lot_id]);
-      if (lotCheck.rows.length === 0) {
-        return res.status(404).json({ error: 'Lote no encontrado' });
-      }
-
-      const currentQuantity = lotCheck.rows[0].quantity || 0;
-      const newQuantity = currentQuantity + adjustment;
-      
-      if (newQuantity < 0) {
-        return res.status(400).json({ error: 'La cantidad resultante no puede ser negativa' });
-      }
-
-      const updateLotQuery = `
-        UPDATE product_lots 
-        SET quantity = $1, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $2
-        RETURNING *
-      `;
-      await pool.query(updateLotQuery, [newQuantity, lot_id]);
-
-      const inventoryCheck = await pool.query(
-        'SELECT * FROM inventory WHERE product_lot_id = $1', 
-        [lot_id]
-      );
-
-      if (inventoryCheck.rows.length > 0) {
-        await pool.query(
-          'UPDATE inventory SET quantity_on_hand = $1, last_updated = CURRENT_TIMESTAMP WHERE product_lot_id = $2',
-          [newQuantity, lot_id]
-        );
-      } else {
-        await pool.query(
-          'INSERT INTO inventory (product_lot_id, quantity_on_hand, last_updated) VALUES ($1, $2, CURRENT_TIMESTAMP)',
-          [lot_id, newQuantity]
-        );
-      }
-
-      console.log(`✅ Inventario ajustado: ${currentQuantity} → ${newQuantity}`);
-      
-      res.json({ 
-        success: true, 
-        message: 'Inventario ajustado exitosamente',
-        previous_quantity: currentQuantity,
-        new_quantity: newQuantity,
-        adjustment: adjustment
-      });
-    } catch (error) {
-      console.error('❌ Error al ajustar inventario:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  updateLotStatus: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { status } = req.body;
-
-      const validStatuses = ['available', 'reserved', 'expired', 'near_expiry', 'quarantine'];
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({ error: 'Estado inválido' });
-      }
-
-      const query = `
-        UPDATE product_lots 
-        SET status = $1, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $2
-        RETURNING *
+      // Obtener productos activos
+      const productsQuery = `
+        SELECT id, description as name, global_sku 
+        FROM products 
+        ORDER BY description
       `;
       
-      const result = await pool.query(query, [status, id]);
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Lote no encontrado' });
-      }
-
-      console.log(`✅ Estado del lote ${id} actualizado a: ${status}`);
-      
-      res.json(result.rows[0]);
-    } catch (error) {
-      console.error('❌ Error al actualizar estado del lote:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  updateExpiryCategory: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { expiry_category_id } = req.body;
-
-      const query = `
-        UPDATE product_lots 
-        SET expiry_category_id = $1, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $2
-        RETURNING *
+      // Obtener proveedores activos
+      const suppliersQuery = `
+        SELECT id, name, country_code 
+        FROM suppliers 
+        WHERE is_active = true 
+        ORDER BY name
       `;
       
-      const result = await pool.query(query, [expiry_category_id, id]);
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Lote no encontrado' });
-      }
-
-      console.log(`✅ Categoría de expiración actualizada para lote ${id}`);
-      
-      res.json(result.rows[0]);
-    } catch (error) {
-      console.error('❌ Error al actualizar categoría de expiración:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  getExpiryCategories: async (req, res) => {
-    try {
-      const query = 'SELECT * FROM expiry_categories WHERE is_active = true ORDER BY sort_order, name';
-      const result = await pool.query(query);
-      
-      console.log(`✅ Se encontraron ${result.rows.length} categorías de expiración`);
-      
-      res.json(result.rows);
-    } catch (error) {
-      console.error('❌ Error al obtener categorías de expiración:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  createLot: async (req, res) => {
-    try {
-      const lotData = {
-        ...req.body,
-        created_by: req.user ? req.user.id : 1
-      };
-
-      if (!lotData.product_supplier_id) {
-        return res.status(400).json({ error: 'product_supplier_id es requerido' });
-      }
-
-      if (!lotData.quantity || lotData.quantity < 0) {
-        return res.status(400).json({ error: 'Cantidad válida es requerida' });
-      }
-
-      const query = `
-        INSERT INTO product_lots (product_supplier_id, lot_number, expiry_date, quantity, status, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING *
-      `;
-      
-      const result = await pool.query(query, [
-        lotData.product_supplier_id,
-        lotData.lot_number,
-        lotData.expiry_date,
-        lotData.quantity,
-        lotData.status || 'available',
-        lotData.created_by
+      const [productsResult, suppliersResult] = await Promise.all([
+        pool.query(productsQuery),
+        pool.query(suppliersQuery)
       ]);
 
-      res.status(201).json({
-        message: 'Lote creado exitosamente',
-        lot: result.rows[0]
-      });
-
-    } catch (error) {
-      console.error('❌ Error al crear lote:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  getAllLots: async (req, res) => {
-    try {
-      const query = 'SELECT * FROM product_lots ORDER BY created_at DESC';
-      const result = await pool.query(query);
-      
-      res.json(result.rows);
-    } catch (error) {
-      console.error('❌ Error al obtener lotes:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  getLotsByProduct: async (req, res) => {
-    try {
-      const { productId } = req.params;
-      
-      const query = `
-        SELECT pl.* 
-        FROM product_lots pl
-        JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
-        WHERE ps.product_id = $1
-        ORDER BY pl.expiry_date ASC
-      `;
-      
-      const result = await pool.query(query, [productId]);
-      
-      res.json(result.rows);
-    } catch (error) {
-      console.error('❌ Error al obtener lotes por producto:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  getNearExpiryLots: async (req, res) => {
-    try {
-      const { days } = req.query;
-      const thresholdDays = days || 90;
-      
-      const query = `
-        SELECT pl.*, p.name as product_name
-        FROM product_lots pl
-        JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
-        JOIN products p ON ps.product_id = p.id
-        WHERE pl.expiry_date BETWEEN CURRENT_DATE AND CURRENT_DATE + $1 * INTERVAL '1 day'
-        AND pl.status != 'expired'
-        ORDER BY pl.expiry_date ASC
-      `;
-      
-      const result = await pool.query(query, [thresholdDays]);
-      
-      res.json(result.rows);
-    } catch (error) {
-      console.error('❌ Error al obtener lotes próximos a expirar:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  updateLotQuantity: async (req, res) => {
-    try {
-      const { lotId } = req.params;
-      const { quantity } = req.body;
-
-      if (quantity < 0) {
-        return res.status(400).json({ error: 'La cantidad no puede ser negativa' });
-      }
-
-      const query = `
-        UPDATE product_lots 
-        SET quantity = $1, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $2
-        RETURNING *
-      `;
-      
-      const result = await pool.query(query, [quantity, lotId]);
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Lote no encontrado' });
-      }
-
       res.json({
-        message: 'Cantidad actualizada exitosamente',
-        lot: result.rows[0]
+        products: productsResult.rows,
+        suppliers: suppliersResult.rows
       });
-
     } catch (error) {
-      console.error('❌ Error al actualizar cantidad:', error);
+      console.error('Error en getFormData:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
 
-  reserveLotQuantity: async (req, res) => {
+  // ✅ CREAR O OBTENER RELACIÓN PRODUCTO-PROVEEDOR
+  findOrCreateProductSupplier: async (req, res) => {
     try {
-      const { lotId } = req.params;
-      const { quantity } = req.body;
-
-      if (quantity <= 0) {
-        return res.status(400).json({ error: 'La cantidad a reservar debe ser mayor a 0' });
-      }
-
-      const checkQuery = 'SELECT quantity FROM product_lots WHERE id = $1';
-      const checkResult = await pool.query(checkQuery, [lotId]);
+      const { product_id, supplier_id } = req.body;
       
-      if (checkResult.rows.length === 0) {
-        return res.status(404).json({ error: 'Lote no encontrado' });
-      }
+      console.log('🔍 Buscando relación producto-proveedor:', { product_id, supplier_id });
 
-      const availableQuantity = checkResult.rows[0].quantity;
-      if (availableQuantity < quantity) {
-        return res.status(400).json({ error: 'No hay suficiente stock disponible' });
-      }
-
-      const updateQuery = `
-        UPDATE product_lots 
-        SET status = 'reserved', updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $1
-        RETURNING *
+      // Verificar si ya existe la relación
+      const existingQuery = `
+        SELECT ps.*, p.description as product_name, s.name as supplier_name
+        FROM product_suppliers ps
+        LEFT JOIN products p ON ps.product_id = p.id
+        LEFT JOIN suppliers s ON ps.supplier_id = s.id
+        WHERE ps.product_id = $1 AND ps.supplier_id = $2
       `;
       
-      const result = await pool.query(updateQuery, [lotId]);
-
-      res.json({
-        message: 'Cantidad reservada exitosamente',
-        lot: result.rows[0]
-      });
-
-    } catch (error) {
-      console.error('❌ Error al reservar cantidad:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  releaseLotQuantity: async (req, res) => {
-    try {
-      const { lotId } = req.params;
-      const { quantity } = req.body;
-
-      if (quantity <= 0) {
-        return res.status(400).json({ error: 'La cantidad a liberar debe ser mayor a 0' });
+      const existingResult = await pool.query(existingQuery, [product_id, supplier_id]);
+      
+      if (existingResult.rows.length > 0) {
+        console.log('✅ Relación existente encontrada:', existingResult.rows[0].id);
+        return res.json(existingResult.rows[0]);
       }
 
-      const query = `
-        UPDATE product_lots 
-        SET status = 'available', updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $1
-        RETURNING *
+      // Crear nueva relación
+      const productResult = await pool.query('SELECT description FROM products WHERE id = $1', [product_id]);
+      const supplierResult = await pool.query('SELECT name FROM suppliers WHERE id = $1', [supplier_id]);
+      
+      const productName = productResult.rows[0]?.description || 'Producto';
+      const supplierName = supplierResult.rows[0]?.name || 'Proveedor';
+      
+      const createQuery = `
+        INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name)
+        VALUES ($1, $2, $3, $4)
+        RETURNING *, $5 as product_name, $6 as supplier_name
       `;
       
-      const result = await pool.query(query, [lotId]);
+      const createResult = await pool.query(createQuery, [
+        product_id, 
+        supplier_id, 
+        `AUTO-${Date.now()}`, 
+        supplierName,
+        productName,
+        supplierName
+      ]);
+
+      console.log('✅ Nueva relación creada:', createResult.rows[0].id);
       
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Lote no encontrado' });
-      }
-
-      res.json({
-        message: 'Cantidad liberada exitosamente',
-        lot: result.rows[0]
-      });
-
+      res.json(createResult.rows[0]);
     } catch (error) {
-      console.error('❌ Error al liberar cantidad:', error);
+      console.error('Error en findOrCreateProductSupplier:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }

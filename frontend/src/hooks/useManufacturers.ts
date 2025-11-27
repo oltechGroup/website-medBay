@@ -5,20 +5,37 @@ import { useAuth } from '@/hooks/useAuth';
 export interface Manufacturer {
   id: string;
   name: string;
-  country_id?: string;
-  country_name?: string;
-  country_code?: string;
+  contact_info?: {
+    email?: string;
+    phone?: string;
+    address?: string;
+    contact_person?: string;
+  };
+  website?: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CreateManufacturerData {
   name: string;
-  country_id?: string;
+  contact_info?: {
+    email?: string;
+    phone?: string;
+    address?: string;
+    contact_person?: string;
+  };
+  website?: string;
 }
 
 export interface UpdateManufacturerData {
   name: string;
-  country_id?: string;
+  contact_info?: {
+    email?: string;
+    phone?: string;
+    address?: string;
+    contact_person?: string;
+  };
+  website?: string;
 }
 
 export const useManufacturers = () => {
@@ -26,7 +43,12 @@ export const useManufacturers = () => {
   const queryClient = useQueryClient();
 
   // Obtener todos los fabricantes
-  const { data: manufacturers, isLoading, error } = useQuery({
+  const { 
+    data: manufacturers, 
+    isLoading, 
+    error,
+    refetch  // ✅ AGREGADO: función refetch
+  } = useQuery({
     queryKey: ['manufacturers'],
     queryFn: async (): Promise<Manufacturer[]> => {
       const response = await api.get('/manufacturers');
@@ -69,7 +91,7 @@ export const useManufacturers = () => {
   });
 
   return {
-    manufacturers,
+    manufacturers: manufacturers || [],
     isLoading,
     error,
     createManufacturer: createMutation.mutateAsync,
@@ -78,5 +100,6 @@ export const useManufacturers = () => {
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    refetch, // ✅ AGREGADO: exponer la función refetch
   };
 };

@@ -8,6 +8,7 @@ router.use(authMiddleware.verifyToken);
 // Rutas de proveedores
 router.post('/', supplierController.create);
 router.get('/', supplierController.getAll);
+router.get('/stats', supplierController.getStats); // ✅ NUEVA RUTA: Estadísticas
 router.get('/:id', supplierController.getById);
 router.put('/:id', supplierController.update);
 router.delete('/:id', supplierController.delete);

@@ -1,176 +1,300 @@
+// backend/src/models/productModel.js
+
 const db = require('../config/database');
 
 const Product = {
-  // Crear un nuevo producto
+  // Crear producto - ACTUALIZADO SIN CAMPOS ELIMINADOS
   create: async (productData) => {
-    const { name, description, manufacturer_id, global_sku, avalara_tax_code, requires_license, prescription_required, export_restricted, prohibited_countries, notes } = productData;
-    
     const query = `
-      INSERT INTO products (name, description, manufacturer_id, global_sku, avalara_tax_code, requires_license, prescription_required, export_restricted, prohibited_countries, notes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO products (
+        description, manufacturer_id, global_sku, notes, 
+        created_at, updated_at
+      ) 
+      VALUES ($1, $2, $3, $4, NOW(), NOW()) 
       RETURNING *
     `;
     
-    const values = [name, description, manufacturer_id, global_sku, avalara_tax_code, requires_license, prescription_required, export_restricted, prohibited_countries, notes];
-    
-    try {
-      const result = await db.query(query, values);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
+    const values = [
+      productData.description,
+      productData.manufacturer_id,
+      productData.global_sku,
+      productData.notes || null,
+    ];
+
+    const result = await db.query(query, values);
+    return result.rows[0];
   },
 
-  // Obtener todos los productos con información relacionada
+  // Obtener todos los productos - ACTUALIZADO CON TODOS LOS NUEVOS CAMPOS
   findAll: async () => {
     const query = `
       SELECT 
-        p.*,
+        p.id,
+        p.description,
+        p.manufacturer_id,
+        p.global_sku,
+        p.notes,
+        p.created_at,
+        p.updated_at,
         m.name as manufacturer_name,
-        m.country as manufacturer_country,
-        array_agg(DISTINCT c.name) as categories
+        (SELECT COUNT(*) FROM product_images pi WHERE pi.product_id = p.id) as image_count,
+        (SELECT image_url FROM product_images pi WHERE pi.product_id = p.id AND pi.is_primary = true LIMIT 1) as primary_image,
+        (SELECT array_agg(category_id) FROM product_categories WHERE product_id = p.id) as category_ids,
+        -- ✅ NUEVO: Nombres de categorías
+        (SELECT array_agg(c.name) FROM product_categories pc 
+         JOIN categories c ON pc.category_id = c.id 
+         WHERE pc.product_id = p.id) as category_names,
+        -- ✅ CORREGIDO: Incluir TODOS los estados (available, near_expiry, expired)
+        (SELECT MIN(pl.price) FROM product_lots pl 
+         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+         WHERE ps.product_id = p.id 
+         AND pl.status IN ('available', 'near_expiry', 'expired') 
+         AND pl.quantity > 0) as min_price,
+        (SELECT MAX(pl.price) FROM product_lots pl 
+         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+         WHERE ps.product_id = p.id 
+         AND pl.status IN ('available', 'near_expiry', 'expired') 
+         AND pl.quantity > 0) as max_price,
+        (SELECT COUNT(pl.id) FROM product_lots pl 
+         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+         WHERE ps.product_id = p.id 
+         AND pl.status IN ('available', 'near_expiry', 'expired') 
+         AND pl.quantity > 0) as active_lots
       FROM products p
       LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
-      LEFT JOIN product_categories pc ON p.id = pc.product_id
-      LEFT JOIN categories c ON pc.category_id = c.id
-      GROUP BY p.id, m.id
       ORDER BY p.created_at DESC
     `;
     
-    try {
-      const result = await db.query(query);
-      return result.rows;
-    } catch (error) {
-      throw error;
-    }
+    const result = await db.query(query);
+    return result.rows;
   },
 
-  // Obtener producto por ID
+  // ✅ CORREGIDO: Obtener producto por ID - AGREGADO WHERE p.id = $1
   findById: async (id) => {
     const query = `
       SELECT 
-        p.*,
+        p.id,
+        p.description,
+        p.manufacturer_id,
+        p.global_sku,
+        p.notes,
+        p.created_at,
+        p.updated_at,
         m.name as manufacturer_name,
-        m.country as manufacturer_country,
-        array_agg(DISTINCT c.name) as categories
+        (SELECT COUNT(*) FROM product_images pi WHERE pi.product_id = p.id) as image_count,
+        (SELECT image_url FROM product_images pi WHERE pi.product_id = p.id AND pi.is_primary = true LIMIT 1) as primary_image,
+        (SELECT array_agg(category_id) FROM product_categories WHERE product_id = p.id) as category_ids,
+        -- ✅ NUEVO: Nombres de categorías
+        (SELECT array_agg(c.name) FROM product_categories pc 
+         JOIN categories c ON pc.category_id = c.id 
+         WHERE pc.product_id = p.id) as category_names,
+        -- ✅ CORREGIDO: Incluir TODOS los estados (available, near_expiry, expired)
+        (SELECT MIN(pl.price) FROM product_lots pl 
+         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+         WHERE ps.product_id = p.id 
+         AND pl.status IN ('available', 'near_expiry', 'expired') 
+         AND pl.quantity > 0) as min_price,
+        (SELECT MAX(pl.price) FROM product_lots pl 
+         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+         WHERE ps.product_id = p.id 
+         AND pl.status IN ('available', 'near_expiry', 'expired') 
+         AND pl.quantity > 0) as max_price,
+        (SELECT COUNT(pl.id) FROM product_lots pl 
+         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+         WHERE ps.product_id = p.id 
+         AND pl.status IN ('available', 'near_expiry', 'expired') 
+         AND pl.quantity > 0) as active_lots
       FROM products p
       LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
-      LEFT JOIN product_categories pc ON p.id = pc.product_id
-      LEFT JOIN categories c ON pc.category_id = c.id
-      WHERE p.id = $1
-      GROUP BY p.id, m.id
+      WHERE p.id = $1  -- ✅ CORRECCIÓN CRÍTICA: AGREGADO FILTRO POR ID
     `;
     
-    try {
-      const result = await db.query(query, [id]);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
+    const result = await db.query(query, [id]);
+    return result.rows[0];
   },
 
-  // Actualizar producto
+  // Actualizar producto - MANTENIDO
   update: async (id, productData) => {
-    const { name, description, manufacturer_id, global_sku, avalara_tax_code, requires_license, prescription_required, export_restricted, prohibited_countries, notes } = productData;
+    const fields = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (productData.description !== undefined) {
+      fields.push(`description = $${paramCount}`);
+      values.push(productData.description);
+      paramCount++;
+    }
     
+    if (productData.manufacturer_id !== undefined) {
+      fields.push(`manufacturer_id = $${paramCount}`);
+      values.push(productData.manufacturer_id);
+      paramCount++;
+    }
+    
+    if (productData.global_sku !== undefined) {
+      fields.push(`global_sku = $${paramCount}`);
+      values.push(productData.global_sku);
+      paramCount++;
+    }
+    
+    if (productData.notes !== undefined) {
+      fields.push(`notes = $${paramCount}`);
+      values.push(productData.notes);
+      paramCount++;
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No hay campos para actualizar');
+    }
+
+    fields.push(`updated_at = $${paramCount}`);
+    values.push(new Date());
+    paramCount++;
+
+    values.push(id);
+
     const query = `
       UPDATE products 
-      SET name = $1, description = $2, manufacturer_id = $3, global_sku = $4, avalara_tax_code = $5, 
-          requires_license = $6, prescription_required = $7, export_restricted = $8, 
-          prohibited_countries = $9, notes = $10, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
+      SET ${fields.join(', ')}
+      WHERE id = $${paramCount}
       RETURNING *
     `;
-    
-    const values = [name, description, manufacturer_id, global_sku, avalara_tax_code, requires_license, prescription_required, export_restricted, prohibited_countries, notes, id];
-    
-    try {
-      const result = await db.query(query, values);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
+
+    const result = await db.query(query, values);
+    return result.rows[0];
   },
 
-  // Eliminar producto
+  // Eliminar producto - MANTENIDO
   delete: async (id) => {
     const query = 'DELETE FROM products WHERE id = $1 RETURNING *';
-    try {
-      const result = await db.query(query, [id]);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
+    const result = await db.query(query, [id]);
+    return result.rows[0];
   },
 
-  // Buscar productos por nombre (búsqueda flexible con pg_trgm)
+  // ✅ CORREGIDO: Buscar productos - AGREGADO FILTRO DE BÚSQUEDA
   search: async (searchTerm) => {
     const query = `
       SELECT 
-        p.*,
+        p.id,
+        p.description,
+        p.manufacturer_id,
+        p.global_sku,
+        p.notes,
+        p.created_at,
+        p.updated_at,
         m.name as manufacturer_name,
-        similarity(p.name, $1) as similarity_score
+        (SELECT COUNT(*) FROM product_images pi WHERE pi.product_id = p.id) as image_count,
+        (SELECT image_url FROM product_images pi WHERE pi.product_id = p.id AND pi.is_primary = true LIMIT 1) as primary_image,
+        (SELECT array_agg(category_id) FROM product_categories WHERE product_id = p.id) as category_ids,
+        -- ✅ NUEVO: Nombres de categorías
+        (SELECT array_agg(c.name) FROM product_categories pc 
+         JOIN categories c ON pc.category_id = c.id 
+         WHERE pc.product_id = p.id) as category_names,
+        -- ✅ CORREGIDO: Incluir TODOS los estados (available, near_expiry, expired)
+        (SELECT MIN(pl.price) FROM product_lots pl 
+         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+         WHERE ps.product_id = p.id 
+         AND pl.status IN ('available', 'near_expiry', 'expired') 
+         AND pl.quantity > 0) as min_price,
+        (SELECT MAX(pl.price) FROM product_lots pl 
+         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+         WHERE ps.product_id = p.id 
+         AND pl.status IN ('available', 'near_expiry', 'expired') 
+         AND pl.quantity > 0) as max_price,
+        (SELECT COUNT(pl.id) FROM product_lots pl 
+         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+         WHERE ps.product_id = p.id 
+         AND pl.status IN ('available', 'near_expiry', 'expired') 
+         AND pl.quantity > 0) as active_lots
       FROM products p
       LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
-      WHERE p.name % $1 OR p.description % $1
-      ORDER BY similarity_score DESC
-      LIMIT 50
+      WHERE p.description ILIKE $1 OR p.global_sku ILIKE $1  -- ✅ CORRECCIÓN CRÍTICA: AGREGADO FILTRO DE BÚSQUEDA
+      ORDER BY p.created_at DESC
     `;
     
-    try {
-      const result = await db.query(query, [searchTerm]);
-      return result.rows;
-    } catch (error) {
-      throw error;
-    }
+    const result = await db.query(query, [`%${searchTerm}%`]);
+    return result.rows;
   },
 
-    // Buscar producto por SKU global
-  findByGlobalSku: async (global_sku) => {
+  // Buscar por SKU global - MANTENIDO
+  findByGlobalSku: async (globalSku) => {
     const query = 'SELECT * FROM products WHERE global_sku = $1';
-    try {
-      const result = await db.query(query, [global_sku]);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
+    const result = await db.query(query, [globalSku]);
+    return result.rows[0];
   },
 
-  // Buscar producto por nombre y fabricante
-  findByNameAndManufacturer: async (name, manufacturer_id) => {
-    const query = 'SELECT * FROM products WHERE LOWER(name) = LOWER($1) AND manufacturer_id = $2';
-    try {
-      const result = await db.query(query, [name, manufacturer_id]);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
+  // Buscar por descripción y fabricante - MANTENIDO
+  findByDescriptionAndManufacturer: async (description, manufacturerId) => {
+    const query = 'SELECT * FROM products WHERE description = $1 AND manufacturer_id = $2';
+    const result = await db.query(query, [description, manufacturerId]);
+    return result.rows[0];
   },
 
-  // Buscar o crear producto (para importación)
-  findOrCreate: async (productData) => {
-    const { global_sku, name, manufacturer_id } = productData;
+  // 📊 Obtener estadísticas de productos - CORREGIDO DEFINITIVAMENTE
+  getStats: async () => {
+    const query = `
+      SELECT 
+        (SELECT COUNT(*) FROM products) as total_products,
+        (SELECT COUNT(DISTINCT product_id) FROM product_images) as products_with_images,
+        (SELECT COUNT(*) FROM products) - (SELECT COUNT(DISTINCT product_id) FROM product_images) as products_without_images
+    `;
     
-    // Buscar por SKU global primero (más preciso)
-    if (global_sku) {
-      const existingBySku = await Product.findByGlobalSku(global_sku);
-      if (existingBySku) {
-        return existingBySku;
-      }
-    }
+    const result = await db.query(query);
+    return result.rows[0];
+  },
+
+  // 📋 Obtener productos sin imágenes - MANTENIDO
+  getProductsWithoutImages: async () => {
+    const query = `
+      SELECT 
+        p.id,
+        p.description,
+        p.manufacturer_id,
+        p.global_sku,
+        p.notes,
+        p.created_at,
+        p.updated_at,
+        m.name as manufacturer_name
+      FROM products p
+      LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
+      WHERE p.id NOT IN (SELECT DISTINCT product_id FROM product_images)
+      ORDER BY p.created_at DESC
+    `;
     
-    // Si no hay SKU, buscar por nombre y fabricante
-    if (name && manufacturer_id) {
-      const existingByName = await Product.findByNameAndManufacturer(name, manufacturer_id);
-      if (existingByName) {
-        return existingByName;
-      }
-    }
+    const result = await db.query(query);
+    return result.rows;
+  },
+
+  // 🆕 Buscar por descripción (sin fabricante) - PARA VALIDACIÓN DE DUPLICADOS
+  findByDescription: async (description) => {
+    const query = 'SELECT * FROM products WHERE description = $1';
+    const result = await db.query(query, [description]);
+    return result.rows[0];
+  },
+
+  // ✅ NUEVO: Obtener productos sin categorías
+  getProductsWithoutCategories: async () => {
+    const query = `
+      SELECT 
+        p.id,
+        p.description,
+        p.manufacturer_id,
+        p.global_sku,
+        p.notes,
+        p.created_at,
+        p.updated_at,
+        m.name as manufacturer_name,
+        (SELECT COUNT(*) FROM product_images pi WHERE pi.product_id = p.id) as image_count,
+        (SELECT image_url FROM product_images pi WHERE pi.product_id = p.id AND pi.is_primary = true LIMIT 1) as primary_image
+      FROM products p
+      LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
+      WHERE p.id NOT IN (SELECT DISTINCT product_id FROM product_categories)
+      ORDER BY p.created_at DESC
+    `;
     
-    // Si no existe, crear nuevo
-    return await Product.create(productData);
+    const result = await db.query(query);
+    return result.rows;
   }
-
 };
 
 module.exports = Product;

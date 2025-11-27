@@ -1,7 +1,7 @@
 const Order = require('../models/orderModel');
 const OrderItem = require('../models/orderItemModel');
 const Payment = require('../models/paymentModel');
-const Inventory = require('../models/inventoryModel');
+const Inventory = require('../models/productLotModel');
 
 const orderController = {
   // Crear nueva orden

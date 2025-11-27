@@ -1,27 +1,22 @@
 const db = require('../config/database');
 
 const Supplier = {
-  // Crear un nuevo proveedor (COMPATIBLE con estructura actual)
+  // Crear un nuevo proveedor (PAÍS OBLIGATORIO)
   create: async (supplierData) => {
-    const { name, tax_id, country_id, currency_id, contact_info } = supplierData;
+    const { name, country_code, contact_info, is_active = true } = supplierData;
+    
+    // ✅ PAÍS OBLIGATORIO - Validación interna
+    if (!country_code) {
+      throw new Error('El código de país es requerido');
+    }
     
     const query = `
-      INSERT INTO suppliers (name, tax_id, country, default_currency, country_id, currency_id, contact_info)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO suppliers (name, country_code, contact_info, is_active)
+      VALUES ($1, $2, $3, $4)
       RETURNING *
     `;
     
-    // Mantener compatibilidad: usar country_id/currency_id para las nuevas columnas
-    // y también para las antiguas durante la transición
-    const values = [
-      name, 
-      tax_id, 
-      country_id,  // para columna 'country'
-      currency_id, // para columna 'default_currency'  
-      country_id,  // para columna 'country_id'
-      currency_id, // para columna 'currency_id'
-      contact_info
-    ];
+    const values = [name, country_code, contact_info, is_active];
     
     try {
       const result = await db.query(query, values);
@@ -32,18 +27,18 @@ const Supplier = {
     }
   },
 
-  // Obtener todos los proveedores (ACTUALIZADO: compatibilidad dual)
+  // Obtener todos los proveedores
   findAll: async () => {
     const query = `
       SELECT 
         s.*,
-        COALESCE(c.name, 'País no especificado') as country_name,
-        COALESCE(c.code, s.country) as country_code,
-        COALESCE(cr.name, 'Moneda no especificada') as currency_name,
-        COALESCE(cr.symbol, '$') as currency_symbol
+        c.name as country_name,
+        c.currency_code,
+        c.currency_name,
+        c.currency_symbol,
+        c.exchange_rate
       FROM suppliers s
-      LEFT JOIN countries c ON s.country_id = c.code OR s.country = c.code
-      LEFT JOIN currencies cr ON s.currency_id = cr.code OR s.default_currency = cr.code
+      LEFT JOIN countries c ON s.country_code = c.code
       ORDER BY s.name
     `;
     try {
@@ -55,18 +50,18 @@ const Supplier = {
     }
   },
 
-  // Obtener proveedor por ID (ACTUALIZADO: compatibilidad dual)
+  // Obtener proveedor por ID
   findById: async (id) => {
     const query = `
       SELECT 
         s.*,
-        COALESCE(c.name, 'País no especificado') as country_name,
-        COALESCE(c.code, s.country) as country_code,
-        COALESCE(cr.name, 'Moneda no especificada') as currency_name,
-        COALESCE(cr.symbol, '$') as currency_symbol
+        c.name as country_name,
+        c.currency_code,
+        c.currency_name,
+        c.currency_symbol,
+        c.exchange_rate
       FROM suppliers s
-      LEFT JOIN countries c ON s.country_id = c.code OR s.country = c.code
-      LEFT JOIN currencies cr ON s.currency_id = cr.code OR s.default_currency = cr.code
+      LEFT JOIN countries c ON s.country_code = c.code
       WHERE s.id = $1
     `;
     try {
@@ -78,22 +73,22 @@ const Supplier = {
     }
   },
 
-  // Buscar proveedor por nombre (ACTUALIZADO: compatibilidad dual)
+  // Buscar proveedor por nombre (MEJORADO: case-insensitive exacto)
   findByName: async (name) => {
     const query = `
       SELECT 
         s.*,
-        COALESCE(c.name, 'País no especificado') as country_name,
-        COALESCE(c.code, s.country) as country_code,
-        COALESCE(cr.name, 'Moneda no especificada') as currency_name,
-        COALESCE(cr.symbol, '$') as currency_symbol
+        c.name as country_name,
+        c.currency_code,
+        c.currency_name,
+        c.currency_symbol,
+        c.exchange_rate
       FROM suppliers s
-      LEFT JOIN countries c ON s.country_id = c.code OR s.country = c.code
-      LEFT JOIN currencies cr ON s.currency_id = cr.code OR s.default_currency = cr.code
-      WHERE LOWER(s.name) = LOWER($1)
+      LEFT JOIN countries c ON s.country_code = c.code
+      WHERE LOWER(TRIM(s.name)) = LOWER(TRIM($1))
     `;
     try {
-      const result = await db.query(query, [name]);
+      const result = await db.query(query, [name.trim()]);
       return result.rows[0];
     } catch (error) {
       console.error('Error en Supplier.findByName:', error);
@@ -101,56 +96,27 @@ const Supplier = {
     }
   },
 
-  // Buscar proveedor por tax_id (ACTUALIZADO: compatibilidad dual)
-  findByTaxId: async (tax_id) => {
-    const query = `
-      SELECT 
-        s.*,
-        COALESCE(c.name, 'País no especificado') as country_name,
-        COALESCE(c.code, s.country) as country_code,
-        COALESCE(cr.name, 'Moneda no especificada') as currency_name,
-        COALESCE(cr.symbol, '$') as currency_symbol
-      FROM suppliers s
-      LEFT JOIN countries c ON s.country_id = c.code OR s.country = c.code
-      LEFT JOIN currencies cr ON s.currency_id = cr.code OR s.default_currency = cr.code
-      WHERE s.tax_id = $1
-    `;
-    try {
-      const result = await db.query(query, [tax_id]);
-      return result.rows[0];
-    } catch (error) {
-      console.error('Error en Supplier.findByTaxId:', error);
-      throw error;
-    }
-  },
-
-  // Actualizar proveedor (COMPATIBLE con estructura actual)
+  // Actualizar proveedor (PAÍS OBLIGATORIO)
   update: async (id, supplierData) => {
-    const { name, tax_id, country_id, currency_id, contact_info } = supplierData;
+    const { name, country_code, contact_info, is_active } = supplierData;
+    
+    // ✅ PAÍS OBLIGATORIO - Validación interna
+    if (!country_code) {
+      throw new Error('El código de país es requerido');
+    }
     
     const query = `
       UPDATE suppliers 
       SET name = $1, 
-          tax_id = $2, 
-          country = $3, 
-          default_currency = $4, 
-          country_id = $5, 
-          currency_id = $6, 
-          contact_info = $7
-      WHERE id = $8
+          country_code = $2, 
+          contact_info = $3, 
+          is_active = $4,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $5
       RETURNING *
     `;
     
-    const values = [
-      name, 
-      tax_id, 
-      country_id,   // actualizar columna 'country'
-      currency_id,  // actualizar columna 'default_currency'
-      country_id,   // actualizar columna 'country_id'  
-      currency_id,  // actualizar columna 'currency_id'
-      contact_info, 
-      id
-    ];
+    const values = [name, country_code, contact_info, is_active, id];
     
     try {
       const result = await db.query(query, values);
@@ -161,7 +127,7 @@ const Supplier = {
     }
   },
 
-  // Eliminar proveedor (sin cambios)
+  // Eliminar proveedor
   delete: async (id) => {
     const query = 'DELETE FROM suppliers WHERE id = $1 RETURNING *';
     try {
@@ -173,26 +139,58 @@ const Supplier = {
     }
   },
 
-  // Buscar o crear proveedor (COMPATIBLE con estructura actual)
+  // Buscar o crear proveedor (MEJORADO: con validación de nombre duplicado)
   findOrCreate: async (supplierData) => {
-    const { name, tax_id, country_id, currency_id, contact_info } = supplierData;
+    const { name, country_code, contact_info, is_active = true } = supplierData;
     
-    // Primero buscar por tax_id (si existe)
-    if (tax_id) {
-      const existingByTaxId = await Supplier.findByTaxId(tax_id);
-      if (existingByTaxId) {
-        return existingByTaxId;
-      }
-    }
-    
-    // Luego buscar por nombre
+    // Primero buscar por nombre (case-insensitive)
     const existingByName = await Supplier.findByName(name);
     if (existingByName) {
-      return existingByName;
+      throw new Error(`Ya existe un proveedor con el nombre "${name}"`);
     }
     
     // Si no existe, crear nuevo
-    return await Supplier.create({ name, tax_id, country_id, currency_id, contact_info });
+    return await Supplier.create({ name, country_code, contact_info, is_active });
+  },
+
+  // Contar proveedores para estadísticas
+  count: async () => {
+    const query = `
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE is_active = true) as active,
+        COUNT(*) FILTER (WHERE is_active = false) as inactive
+      FROM suppliers
+    `;
+    try {
+      const result = await db.query(query);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error en Supplier.count:', error);
+      throw error;
+    }
+  },
+
+  // Obtener estadísticas por país
+  getStatsByCountry: async () => {
+    const query = `
+      SELECT 
+        c.code as country_code,
+        c.name as country_name,
+        COUNT(s.id) as supplier_count
+      FROM countries c
+      LEFT JOIN suppliers s ON c.code = s.country_code AND s.is_active = true
+      GROUP BY c.code, c.name
+      HAVING COUNT(s.id) > 0
+      ORDER BY supplier_count DESC
+    `;
+    try {
+      const result = await db.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error('Error en Supplier.getStatsByCountry:', error);
+      throw error;
+    }
   }
 };
 

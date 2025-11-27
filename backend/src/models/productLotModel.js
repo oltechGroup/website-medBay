@@ -1,164 +1,208 @@
+// backend/src/models/productLotModel.js
+
 const db = require('../config/database');
 
 const ProductLot = {
-  // Crear un nuevo lote
+  // ✅ CREAR LOTE - SIN unit
   create: async (lotData) => {
     const {
       product_supplier_id,
       lot_number,
       expiry_date,
       quantity,
-      unit,
-      price_amount,
-      price_currency,
-      discount_price_amount,
-      discount_price_currency,
-      sales_category,
-      manual_discount,
-      received_at,
+      price,
       status,
-      expiry_category_id,
-      created_by
+      received_at
     } = lotData;
 
     const query = `
       INSERT INTO product_lots (
-        product_supplier_id, lot_number, expiry_date, quantity, unit,
-        price_amount, price_currency, discount_price_amount, discount_price_currency,
-        sales_category, manual_discount, received_at, status, expiry_category_id, created_by
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        product_supplier_id, lot_number, expiry_date, quantity, 
+        price, status, received_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
     
     const values = [
-      product_supplier_id, lot_number, expiry_date, quantity, unit,
-      price_amount, price_currency, discount_price_amount, discount_price_currency,
-      sales_category, manual_discount, received_at, status, expiry_category_id, created_by
+      product_supplier_id, lot_number, expiry_date, quantity,
+      price, status, received_at || new Date()
     ];
     
-    try {
-      const result = await db.query(query, values);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
+    const result = await db.query(query, values);
+    return result.rows[0];
   },
 
-  // Obtener todos los lotes con información relacionada
-  findAll: async () => {
+  // ✅ OBTENER TODOS LOS LOTES CON INFORMACIÓN COMPLETA - SIN unit
+  findAll: async (filters = {}) => {
+    let whereConditions = [];
+    let queryParams = [];
+    let paramCount = 0;
+
+    // Filtro por proveedor
+    if (filters.supplier_id) {
+      paramCount++;
+      whereConditions.push(`s.id = $${paramCount}`);
+      queryParams.push(filters.supplier_id);
+    }
+
+    // Filtro por estado
+    if (filters.status) {
+      paramCount++;
+      whereConditions.push(`pl.status = $${paramCount}`);
+      queryParams.push(filters.status);
+    }
+
+    // Filtro por búsqueda - CORREGIDO: usar p.description en lugar de p.name
+    if (filters.search) {
+      paramCount++;
+      whereConditions.push(`(p.description ILIKE $${paramCount} OR p.global_sku ILIKE $${paramCount} OR s.name ILIKE $${paramCount})`);
+      queryParams.push(`%${filters.search}%`);
+    }
+
+    const whereClause = whereConditions.length > 0 
+      ? `WHERE ${whereConditions.join(' AND ')}`
+      : '';
+
     const query = `
       SELECT 
         pl.*,
-        p.name as product_name,
+        p.description as product_name,
+        p.global_sku as product_code,
+        p.description as product_description,
         s.name as supplier_name,
-        ec.name as expiry_category_name
+        ps.supplier_sku,
+        ps.supplier_name as product_supplier_name
       FROM product_lots pl
       LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
       LEFT JOIN products p ON ps.product_id = p.id
       LEFT JOIN suppliers s ON ps.supplier_id = s.id
-      LEFT JOIN expiry_categories ec ON pl.expiry_category_id = ec.id
-      ORDER BY pl.created_at DESC
+      ${whereClause}
+      ORDER BY pl.expiry_date ASC, pl.created_at DESC
     `;
     
+    console.log('🔍 Ejecutando query:', query);
+    console.log('📊 Con parámetros:', queryParams);
+    
     try {
-      const result = await db.query(query);
+      const result = await db.query(query, queryParams);
       return result.rows;
     } catch (error) {
+      console.error('❌ Error en la consulta:', error);
       throw error;
     }
   },
 
-  // Encontrar por ID
+  // ✅ OBTENER POR ID - SIN unit
   findById: async (id) => {
     const query = `
       SELECT 
         pl.*,
-        p.name as product_name,
+        p.description as product_name,
+        p.global_sku as product_code,
         s.name as supplier_name,
-        ec.name as expiry_category_name
+        ps.supplier_sku,
+        ps.product_id,
+        ps.supplier_id
       FROM product_lots pl
       LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
       LEFT JOIN products p ON ps.product_id = p.id
       LEFT JOIN suppliers s ON ps.supplier_id = s.id
-      LEFT JOIN expiry_categories ec ON pl.expiry_category_id = ec.id
       WHERE pl.id = $1
     `;
     
-    try {
-      const result = await db.query(query, [id]);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
+    const result = await db.query(query, [id]);
+    return result.rows[0];
   },
 
-  // Encontrar por número de lote
-  findByLotNumber: async (lot_number) => {
-    const query = 'SELECT * FROM product_lots WHERE lot_number = $1';
-    
-    try {
-      const result = await db.query(query, [lot_number]);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // Actualizar lote
+  // ✅ ACTUALIZAR LOTE - SIN unit
   update: async (id, lotData) => {
     const {
       product_supplier_id,
       lot_number,
       expiry_date,
       quantity,
-      unit,
-      price_amount,
-      price_currency,
-      discount_price_amount,
-      discount_price_currency,
-      sales_category,
-      manual_discount,
-      received_at,
+      price,
       status,
-      expiry_category_id
+      received_at
     } = lotData;
 
     const query = `
       UPDATE product_lots 
       SET 
-        product_supplier_id = $1, lot_number = $2, expiry_date = $3, quantity = $4, unit = $5,
-        price_amount = $6, price_currency = $7, discount_price_amount = $8, discount_price_currency = $9,
-        sales_category = $10, manual_discount = $11, received_at = $12, status = $13, 
-        expiry_category_id = $14, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $15
+        product_supplier_id = $1, 
+        lot_number = $2, 
+        expiry_date = $3, 
+        quantity = $4, 
+        price = $5, 
+        status = $6, 
+        received_at = $7,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $8
       RETURNING *
     `;
     
     const values = [
-      product_supplier_id, lot_number, expiry_date, quantity, unit,
-      price_amount, price_currency, discount_price_amount, discount_price_currency,
-      sales_category, manual_discount, received_at, status, expiry_category_id, id
+      product_supplier_id, lot_number, expiry_date, quantity,
+      price, status, received_at, id
     ];
     
-    try {
-      const result = await db.query(query, values);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
+    const result = await db.query(query, values);
+    return result.rows[0];
   },
 
-  // Eliminar lote
+  // ✅ ELIMINAR LOTE
   delete: async (id) => {
     const query = 'DELETE FROM product_lots WHERE id = $1 RETURNING *';
+    const result = await db.query(query, [id]);
+    return result.rows[0];
+  },
+
+  // ✅ MÉTRICAS DEL DASHBOARD
+  getDashboardMetrics: async () => {
+    const query = `
+      SELECT 
+        COUNT(DISTINCT pl.id) as total_lots,
+        COUNT(DISTINCT ps.product_id) as unique_products,
+        COUNT(DISTINCT ps.supplier_id) as total_suppliers,
+        COALESCE(SUM(pl.quantity * pl.price), 0) as total_value,
+        COUNT(CASE WHEN pl.status = 'available' THEN 1 END) as available_lots,
+        COUNT(CASE WHEN pl.status = 'near_expiry' THEN 1 END) as near_expiry_lots,
+        COUNT(CASE WHEN pl.status = 'expired' THEN 1 END) as expired_lots,
+        COALESCE(SUM(pl.quantity), 0) as total_units,
+        MAX(pl.created_at) as last_import
+      FROM product_lots pl
+      LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
+    `;
     
-    try {
-      const result = await db.query(query, [id]);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
+    const result = await db.query(query);
+    return result.rows[0];
+  },
+
+  // ✅ MÉTRICAS POR PROVEEDOR
+  getSuppliersMetrics: async () => {
+    const query = `
+      SELECT 
+        s.id,
+        s.name as supplier_name,
+        COUNT(DISTINCT ps.product_id) as unique_products,
+        COUNT(DISTINCT pl.id) as active_lots,
+        COALESCE(SUM(pl.quantity), 0) as total_units,
+        COALESCE(SUM(pl.quantity * pl.price), 0) as total_value,
+        COUNT(CASE WHEN pl.status = 'available' THEN 1 END) as available_lots,
+        COUNT(CASE WHEN pl.status = 'near_expiry' THEN 1 END) as near_expiry_lots,
+        COUNT(CASE WHEN pl.status = 'expired' THEN 1 END) as expired_lots,
+        COUNT(DISTINCT pl.id) as total_lots,
+        MAX(pl.created_at) as last_import
+      FROM suppliers s
+      LEFT JOIN product_suppliers ps ON s.id = ps.supplier_id
+      LEFT JOIN product_lots pl ON ps.id = pl.product_supplier_id
+      WHERE s.is_active = true
+      GROUP BY s.id, s.name
+      ORDER BY s.name
+    `;
+    
+    const result = await db.query(query);
+    return result.rows;
   }
 };
 

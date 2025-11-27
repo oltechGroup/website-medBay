@@ -1,282 +1,157 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
-import Label from '@/components/ui/Label';
+import { useParams, useRouter } from 'next/navigation';
 import { useSuppliers } from '@/hooks/useSuppliers';
-import { useCountries } from '@/hooks/useCountries';
-import { useCurrencies } from '@/hooks/useCurrencies';
-
-interface ContactInfo {
-  telefono?: string;
-  email?: string;
-  persona_contacto?: string;
-  direccion?: string;
-}
+import SupplierForm from '@/components/features/suppliers/SupplierForm';
+import { UpdateSupplierData } from '@/hooks/useSuppliers';
+import { ArrowLeft, Building } from 'lucide-react';
+import Link from 'next/link';
+import Button from '@/components/ui/Button';
+import { useEffect, useState } from 'react';
 
 export default function EditSupplierPage() {
-  const router = useRouter();
   const params = useParams();
-  const id = params.id as string;
-
-  const { suppliers, updateSupplier, isUpdating } = useSuppliers();
-  const { data: countries, isLoading: isLoadingCountries } = useCountries();
-  const { data: currencies, isLoading: isLoadingCurrencies } = useCurrencies();
-
-  // ✅ VALORES POR DEFECTO MEJORADOS
-  const [formData, setFormData] = useState({
-    name: '',
-    tax_id: '',
-    country_id: '',
-    currency_id: '',
-    contact_info: {
-      telefono: '',
-      email: '',
-      persona_contacto: '',
-      direccion: ''
-    }
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const router = useRouter();
+  const { suppliers = [], updateSupplier, isUpdating } = useSuppliers();
+  const [supplier, setSupplier] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [serverError, setServerError] = useState<string>('');
 
-  // Cargar datos del proveedor - CORREGIDO
   useEffect(() => {
-    if (suppliers && id) {
-      const supplier = suppliers.find(s => s.id === id);
-      if (supplier) {
-        setFormData({
-          name: supplier.name || '',
-          tax_id: supplier.tax_id || '',
-          country_id: supplier.country_id || '',
-          currency_id: supplier.currency_id || '',
-          contact_info: {
-            telefono: supplier.contact_info?.telefono || '',
-            email: supplier.contact_info?.email || '',
-            persona_contacto: supplier.contact_info?.persona_contacto || '',
-            direccion: supplier.contact_info?.direccion || ''
-          }
-        });
-        setIsLoading(false);
-      } else {
-        router.push('/dashboard/suppliers');
-      }
+    if (suppliers && params.id) {
+      const foundSupplier = suppliers.find(s => s.id === params.id);
+      setSupplier(foundSupplier || null);
+      setIsLoading(false);
     }
-  }, [suppliers, id, router]);
+  }, [suppliers, params.id]);
 
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const handleContactInfoChange = (field: keyof ContactInfo, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      contact_info: {
-        ...prev.contact_info,
-        [field]: value
-      }
-    }));
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'El nombre del proveedor es requerido';
-    }
-
-    if (!formData.country_id) {
-      newErrors.country_id = 'Debe seleccionar un país';
-    }
-
-    if (!formData.currency_id) {
-      newErrors.currency_id = 'Debe seleccionar una moneda';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (data: UpdateSupplierData) => {
+    if (!supplier) return;
     
-    if (!validateForm()) {
-      return;
-    }
-
+    setServerError('');
     try {
-      await updateSupplier({
-        id,
-        data: {
-          name: formData.name,
-          tax_id: formData.tax_id || undefined,
-          country_id: formData.country_id,
-          currency_id: formData.currency_id,
-          contact_info: Object.keys(formData.contact_info).some(key => 
-            formData.contact_info[key as keyof ContactInfo]?.trim()
-          ) ? formData.contact_info : undefined
-        }
-      });
-
+      await updateSupplier({ id: supplier.id, data });
       router.push('/dashboard/suppliers');
-    } catch (error) {
-      console.error('Error al actualizar proveedor:', error);
+    } catch (error: any) {
+      // ✅ CAPTURAR ERROR ESPECÍFICO DEL SERVIDOR
+      const errorMessage = error.response?.data?.error || 'Error al actualizar el proveedor';
+      setServerError(errorMessage);
     }
   };
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-6">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-lg text-gray-600">Cargando proveedor...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando información del proveedor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!supplier) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Building className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Proveedor no encontrado</h2>
+          <p className="text-gray-600 mb-6">El proveedor que buscas no existe o fue eliminado.</p>
+          <Link href="/dashboard/suppliers">
+            <Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver a Proveedores
+            </Button>
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Editar Proveedor</h1>
-        <p className="text-gray-600 mt-2">
-          Actualice la información del proveedor
-        </p>
+    <div className="space-y-6">
+      {/* Header con navegación */}
+      <div className="flex items-center space-x-4">
+        <Link href="/dashboard/suppliers">
+          <Button variant="outline" size="sm">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Editar Proveedor</h1>
+          <p className="text-gray-600 mt-2">Actualiza la información de {supplier.name}</p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Información del Proveedor</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Información Básica */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input
-                label="Nombre del Proveedor *"
-                value={formData.name}
-                onChange={(e) => handleChange('name', e.target.value)}
-                error={errors.name}
-                placeholder="Ej: Farmacias del Ahorro"
-                required
-              />
-
-              <Input
-                label="RFC / Tax ID"
-                value={formData.tax_id}
-                onChange={(e) => handleChange('tax_id', e.target.value)}
-                placeholder="Ej: FDA120304ABC"
-              />
+      {/* ✅ MOSTRAR ERROR GENERAL SI HAY */}
+      {serverError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+              </svg>
             </div>
-
-            {/* Selects de Datos Maestros */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="country_id">País *</Label>
-                <Select
-                  value={formData.country_id}
-                  onChange={(e) => handleChange('country_id', e.target.value)}
-                  options={[
-                    { value: '', label: 'Selecciona un país...' },
-                    ...(countries?.map(country => ({
-                      value: country.code,
-                      label: `📍 ${country.name} - ${country.currency_name} (${country.code})`
-                    })) || [])
-                  ]}
-                  disabled={isLoadingCountries}
-                />
-                {errors.country_id && (
-                  <p className="text-sm text-red-600">{errors.country_id}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="currency_id">Moneda Principal *</Label>
-                <Select
-                  value={formData.currency_id}
-                  onChange={(e) => handleChange('currency_id', e.target.value)}
-                  options={[
-                    { value: '', label: 'Selecciona una moneda...' },
-                    ...(currencies?.map(currency => ({
-                      value: currency.code,
-                      label: `💰 ${currency.name} - ${currency.symbol} (${currency.code})`
-                    })) || [])
-                  ]}
-                  disabled={isLoadingCurrencies}
-                />
-                {errors.currency_id && (
-                  <p className="text-sm text-red-600">{errors.currency_id}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Información de Contacto */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Información de Contacto
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">
+                {serverError}
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Input
-                  label="Persona de Contacto"
-                  value={formData.contact_info.persona_contacto}
-                  onChange={(e) => handleContactInfoChange('persona_contacto', e.target.value)}
-                  placeholder="Ej: Juan Pérez"
-                />
-
-                <Input
-                  label="Teléfono"
-                  value={formData.contact_info.telefono}
-                  onChange={(e) => handleContactInfoChange('telefono', e.target.value)}
-                  placeholder="Ej: +52 55 1234 5678"
-                />
-
-                <Input
-                  label="Email"
-                  type="email"
-                  value={formData.contact_info.email}
-                  onChange={(e) => handleContactInfoChange('email', e.target.value)}
-                  placeholder="Ej: contacto@empresa.com"
-                />
-
-                <Input
-                  label="Dirección"
-                  value={formData.contact_info.direccion}
-                  onChange={(e) => handleContactInfoChange('direccion', e.target.value)}
-                  placeholder="Ej: Av. Insurgentes 123, CDMX"
-                />
-              </div>
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* Botones de Acción */}
-            <div className="flex gap-4 pt-6 border-t">
-              <Button
-                type="submit"
-                loading={isUpdating}
-                disabled={isUpdating || isLoadingCountries || isLoadingCurrencies}
-              >
-                Actualizar Proveedor
-              </Button>
-              
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push('/dashboard/suppliers')}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Información actual */}
+      <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Información Actual</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="font-medium text-gray-700">Nombre:</span>
+            <p className="text-gray-900">{supplier.name}</p>
+          </div>
+          <div>
+            <span className="font-medium text-gray-700">País:</span>
+            <p className="text-gray-900">{supplier.country_name}</p>
+          </div>
+          <div>
+            <span className="font-medium text-gray-700">Estado:</span>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              supplier.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+            }`}>
+              {supplier.is_active ? 'Activo' : 'Inactivo'}
+            </span>
+          </div>
+          <div>
+            <span className="font-medium text-gray-700">Fecha de creación:</span>
+            <p className="text-gray-900">
+              {new Date(supplier.created_at).toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Formulario */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Editar Información</h2>
+          <p className="text-gray-600 text-sm mt-1">
+            Modifica los campos que necesites actualizar
+          </p>
+        </div>
+        <div className="p-6">
+          <SupplierForm
+            supplier={supplier}
+            onSubmit={handleSubmit}
+            isLoading={isUpdating}
+            error={serverError}
+          />
+        </div>
+      </div>
     </div>
   );
 }

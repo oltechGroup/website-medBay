@@ -43,4 +43,5 @@ router.post('/process', importController.processImport);
 // Agregar esta línea a las rutas existentes
 router.get('/history', importController.getImportHistory);
 router.get('/stats', importController.getImportStats);
+router.get('/progress/:upload_id', importController.getImportProgress);
 module.exports = router;
