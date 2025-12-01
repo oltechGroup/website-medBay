@@ -3,27 +3,53 @@
 'use client';
 
 import React from 'react';
-import { Package, Calendar, DollarSign } from 'lucide-react';
-import { ProductLot } from '@/hooks/useInventory'; // ✅ CORREGIDO: Usar ProductLot en lugar de InventoryItem
+import { Package, Calendar, DollarSign, Tag } from 'lucide-react';
+import { ProductLot } from '@/hooks/useInventory';
 
 interface ProductCardProps {
-  product: ProductLot; // ✅ CORREGIDO: Usar ProductLot
+  product: ProductLot;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
-  const getCategoryColor = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'available': return 'border-green-200 bg-green-50';
-      case 'near_expiry': return 'border-amber-200 bg-amber-50';
-      case 'expired': return 'border-red-200 bg-red-50';
-      default: return 'border-gray-200 bg-gray-50';
+      case 'available': 
+        return {
+          bg: 'bg-green-50',
+          border: 'border-green-200',
+          text: 'text-green-700',
+          badge: 'bg-green-100 text-green-800 border-green-200'
+        };
+      case 'near_expiry': 
+        return {
+          bg: 'bg-amber-50', 
+          border: 'border-amber-200',
+          text: 'text-amber-700',
+          badge: 'bg-amber-100 text-amber-800 border-amber-200'
+        };
+      case 'expired': 
+        return {
+          bg: 'bg-red-50',
+          border: 'border-red-200',
+          text: 'text-red-700',
+          badge: 'bg-red-100 text-red-800 border-red-200'
+        };
+      default: 
+        return {
+          bg: 'bg-gray-50',
+          border: 'border-gray-200',
+          text: 'text-gray-700',
+          badge: 'bg-gray-100 text-gray-800 border-gray-200'
+        };
     }
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
-      currency: 'MXN'
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     }).format(amount);
   };
 
@@ -32,73 +58,101 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     return new Date(dateString).toLocaleDateString('es-MX');
   };
 
-  // ✅ CORREGIDO: Mapear status a etiquetas en español
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'available': return 'En Fecha';
-      case 'near_expiry': return 'Fecha Corta';
-      case 'expired': return 'Caducado';
+      case 'available': return '🟢 En Fecha';
+      case 'near_expiry': return '🟡 Fecha Corta';
+      case 'expired': return '🔴 Caducado';
       default: return status;
     }
   };
 
+  const colors = getStatusColor(product.status);
+
   return (
-    <div className={`border rounded-lg p-4 ${getCategoryColor(product.status)}`}>
-      {/* Header */}
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <h3 className="font-semibold text-gray-900 text-lg mb-1">{product.product_name}</h3>
-          <p className="text-sm text-gray-600 mb-1">{product.supplier_name}</p>
-          <div className="flex items-center space-x-2 text-xs text-gray-500">
-            <span>SKU: {product.product_code}</span>
+    <div className={`border-2 rounded-xl p-4 ${colors.bg} ${colors.border} hover:shadow-md transition-all duration-200`}>
+      {/* Header Compacto */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-gray-900 text-base leading-tight mb-1 line-clamp-2">
+            {product.product_name}
+          </h3>
+          <div className="flex items-center space-x-2 text-xs text-gray-600 mb-2">
+            <div className="flex items-center space-x-1">
+              <Tag className="h-3 w-3" />
+              <span className="font-medium">{product.product_code}</span>
+            </div>
             <span>•</span>
-            <span>Lote: {product.lot_number}</span>
+            <span className="font-medium">Lote: {product.lot_number}</span>
           </div>
         </div>
-        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-          product.status === 'available' ? 'bg-green-100 text-green-800' :
-          product.status === 'near_expiry' ? 'bg-amber-100 text-amber-800' :
-          'bg-red-100 text-red-800'
-        }`}>
-          {getStatusLabel(product.status)}
+        
+        {/* Badge de Estado - Solo una vez */}
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${colors.badge} whitespace-nowrap ml-2`}>
+          {getStatusLabel(product.status).split(' ')[1]} {/* Solo el texto, sin el emoji */}
         </span>
       </div>
 
-      {/* Descripción */}
+      {/* Proveedor */}
+      <div className="mb-3">
+        <p className="text-sm font-medium text-gray-700">{product.supplier_name}</p>
+        {product.manufacturer_name && (
+          <p className="text-xs text-gray-600">Fabricante: {product.manufacturer_name}</p>
+        )}
+      </div>
+
+      {/* Descripción - Solo si existe y con mejor formato */}
       {product.product_description && (
-        <p className="text-sm text-gray-700 mb-3 line-clamp-2">{product.product_description}</p>
+        <div className="mb-3">
+          <p className="text-sm text-gray-700 line-clamp-2 leading-relaxed">
+            {product.product_description}
+          </p>
+        </div>
       )}
 
-      {/* Información del producto */}
+      {/* Información Crítica - Mejor Organizada */}
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="flex items-center space-x-2 text-sm">
-          <Package className="h-4 w-4 text-gray-500" />
-          <span className="text-gray-700">Stock: <strong>{product.quantity} unidades</strong></span>
+        <div className="flex items-center space-x-2">
+          <div className="p-1.5 bg-white rounded-lg border border-gray-200">
+            <Package className="h-3 w-3 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-600">Stock</p>
+            <p className="text-sm font-bold text-gray-900">{product.quantity} und</p>
+          </div>
         </div>
 
-        <div className="flex items-center space-x-2 text-sm">
-          <Calendar className="h-4 w-4 text-gray-500" />
-          <span className="text-gray-700">Caduca: <strong>{formatDate(product.expiry_date)}</strong></span>
+        <div className="flex items-center space-x-2">
+          <div className="p-1.5 bg-white rounded-lg border border-gray-200">
+            <Calendar className="h-3 w-3 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-600">Caduca</p>
+            <p className="text-sm font-bold text-gray-900">{formatDate(product.expiry_date)}</p>
+          </div>
         </div>
       </div>
 
-      {/* Precio */}
-      <div className="flex items-center justify-between pt-3 border-t border-gray-200">
-        <div className="flex items-center space-x-2">
-          <DollarSign className="h-4 w-4 text-gray-500" />
-          <span className="text-lg font-bold text-gray-900">
-            {formatCurrency(product.price)}
-          </span>
+      {/* Precio y Valor Total - Con mejor jerarquía */}
+      <div className="pt-3 border-t border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-600 mb-1">Precio unitario</p>
+            <div className="flex items-center space-x-1">
+              <DollarSign className="h-4 w-4 text-gray-500" />
+              <span className="text-lg font-bold text-gray-900">
+                {formatCurrency(product.price)}
+              </span>
+            </div>
+          </div>
+          
+          <div className="text-right">
+            <p className="text-xs text-gray-600 mb-1">Valor total</p>
+            <p className="text-base font-bold text-blue-600">
+              {formatCurrency(product.quantity * product.price)}
+            </p>
+          </div>
         </div>
-
-        {/* Estado del lote */}
-        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-          product.status === 'available' ? 'bg-green-100 text-green-800' :
-          product.status === 'near_expiry' ? 'bg-amber-100 text-amber-800' :
-          'bg-red-100 text-red-800'
-        }`}>
-          {getStatusLabel(product.status)}
-        </span>
       </div>
     </div>
   );
