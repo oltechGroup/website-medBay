@@ -1,3 +1,5 @@
+//frontend/src/hooks/useSuppliers.ts
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
@@ -5,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 export interface Supplier {
   id: string;
   name: string;
-  country_code: string; // ✅ CAMBIADO A OBLIGATORIO
+  country_code: string;
   contact_info?: {
     telefono?: string;
     email?: string;
@@ -26,7 +28,7 @@ export interface Supplier {
 
 export interface CreateSupplierData {
   name: string;
-  country_code: string; // ✅ CAMBIADO A OBLIGATORIO
+  country_code: string;
   contact_info?: {
     telefono?: string;
     email?: string;
@@ -40,7 +42,7 @@ export interface CreateSupplierData {
 
 export interface UpdateSupplierData {
   name: string;
-  country_code: string; // ✅ CAMBIADO A OBLIGATORIO
+  country_code: string;
   contact_info?: {
     telefono?: string;
     email?: string;
@@ -67,7 +69,6 @@ export const useSuppliers = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Obtener todos los proveedores
   const { 
     data: suppliers, 
     isLoading, 
@@ -88,7 +89,6 @@ export const useSuppliers = () => {
     retry: 1,
   });
 
-  // Obtener estadísticas de proveedores
   const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['suppliers', 'stats'],
     queryFn: async (): Promise<SupplierStats> => {
@@ -104,7 +104,6 @@ export const useSuppliers = () => {
     retry: 1,
   });
 
-  // Crear proveedor
   const createMutation = useMutation({
     mutationFn: async (data: CreateSupplierData) => {
       const response = await api.post('/suppliers', data);
@@ -116,11 +115,9 @@ export const useSuppliers = () => {
     },
     onError: (error: any) => {
       console.error('Error creating supplier:', error);
-      // El error se manejará en el componente
     }
   });
 
-  // Actualizar proveedor
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateSupplierData }) => {
       const response = await api.put(`/suppliers/${id}`, data);
@@ -135,7 +132,6 @@ export const useSuppliers = () => {
     }
   });
 
-  // Eliminar proveedor
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await api.delete(`/suppliers/${id}`);
@@ -150,49 +146,39 @@ export const useSuppliers = () => {
     }
   });
 
-  // Función refetch para actualizar datos
   const refetch = () => {
     queryClient.invalidateQueries({ queryKey: ['suppliers'] });
     queryClient.invalidateQueries({ queryKey: ['suppliers', 'stats'] });
   };
 
   return {
-    // Datos
     suppliers: suppliers || [],
     stats,
-    
-    // Estados de carga
     isLoading,
     isLoadingStats,
     error,
-    
-    // Métodos
     createSupplier: createMutation.mutateAsync,
     updateSupplier: updateMutation.mutateAsync,
     deleteSupplier: deleteMutation.mutateAsync,
-    
-    // Estados de mutación
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
-
-    // Refetch para actualizar datos
     refetch,
   };
 };
 
-// Hook simplificado para selects (solo datos básicos)
 export const useSuppliersBasic = () => {
   const { user } = useAuth();
 
   const { data: suppliers, isLoading } = useQuery({
     queryKey: ['suppliers', 'basic'],
-    queryFn: async (): Promise<Array<{ id: string; name: string; country_code: string }>> => {
+    queryFn: async (): Promise<Array<{ id: string; name: string; country_code: string; is_active: boolean }>> => {
       const response = await api.get('/suppliers');
       return response.data.data.map((supplier: Supplier) => ({
         id: supplier.id,
         name: supplier.name,
-        country_code: supplier.country_code
+        country_code: supplier.country_code,
+        is_active: supplier.is_active // AÑADIDO: Clave para el filtro
       }));
     },
     enabled: !!user,

@@ -1,3 +1,5 @@
+//frontend/src/hooks/useProductLots.ts
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 

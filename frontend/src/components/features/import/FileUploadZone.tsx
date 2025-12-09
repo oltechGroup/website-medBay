@@ -1,3 +1,5 @@
+//frontend/src/components/features/import/FileUploadZone.tsx
+
 'use client';
 
 import React, { useCallback, useState } from 'react';

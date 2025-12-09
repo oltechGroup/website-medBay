@@ -1,3 +1,5 @@
+//backend/src/models/manufacturerModel.js
+
 const db = require('../config/database');
 
 const Manufacturer = {

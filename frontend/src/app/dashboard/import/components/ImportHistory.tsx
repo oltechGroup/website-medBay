@@ -1,315 +1,223 @@
+//frontend/src/app/dashboard/import/components/ImportHistory.tsx
+
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Calendar, Download, Eye, Search, Loader, RefreshCw } from 'lucide-react';
-import { api } from '@/lib/api';
-
-interface ImportHistoryItem {
-  id: string;
-  fecha: string;
-  proveedor: string;
-  categoria: 'regular' | 'near_expiry' | 'expired';
-  filas_procesadas: number;
-  lotes_creados: number;
-  estado: 'completado' | 'error';
-  archivo: string;
-}
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useImport } from '@/hooks/useImport';
+import { FileText, Calendar, CheckCircle, XCircle, RefreshCw, AlertCircle, BarChart3, Clock, TrendingUp, XSquare } from 'lucide-react';
 
 export const ImportHistory = () => {
-  const [timeFilter, setTimeFilter] = useState<'hoy' | 'semana' | 'mes' | 'total'>('total');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [historyData, setHistoryData] = useState<ImportHistoryItem[]>([]);
+  const { getHistory, getStats } = useImport();
+  const [history, setHistory] = useState<any[]>([]);
+  const [globalStats, setGlobalStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
+  const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'all'>('all');
 
-  // Cargar datos reales del backend
-  const loadRealHistory = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
-      console.log('📊 Cargando historial real de importaciones...');
-      
-      const response = await api.get('/import/history');
-      
-      console.log('✅ Datos reales recibidos:', response.data);
-      
-      if (response.data && Array.isArray(response.data)) {
-        // Transformar datos reales al formato que espera el frontend
-        const transformedData: ImportHistoryItem[] = response.data.map((item: any) => {
-          // Determinar la categoría basada en el nombre del archivo
-          let categoria: 'regular' | 'near_expiry' | 'expired' = 'regular';
-          const filename = item.filename?.toLowerCase() || item.archivo?.toLowerCase() || '';
-          
-          if (filename.includes('caducado') || filename.includes('expired')) {
-            categoria = 'expired';
-          } else if (filename.includes('corta') || filename.includes('near')) {
-            categoria = 'near_expiry';
-          }
-          
-          // Determinar estado
-          let estado: 'completado' | 'error' = 'completado';
-          if (item.status && item.status !== 'uploaded' && item.status !== 'completed') {
-            estado = 'error';
-          }
-          
-          // Usar el nombre limpio del backend, o limpiarlo aquí si no viene
-          let archivoLimpio = item.clean_filename || item.filename || item.archivo || '';
-          if (!item.clean_filename && archivoLimpio) {
-            // Limpiar en el frontend como respaldo
-            archivoLimpio = archivoLimpio.replace(/^import-\d+-/, '');
-          }
-          
-          return {
-            id: item.id,
-            fecha: item.created_at || item.fecha,
-            proveedor: item.supplier_name || item.proveedor || 'Proveedor',
-            categoria: categoria,
-            filas_procesadas: item.row_count || item.filas_procesadas || 0,
-            lotes_creados: item.lots_created || item.lotes_creados || 0,
-            estado: estado,
-            archivo: archivoLimpio
-          };
-        });
+        const [histData, statsData] = await Promise.all([getHistory(), getStats()]);
+        if (Array.isArray(histData)) setHistory(histData);
+        else setHistory([]);
+        if (statsData) setGlobalStats(statsData);
+    } catch (err) {
+        console.error("History Error:", err);
+        setError(true);
+    }
+  }, [getHistory, getStats]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchData().finally(() => setLoading(false));
+  }, [fetchData]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
+
+  // --- LÓGICA DE FECHAS NATIVA (SIN LIBRERÍAS) ---
+  const filteredHistory = useMemo(() => {
+    const now = new Date();
+    
+    return history.filter(item => {
+        if (!item.created_at) return false;
+        const date = new Date(item.created_at);
         
-        setHistoryData(transformedData);
-      } else {
-        console.warn('Formato de datos inesperado:', response.data);
-        setHistoryData([]);
-      }
-    } catch (err: any) {
-      console.error('❌ Error cargando historial real:', err);
-      setError(err.response?.data?.error || 'No se pudo cargar el historial de importaciones.');
-      setHistoryData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (timeFilter === 'day') {
+            return date.toDateString() === now.toDateString();
+        }
+        if (timeFilter === 'week') {
+            // Calcular inicio de semana (Lunes)
+            const day = now.getDay(); 
+            const diff = now.getDate() - day + (day === 0 ? -6 : 1); 
+            const monday = new Date(now.setDate(diff));
+            monday.setHours(0,0,0,0);
+            return date >= monday;
+        }
+        if (timeFilter === 'month') {
+            return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+        }
+        return true;
+    });
+  }, [history, timeFilter]);
 
-  // Cargar historial al cambiar filtro
-  useEffect(() => {
-    loadRealHistory();
-  }, [timeFilter]);
-
-  // Escuchar evento de actualización desde la página principal
-  useEffect(() => {
-    const handleRefreshHistory = () => {
-      console.log('🔄 Evento de actualización recibido en historial');
-      loadRealHistory();
-    };
-
-    window.addEventListener('refreshHistory', handleRefreshHistory);
-    
-    return () => {
-      window.removeEventListener('refreshHistory', handleRefreshHistory);
-    };
-  }, []);
-
-  const getCategoryColor = (categoria: string) => {
-    switch (categoria) {
-      case 'regular': return 'bg-green-100 text-green-800';
-      case 'near_expiry': return 'bg-yellow-100 text-yellow-800';
-      case 'expired': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getCategoryLabel = (categoria: string) => {
-    switch (categoria) {
-      case 'regular': return 'En Fecha';
-      case 'near_expiry': return 'Fecha Cerca';
-      case 'expired': return 'Caducados';
-      default: return categoria;
-    }
-  };
-
-  const getStatusColor = (estado: string) => {
-    return estado === 'completado' 
-      ? 'bg-green-100 text-green-800' 
-      : 'bg-red-100 text-red-800';
-  };
-
-  const formatDateTime = (dateString: string) => {
-    if (!dateString) return 'Fecha no disponible';
-    
-    try {
-      return new Date(dateString).toLocaleString('es-MX', {
-        year: 'numeric',
+  // Formateador de fecha nativo en Español
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('es-ES', {
+        day: '2-digit',
         month: 'short',
-        day: 'numeric',
+        year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
-      });
-    } catch (error) {
-      return dateString;
-    }
+    });
   };
 
-  const filteredData = historyData.filter(item =>
-    item.proveedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.archivo.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const getCategoryLabel = (cat: string) => {
+      const map: any = { 'regular': 'En Fecha', 'near_expiry': 'Fecha Corta', 'expired': 'Caducado' };
+      return map[cat] || cat;
+  };
 
-  if (loading) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <div className="flex items-center justify-center py-12">
-          <Loader className="h-8 w-8 text-blue-600 animate-spin" />
-          <span className="ml-3 text-lg font-medium text-gray-900">Cargando historial...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <div className="text-center py-12">
-          <div className="text-red-600 text-lg font-medium mb-4">{error}</div>
-          <button
-            onClick={loadRealHistory}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (loading && history.length === 0) return <div className="p-12 text-center text-gray-400 font-medium">Cargando historial...</div>;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      {/* Header del Historial */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4 sm:mb-0">
-          Historial de Importaciones ({historyData.length})
-        </h2>
-        
-        <div className="flex items-center space-x-3">
-          {/* Filtro de Tiempo */}
-          <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
-            {[
-              { key: 'hoy', label: 'Hoy' },
-              { key: 'semana', label: 'Semana' },
-              { key: 'mes', label: 'Mes' },
-              { key: 'total', label: 'Total' }
-            ].map((filter) => (
-              <button
-                key={filter.key}
-                onClick={() => setTimeFilter(filter.key as any)}
-                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                  timeFilter === filter.key
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-
-          <button 
-            onClick={loadRealHistory}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualizar
-          </button>
-        </div>
-      </div>
-
-      {/* Barra de Búsqueda */}
-      <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar por proveedor o archivo..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-      </div>
-
-      {/* Lista de Historial */}
-      <div className="space-y-4">
-        {filteredData.length === 0 ? (
-          <div className="text-center py-12">
-            <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm ? 'No se encontraron importaciones' : 'No hay importaciones en el historial'}
-            </h3>
-            <p className="text-gray-500">
-              {searchTerm 
-                ? 'Intenta con otro término de búsqueda' 
-                : 'Las importaciones aparecerán aquí automáticamente'
-              }
-            </p>
-          </div>
-        ) : (
-          filteredData.map((item) => (
-            <div
-              key={item.id}
-              className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <h3 className="font-semibold text-gray-900">{item.proveedor}</h3>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(item.categoria)}`}>
-                      {getCategoryLabel(item.categoria)}
-                    </span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.estado)}`}>
-                      {item.estado === 'completado' ? '✅ Completado' : '❌ Error'}
-                    </span>
+    <div className="p-6 space-y-8">
+      {/* Dashboard Stats */}
+      {globalStats && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center space-x-4">
+                  <div className="p-3 bg-blue-50 text-blue-600 rounded-full"><BarChart3 className="w-6 h-6"/></div>
+                  <div>
+                      <div className="text-2xl font-bold text-gray-900">{globalStats.imports_today || 0}</div>
+                      <div className="text-sm text-gray-500">Importaciones Hoy</div>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                    <div>
-                      <span className="font-medium">Archivo:</span> {item.archivo}
-                    </div>
-                    <div>
-                      <span className="font-medium">Fecha:</span> {formatDateTime(item.fecha)}
-                    </div>
-                    <div>
-                      <span className="font-medium">Resultado:</span> {item.filas_procesadas} filas → {item.lotes_creados} lotes
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2 ml-4">
-                  <button
-                    title="Ver detalles"
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </button>
-                </div>
               </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Paginación */}
-      {filteredData.length > 0 && (
-        <div className="flex items-center justify-between border-t border-gray-200 pt-6 mt-6">
-          <div className="text-sm text-gray-700">
-            Mostrando <span className="font-medium">1</span> a <span className="font-medium">{filteredData.length}</span> de{' '}
-            <span className="font-medium">{filteredData.length}</span> resultados
+              <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center space-x-4">
+                  <div className="p-3 bg-purple-50 text-purple-600 rounded-full"><TrendingUp className="w-6 h-6"/></div>
+                  <div>
+                      <div className="text-2xl font-bold text-gray-900">{globalStats.total_imports || 0}</div>
+                      <div className="text-sm text-gray-500">Total Histórico</div>
+                  </div>
+              </div>
+              <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center space-x-4 overflow-hidden">
+                  <div className="p-3 bg-green-50 text-green-600 rounded-full flex-shrink-0"><Clock className="w-6 h-6"/></div>
+                  <div className="min-w-0">
+                      <div className="text-sm font-bold text-gray-900 truncate">
+                        {globalStats.last_import_supplier !== '-' ? globalStats.last_import_supplier : 'Sin datos'}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate">
+                        {formatDate(globalStats.last_import_date)}
+                      </div>
+                      <div className="text-[10px] uppercase font-bold text-gray-400 mt-1 tracking-wider">
+                         {getCategoryLabel(globalStats.last_import_category)}
+                      </div>
+                  </div>
+              </div>
           </div>
-          <div className="flex space-x-2">
-            <button className="px-3 py-1 text-sm border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50">
-              Anterior
-            </button>
-            <button className="px-3 py-1 text-sm border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50">
-              Siguiente
-            </button>
-          </div>
-        </div>
       )}
+
+      {/* Lista */}
+      <div>
+          <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-4">
+                  <h3 className="text-lg font-bold text-gray-900">Historial</h3>
+                  <div className="flex bg-gray-100 rounded-lg p-1">
+                      {['all', 'month', 'week', 'day'].map((t) => (
+                          <button 
+                            key={t}
+                            onClick={() => setTimeFilter(t as any)}
+                            className={`px-3 py-1 text-xs font-medium rounded-md capitalize transition-all ${timeFilter === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                          >
+                            {t === 'all' ? 'Todos' : t === 'day' ? 'Hoy' : t === 'week' ? 'Semana' : 'Mes'}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+              
+              <button 
+                type="button"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                title="Actualizar lista"
+              >
+                <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`}/>
+              </button>
+          </div>
+          
+          {error && (
+            <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-4 flex items-center">
+                <AlertCircle className="w-5 h-5 mr-2"/>
+                Error al cargar el historial.
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {filteredHistory.length === 0 ? (
+                 <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3"/>
+                    <p className="text-gray-500 font-medium">No hay importaciones en este periodo.</p>
+                 </div>
+            ) : (
+                filteredHistory.map((item) => {
+                    const s = item.status;
+                    const isSuccess = s === 'completed' || s === 'finished';
+                    const isCancelled = s === 'processing' || s === 'uploaded'; 
+                    const isWarning = s === 'completed_with_errors';
+                    
+                    const stats = item.error_messages?.stats || {};
+                    const lotsCreated = stats.created_lots || 0;
+
+                    return (
+                      <div key={item.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
+                        <div className="flex items-center space-x-4">
+                          <div className={`p-3 rounded-full transition-colors ${
+                            isSuccess ? 'bg-green-100 text-green-600' : 
+                            isWarning ? 'bg-yellow-100 text-yellow-600' :
+                            isCancelled ? 'bg-gray-100 text-gray-400' :
+                            'bg-red-100 text-red-600'
+                          }`}>
+                            {isSuccess ? <CheckCircle size={20}/> : 
+                             isWarning ? <AlertCircle size={20}/> :
+                             isCancelled ? <XSquare size={20}/> :
+                             <XCircle size={20}/>}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors">{item.filename}</h4>
+                            <div className="flex items-center text-sm text-gray-500 mt-1 space-x-3">
+                              <span className="flex items-center capitalize">
+                                <Calendar size={14} className="mr-1"/> 
+                                {formatDate(item.created_at)}
+                              </span>
+                              <span className="h-1 w-1 bg-gray-300 rounded-full"></span>
+                              <span className="font-medium text-gray-700">{item.supplier}</span>
+                              <span className="h-1 w-1 bg-gray-300 rounded-full"></span>
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
+                                item.sales_category === 'near_expiry' ? 'bg-yellow-100 text-yellow-700' :
+                                item.sales_category === 'expired' ? 'bg-red-100 text-red-700' :
+                                'bg-green-100 text-green-700'
+                              }`}>{getCategoryLabel(item.sales_category)}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-gray-900 tabular-nums">
+                            {lotsCreated > 0 ? lotsCreated : (isSuccess ? '0' : '-')}
+                          </div>
+                          <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">
+                              {isCancelled ? 'Cancelado' : 'Lotes Creados'}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                })
+            )}
+          </div>
+      </div>
     </div>
   );
 };

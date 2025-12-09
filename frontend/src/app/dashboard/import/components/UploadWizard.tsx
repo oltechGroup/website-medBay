@@ -1,660 +1,256 @@
+//frontend/src/app/dashboard/import/components/UploadWizard.tsx
+
 'use client';
 
-import { useState } from 'react';
-import { useImport } from '@/hooks/useImport';
-import { Supplier } from '@/hooks/useSuppliers';
+import { useState, useEffect } from 'react';
+import { useImport, ImportProgress } from '@/hooks/useImport';
+import { useSuppliersBasic } from '@/hooks/useSuppliers';
+import { useCountriesBasic } from '@/hooks/useCountries';
+import { 
+  Building, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, Trash2, FileText
+} from 'lucide-react';
 import { FileUploadZone } from '@/components/features/import/FileUploadZone';
 import { ColumnMapper } from '@/components/features/import/ColumnMapper';
-import { ImportProgress } from '@/components/features/import/ImportProgress';
 import { ImportResults } from '@/components/features/import/ImportResults';
-import { 
-  Building, 
-  Package, 
-  Calendar, 
-  CheckCircle2,
-  AlertCircle,
-  Upload,
-  Map,
-  FileCheck,
-  Sparkles,
-  Currency,
-  Image
-} from 'lucide-react';
+import { ImportProgress as ImportProgressComponent } from '@/components/features/import/ImportProgress';
 
-interface UploadWizardProps {
-  session: any;
-  setSession: (session: any) => void;
-  suppliers: Supplier[];
-  suppliersLoading: boolean;
-}
-
-// Opciones de moneda (basadas en la tabla countries)
-const currencyOptions = [
-  { code: 'USD', name: 'Dólar Estadounidense', symbol: '$' },
-  { code: 'MXN', name: 'Peso Mexicano', symbol: '$' },
-  { code: 'EUR', name: 'Euro', symbol: '€' },
-  { code: 'BRL', name: 'Real Brasileño', symbol: 'R$' },
+const CATEGORIES = [
+  { id: 'regular', label: 'En Fecha', color: 'bg-green-100 text-green-700 border-green-200 ring-green-500' },
+  { id: 'near_expiry', label: 'Fecha Corta', color: 'bg-yellow-100 text-yellow-700 border-yellow-200 ring-yellow-500' },
+  { id: 'expired', label: 'Caducados', color: 'bg-red-100 text-red-700 border-red-200 ring-red-500' }
 ];
 
-export const UploadWizard: React.FC<UploadWizardProps> = ({
-  session,
-  setSession,
-  suppliers,
-  suppliersLoading,
-}) => {
-  const [step, setStep] = useState(1);
-  const [selectedSupplierId, setSelectedSupplierId] = useState('');
-  const [newSupplierName, setNewSupplierName] = useState('');
-  const [salesCategory, setSalesCategory] = useState<'regular' | 'near_expiry' | 'expired'>('regular');
-  const [currencyCode, setCurrencyCode] = useState('USD');
-  const [imageColumn, setImageColumn] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [uploadId, setUploadId] = useState<string>('');
-  const [previewData, setPreviewData] = useState<any>(null);
-  const [mappings, setMappings] = useState<any>(null);
-  const [newlyCreatedSuppliers, setNewlyCreatedSuppliers] = useState<Supplier[]>([]);
-  const [totalRows, setTotalRows] = useState<number>(0);
-  const [importProgress, setImportProgress] = useState<any>(null);
-
-  const {
-    uploadFile,
-    cleanCatalog,
-    processImport,
-    getPreview,
-    getMappingTemplate,
-    saveMappingTemplate,
-    createSupplier,
-    pollImportProgress,
-    isUploading,
-    isCleaning,
-    isProcessing,
-    isCreatingSupplier,
+export const UploadWizard = () => {
+  const { suppliers } = useSuppliersBasic();
+  const { data: countries } = useCountriesBasic();
+  
+  const { 
+    createQuickSupplier, cleanCatalog, uploadFile, 
+    getMappingTemplate, startProcessing
   } = useImport();
 
-  // Combinar proveedores existentes con nuevos creados
-  const allSuppliers = [...suppliers, ...newlyCreatedSuppliers];
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
 
-  const handleSupplierSelect = (supplierId: string) => {
-    setSelectedSupplierId(supplierId);
-    setNewSupplierName('');
-    setSession({ ...session, supplier_id: supplierId });
-  };
+  const [showCleanModal, setShowCleanModal] = useState(false);
+  const [showCleanSuccessModal, setShowCleanSuccessModal] = useState(false);
+  const [cleanDeletedCount, setCleanDeletedCount] = useState(0);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  const [supplierId, setSupplierId] = useState('');
+  const [newSupplierName, setNewSupplierName] = useState('');
+  const [newSupplierCountry, setNewSupplierCountry] = useState('');
+  const [category, setCategory] = useState('regular');
+  const [cleaned, setCleaned] = useState(false);
+  
+  const [uploadId, setUploadId] = useState('');
+  const [columns, setColumns] = useState<string[]>([]);
+  const [preview, setPreview] = useState<any[]>([]);
+  const [mappings, setMappings] = useState<any>({});
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
+  
+  const [localSuppliers, setLocalSuppliers] = useState<any[]>([]);
+  
+  // CORRECCIÓN: Resetear estado de limpieza cuando cambia la categoría
+  useEffect(() => {
+     setCleaned(false);
+  }, [category, supplierId]);
+  
+  // Filtro de proveedores activos
+  const activeSuppliers = [...(suppliers || []).filter((s: any) => s.is_active !== false && s.is_active !== 'f'), ...localSuppliers];
+
+  const selectedSupplierData = activeSuppliers.find((s:any) => s.id === supplierId);
+  const selectedCategoryLabel = CATEGORIES.find(c => c.id === category)?.label;
 
   const handleCreateSupplier = async () => {
-    if (!newSupplierName.trim()) return;
-    
+    if (!newSupplierName || !newSupplierCountry) return;
     try {
-      const newSupplier = await createSupplier({
-        name: newSupplierName.trim(),
-        country_id: undefined,
-        currency_id: undefined,
-        contact_info: undefined
-      });
-      
-      setNewlyCreatedSuppliers(prev => [...prev, newSupplier]);
-      setSelectedSupplierId(newSupplier.id);
-      setSession({ 
-        ...session, 
-        supplier_id: newSupplier.id, 
-        supplier_name: newSupplier.name 
-      });
+      const sup = await createQuickSupplier(newSupplierName, newSupplierCountry);
+      setLocalSuppliers(prev => [...prev, sup]);
+      setSupplierId(sup.id);
+      setShowCreateModal(false);
       setNewSupplierName('');
-    } catch (error) {
-      console.error('❌ Error creando proveedor:', error);
-      // CORRECCIÓN 1: Manejo seguro de errores
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al crear el proveedor';
-      alert(`Error al crear el proveedor: ${errorMessage}`);
+      setNewSupplierCountry('');
+    } catch (e: any) {
+      alert(e.message);
     }
   };
 
-  const handleCleanCatalog = async () => {
-    if (!selectedSupplierId) return;
-    
+  const handleClean = async () => {
     try {
-      await cleanCatalog({
-        supplier_id: selectedSupplierId,
-        sales_category: salesCategory
-      });
-      setStep(2);
-    } catch (error) {
-      console.error('Error en limpieza:', error);
-      // CORRECCIÓN 2: Manejo seguro de errores
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al limpiar el catálogo';
-      alert(`Error al limpiar el catálogo: ${errorMessage}`);
+      setLoading(true);
+      const count = await cleanCatalog(supplierId, category);
+      setCleanDeletedCount(count);
+      setCleaned(true);
+      setShowCleanModal(false);
+      setShowCleanSuccessModal(true);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleFileUpload = async (selectedFile: File) => {
-    if (!selectedSupplierId) return;
-    
-    setFile(selectedFile);
+  const handleUpload = async (uploadedFile: File) => {
     try {
-      const result = await uploadFile({
-        supplier_id: selectedSupplierId,
-        sales_category: salesCategory,
-        file: selectedFile,
-        currency_code: currencyCode,
-        image_column: imageColumn || undefined
-      });
-      
-      setUploadId(result.upload_id);
-      setTotalRows(result.total_rows);
-      
-      const preview = await getPreview(result.upload_id);
-      setPreviewData(preview);
-      
-      const template = await getMappingTemplate(selectedSupplierId);
-      setMappings(template.template.mappings);
-      
+      setLoading(true);
+      setFile(uploadedFile);
+      const res = await uploadFile(uploadedFile, supplierId, category);
+      setUploadId(res.upload_id);
+      setColumns(res.columns);
+      setPreview(res.preview);
+      const template = await getMappingTemplate(supplierId);
+      setMappings(template || {});
       setStep(3);
-    } catch (error) {
-      console.error('Error en upload:', error);
-      // CORRECCIÓN 3: Manejo seguro de errores
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al subir el archivo';
-      alert(`Error al subir el archivo: ${errorMessage}`);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleMappingComplete = async (finalMappings: any) => {
-    if (!uploadId || !selectedSupplierId) return;
-    
+  const handleStartProcess = async (finalMappings: any) => {
     try {
-      await saveMappingTemplate({
-        supplier_id: selectedSupplierId,
-        mappings: finalMappings
-      });
-      
-      const supplier = allSuppliers.find(s => s.id === selectedSupplierId);
-      
-      // Iniciar procesamiento
-      await processImport({
-        upload_id: uploadId,
-        mappings: finalMappings,
-        supplier_id: selectedSupplierId,
-        sales_category: salesCategory,
-        supplier_name: supplier?.name || 'Proveedor'
-      });
-      
-      // Iniciar monitoreo de progreso en tiempo real
-      setSession({ 
-        ...session, 
-        status: 'processing'
-      });
+      await startProcessing(uploadId, finalMappings, supplierId);
       setStep(4);
-      
-      // Iniciar polling para progreso
-      pollImportProgress(uploadId, (progress) => {
-        setImportProgress(progress);
-        
-        // Si la importación terminó, actualizar estado
-        if (progress && ['completed', 'completed_with_errors', 'error'].includes(progress.status)) {
-          setSession({ 
-            ...session, 
-            status: 'complete',
-            results: {
-              total_rows: progress.total_rows,
-              successful_lots: progress.processed_rows,
-              errors_count: progress.error_messages?.length || 0
-            }
-          });
-        }
-      });
-      
-    } catch (error) {
-      console.error('Error en procesamiento:', error);
-      // CORRECCIÓN 4: Manejo seguro de errores
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al procesar la importación';
-      setSession({ 
-        ...session, 
-        status: 'error',
-        error: errorMessage 
-      });
+    } catch (e: any) {
+      alert(e.message);
     }
   };
 
-  const handleNewImport = () => {
+  const handleReset = () => {
     setStep(1);
-    setSelectedSupplierId('');
-    setNewSupplierName('');
-    setSalesCategory('regular');
-    setCurrencyCode('USD');
-    setImageColumn('');
     setFile(null);
     setUploadId('');
-    setPreviewData(null);
-    setMappings(null);
-    setTotalRows(0);
-    setNewlyCreatedSuppliers([]);
-    setImportProgress(null);
-    setSession({
-      id: '1',
-      status: 'selecting',
-      sales_category: 'regular',
-    });
+    setProgress(null);
+    setCleaned(false);
   };
 
-  // Configuración de pasos para el indicador
-  const steps = [
-    { number: 1, title: 'Configuración', icon: Building, status: step >= 1 ? 'completed' : 'current' },
-    { number: 2, title: 'Subir Archivo', icon: Upload, status: step >= 2 ? 'completed' : step === 2 ? 'current' : 'upcoming' },
-    { number: 3, title: 'Mapear Columnas', icon: Map, status: step >= 3 ? 'completed' : step === 3 ? 'current' : 'upcoming' },
-    { number: 4, title: 'Progreso', icon: FileCheck, status: step >= 4 ? 'completed' : step === 4 ? 'current' : 'upcoming' },
-  ];
-
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-      {/* Indicador de Pasos Mejorado */}
-      <div className="mb-12">
-        <div className="flex items-center justify-between">
-          {steps.map((stepItem, index) => (
-            <div key={stepItem.number} className="flex items-center flex-1">
-              {/* Paso Individual */}
-              <div className="flex flex-col items-center">
-                <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300 ${
-                  step > stepItem.number
-                    ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-200'
-                    : step === stepItem.number
-                    ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200'
-                    : 'bg-white border-gray-300 text-gray-400'
-                }`}>
-                  {step > stepItem.number ? (
-                    <CheckCircle2 className="h-6 w-6" />
-                  ) : (
-                    <stepItem.icon className="h-5 w-5" />
-                  )}
-                </div>
-                <span className={`mt-3 text-sm font-medium transition-colors ${
-                  step >= stepItem.number ? 'text-gray-900' : 'text-gray-500'
-                }`}>
-                  {stepItem.title}
-                </span>
-              </div>
-
-              {/* Línea Conectora */}
-              {index < steps.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-4 transition-colors ${
-                  step > stepItem.number ? 'bg-green-500' : 'bg-gray-200'
-                }`} />
-              )}
-            </div>
-          ))}
-        </div>
+    <div className="p-8">
+      <div className="flex justify-center mb-10">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mx-4 transition-all duration-300 ${
+            step >= i ? 'bg-blue-600 text-white shadow-lg scale-110' : 'bg-gray-100 text-gray-400 border border-gray-200'
+          }`}>
+            {step > i ? <CheckCircle2 className="w-6 h-6"/> : i}
+          </div>
+        ))}
       </div>
 
-      {/* Paso 1: Configuración */}
       {step === 1 && (
-        <div className="space-y-8">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-              <Building className="h-8 w-8 text-blue-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900">Configurar Importación</h3>
-            <p className="text-gray-600 mt-2 text-lg">
-              Selecciona el proveedor, categoría y configuración de moneda
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Panel Izquierdo: Proveedor y Moneda */}
-            <div className="space-y-6">
-              {/* Proveedores Existentes */}
-              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                  <Package className="h-5 w-5 text-blue-600" />
-                  <span>Proveedores Existentes</span>
-                </h4>
-                
-                <select
-                  value={selectedSupplierId}
-                  onChange={(e) => handleSupplierSelect(e.target.value)}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  disabled={suppliersLoading}
-                >
-                  <option value="">Selecciona un proveedor...</option>
-                  {allSuppliers.map(supplier => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.name} 
-                      {supplier.country_name && ` - ${supplier.country_name}`}
-                      {newlyCreatedSuppliers.some(s => s.id === supplier.id) && ' (Nuevo)'}
-                    </option>
-                  ))}
-                </select>
-
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center space-x-2 text-blue-700">
-                    <Sparkles className="h-4 w-4" />
-                    <span className="text-sm font-medium">Proveedor seleccionado:</span>
-                  </div>
-                  <p className="text-blue-900 font-semibold mt-1">
-                    {selectedSupplierId 
-                      ? allSuppliers.find(s => s.id === selectedSupplierId)?.name 
-                      : 'Ninguno seleccionado'
-                    }
-                  </p>
-                </div>
-              </div>
-
-              {/* Selector de Moneda */}
-              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                  <Currency className="h-5 w-5 text-purple-600" />
-                  <span>Moneda del Archivo</span>
-                </h4>
-                
-                <div className="space-y-3">
-                  {currencyOptions.map(currency => (
-                    <label key={currency.code} className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors">
-                      <input
-                        type="radio"
-                        name="currency"
-                        value={currency.code}
-                        checked={currencyCode === currency.code}
-                        onChange={(e) => setCurrencyCode(e.target.value)}
-                        className="text-blue-600 focus:ring-blue-500"
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{currency.name}</div>
-                        <div className="text-sm text-gray-600">{currency.symbol} • {currency.code}</div>
-                      </div>
-                      {currencyCode === currency.code && (
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      )}
-                    </label>
-                  ))}
-                </div>
-
-                <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                  <p className="text-sm text-purple-700">
-                    <strong>Nota:</strong> Los precios se convertirán automáticamente a USD usando las tasas de cambio actuales.
-                  </p>
-                </div>
-              </div>
-
-              {/* Crear Nuevo Proveedor */}
-              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                  <Building className="h-5 w-5 text-green-600" />
-                  <span>Crear Nuevo Proveedor</span>
-                </h4>
-                
-                <div className="space-y-4">
-                  <input
-                    type="text"
-                    value={newSupplierName}
-                    onChange={(e) => setNewSupplierName(e.target.value)}
-                    placeholder="Ingresa el nombre del nuevo proveedor"
-                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                    disabled={isCreatingSupplier}
-                  />
-                  
-                  <button
-                    onClick={handleCreateSupplier}
-                    disabled={!newSupplierName.trim() || isCreatingSupplier}
-                    className="w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-semibold hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
-                  >
-                    {isCreatingSupplier ? (
-                      <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                        Creando Proveedor...
-                      </>
-                    ) : (
-                      <>
-                        <Building className="h-5 w-5 mr-2" />
-                        Crear Proveedor
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Panel Derecho: Categoría y Configuración Avanzada */}
-            <div className="space-y-6">
-              {/* Categoría de Caducidad */}
-              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                  <Calendar className="h-5 w-5 text-purple-600" />
-                  <span>Categoría de Caducidad</span>
-                </h4>
-
-                <div className="space-y-4">
-                  {[
-                    { 
-                      value: 'regular', 
-                      label: 'En Fecha', 
-                      description: 'Productos con fecha vigente',
-                      icon: '🟢',
-                      color: 'border-green-200 bg-green-50 hover:bg-green-100 text-green-700',
-                      activeColor: 'ring-2 ring-green-500 ring-offset-2 bg-green-100 border-green-300'
-                    },
-                    { 
-                      value: 'near_expiry', 
-                      label: 'Fecha Cerca', 
-                      description: 'Próximos a caducar',
-                      icon: '🟡',
-                      color: 'border-yellow-200 bg-yellow-50 hover:bg-yellow-100 text-yellow-700',
-                      activeColor: 'ring-2 ring-yellow-500 ring-offset-2 bg-yellow-100 border-yellow-300'
-                    },
-                    { 
-                      value: 'expired', 
-                      label: 'Caducados', 
-                      description: 'Productos vencidos',
-                      icon: '🔴',
-                      color: 'border-red-200 bg-red-50 hover:bg-red-100 text-red-700',
-                      activeColor: 'ring-2 ring-red-500 ring-offset-2 bg-red-100 border-red-300'
-                    }
-                  ].map(category => (
-                    <button
-                      key={category.value}
-                      onClick={() => setSalesCategory(category.value as any)}
-                      className={`w-full p-4 border-2 rounded-xl text-left transition-all duration-200 ${category.color} ${
-                        salesCategory === category.value ? category.activeColor : ''
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <span className="text-2xl">{category.icon}</span>
-                        <div className="flex-1">
-                          <div className="font-semibold text-lg">{category.label}</div>
-                          <div className="text-sm opacity-80">{category.description}</div>
-                        </div>
-                        {salesCategory === category.value && (
-                          <CheckCircle2 className="h-6 w-6 text-current" />
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Configuración de Imágenes (Opcional) */}
-              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                  <Image className="h-5 w-5 text-indigo-600" />
-                  <span>Imágenes (Opcional)</span>
-                </h4>
-                
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-600 mb-3">
-                    Si tu archivo incluye una columna con URLs de imágenes, especifica su nombre:
-                  </p>
-                  
-                  <input
-                    type="text"
-                    value={imageColumn}
-                    onChange={(e) => setImageColumn(e.target.value)}
-                    placeholder="Ej: imagen_url, image, foto"
-                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                  />
-                  
-                  <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                    <p className="text-sm text-indigo-700">
-                      <strong>Tip:</strong> Las imágenes se procesarán de forma opcional y no detendrán la importación si hay errores.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Panel de Limpieza */}
-              <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-6 border border-amber-200">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className="h-6 w-6 text-amber-600 mt-0.5" />
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-amber-900 text-lg">Limpieza Requerida</h4>
-                    <p className="text-amber-700 mt-2">
-                      Antes de subir un nuevo catálogo, debes limpiar el existente para evitar duplicados y mantener la integridad del inventario.
-                    </p>
-                    
-                    <button
-                      onClick={handleCleanCatalog}
-                      disabled={!selectedSupplierId || isCleaning}
-                      className="mt-4 w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-semibold hover:from-amber-700 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
-                    >
-                      {isCleaning ? (
-                        <>
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                          Limpiando Catálogo...
-                        </>
-                      ) : (
-                        <>
-                          <Package className="h-5 w-5 mr-2" />
-                          Limpiar Catálogo Anterior
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Paso 2: Subir archivo */}
-      {step === 2 && (
-        <div className="space-y-8">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-              <Upload className="h-8 w-8 text-blue-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900">Subir Archivo Excel</h3>
-            <p className="text-gray-600 mt-2 text-lg">
-              Carga el archivo Excel con el catálogo del proveedor
-            </p>
-          </div>
-
-          <FileUploadZone 
-            onFileSelect={handleFileUpload}
-            isUploading={isUploading}
-            acceptedFormats=".xlsx, .xls, .csv"
-          />
-
-          {/* Información del Contexto Actual */}
-          {selectedSupplierId && (
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg">
-                    <Building className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-blue-900">Configuración Actual</h4>
-                    <p className="text-blue-700">
-                      <span className="font-medium">{allSuppliers.find(s => s.id === selectedSupplierId)?.name}</span> • {
-                        salesCategory === 'regular' ? '🟢 En Fecha' :
-                        salesCategory === 'near_expiry' ? '🟡 Fecha Cerca' : '🔴 Caducados'
-                      } • 💰 {currencyOptions.find(c => c.code === currencyCode)?.name}
-                      {imageColumn && ` • 🖼️ Columna: ${imageColumn}`}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setStep(1)}
-                  className="px-4 py-2 text-sm text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors font-medium"
-                >
-                  Cambiar
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Paso 3: Mapeo de columnas */}
-      {step === 3 && previewData && (
-        <div className="space-y-8">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-              <Map className="h-8 w-8 text-blue-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900">Mapear Columnas</h3>
-            <p className="text-gray-600 mt-2 text-lg">
-              Asigna las columnas de tu Excel a los campos del sistema
-            </p>
-          </div>
-
-          {/* CORRECCIÓN 5: Quitar propiedades no soportadas por ahora */}
-          <ColumnMapper
-            previewData={previewData.preview}
-            availableColumns={previewData.available_columns}
-            currentMappings={mappings}
-            onMappingsChange={setMappings}
-            onComplete={handleMappingComplete}
-            isProcessing={isProcessing}
-            totalRows={totalRows}
-          />
-        </div>
-      )}
-
-      {/* Paso 4: Progreso y resultados */}
-      {step === 4 && (
-        <div className="space-y-8">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-              <FileCheck className="h-8 w-8 text-blue-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900">
-              {session.status === 'processing' ? 'Procesando Importación' : 'Resultados de la Importación'}
+        <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
+              <span className="flex items-center"><Building className="mr-2 h-5 w-5 text-blue-600"/> Proveedor</span>
+              <button onClick={() => setShowCreateModal(true)} className="text-sm text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-3 py-1 rounded-full transition-colors">+ Nuevo Proveedor</button>
             </h3>
-            <p className="text-gray-600 mt-2 text-lg">
-              {session.status === 'processing' 
-                ? 'Tu importación está siendo procesada...' 
-                : 'Importación completada'
-              }
-            </p>
+            
+            <select 
+              className="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 font-medium"
+              value={supplierId}
+              onChange={e => setSupplierId(e.target.value)}
+            >
+              <option value="" className="text-gray-400">-- Selecciona un Proveedor --</option>
+              {activeSuppliers.map((s: any) => {
+                 const countryInfo = countries?.find((c: any) => c.code === s.country_code);
+                 const details = countryInfo ? `${countryInfo.name} - ${countryInfo.currency_code} ${countryInfo.currency_symbol}` : s.country_code;
+                 return <option key={s.id} value={s.id} className="text-gray-900 py-2">{s.name} ({details})</option>;
+              })}
+            </select>
           </div>
 
-          {session.status === 'processing' && (
-            // CORRECCIÓN 6: Usar ImportProgress sin propiedades adicionales por ahora
-            <ImportProgress />
+          {supplierId && (
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm animate-in fade-in slide-in-from-bottom-4">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Categoría</h3>
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                {CATEGORIES.map(cat => (
+                  <button key={cat.id} onClick={() => setCategory(cat.id)} className={`p-3 rounded-lg border-2 text-sm font-bold transition-all ${category === cat.id ? `${cat.color} ring-2 ring-offset-1` : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}>{cat.label}</button>
+                ))}
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center justify-between">
+                <div className="flex flex-col"><span className="text-sm text-orange-900 font-bold">Limpieza de Inventario</span><span className="text-xs text-orange-700 mt-1">¿Borrar stock anterior de esta categoría?</span></div>
+                {cleaned ? <span className="flex items-center text-green-700 font-bold text-sm bg-green-100 px-4 py-2 rounded-lg border border-green-200 shadow-sm"><CheckCircle2 className="w-4 h-4 mr-2"/> Listo</span> : 
+                  <button onClick={() => setShowCleanModal(true)} className="flex items-center bg-white border border-orange-300 text-orange-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors shadow-sm"><Trash2 className="w-4 h-4 mr-2"/> Limpiar Ahora</button>}
+              </div>
+            </div>
           )}
-          
-          {session.status === 'complete' && session.results && (
-            // CORRECCIÓN 7: Usar ImportResults sin propiedades adicionales por ahora
-            <ImportResults 
-              results={session.results} 
-              onNewImport={handleNewImport}
-            />
-          )}
+          <div className="flex justify-end pt-4">
+            <button disabled={!supplierId} onClick={() => setStep(2)} className="flex items-center bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5">Siguiente <ArrowRight className="ml-2 w-5 h-5"/></button>
+          </div>
         </div>
       )}
 
-      {/* Navegación entre pasos */}
-      {step > 1 && step < 4 && (
-        <div className="border-t border-gray-200 pt-8 mt-8">
-          <div className="flex justify-between items-center">
-            <button
-              onClick={() => setStep(step - 1)}
-              className="flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200"
-            >
-              ← Anterior
-            </button>
-            
-            {step === 2 && file && (
-              <div className="flex items-center space-x-2 bg-green-50 text-green-700 px-4 py-2 rounded-lg border border-green-200">
-                <CheckCircle2 className="h-4 w-4" />
-                <span className="font-medium">Archivo listo: {file.name}</span>
-              </div>
-            )}
+      {step === 2 && (
+        <div className="max-w-xl mx-auto animate-in fade-in zoom-in-95 duration-300 space-y-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
+             <div className="flex items-center space-x-3">
+                <div className="bg-white p-2 rounded-full shadow-sm"><FileText className="w-5 h-5 text-blue-600" /></div>
+                <div><div className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Importando para</div><div className="text-gray-900 font-bold">{selectedSupplierData?.name}</div></div>
+             </div>
+             <div className="text-right"><div className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Categoría</div><div className="text-gray-900 font-bold">{selectedCategoryLabel}</div></div>
+          </div>
+          <FileUploadZone onFileSelect={handleUpload} isUploading={loading} />
+          {loading && <div className="text-center mt-6"><div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div><p className="text-blue-600 font-medium">Subiendo y analizando archivo...</p></div>}
+          <div className="flex justify-start"><button onClick={() => setStep(1)} disabled={loading} className="flex items-center text-gray-500 hover:text-gray-700 font-medium px-4 py-2 transition-colors"><ArrowLeft className="w-4 h-4 mr-2"/> Volver</button></div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="animate-in fade-in slide-in-from-right-8 duration-500">
+            <ColumnMapper previewData={preview} availableColumns={columns} currentMappings={mappings} onMappingsChange={setMappings} onComplete={handleStartProcess} />
+            <div className="mt-4"><button onClick={() => setStep(2)} className="flex items-center text-gray-500 hover:text-gray-700 font-medium px-4 py-2 transition-colors"><ArrowLeft className="w-4 h-4 mr-2"/> Corregir Archivo</button></div>
+        </div>
+      )}
+
+      {step === 4 && (
+        <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in zoom-in-95">
+           <ImportProgressComponent uploadId={uploadId} onComplete={(data) => setProgress(data)} />
+           {progress && ['completed', 'completed_with_errors'].includes(progress.status) && (
+              <ImportResults progressData={progress} onNewImport={handleReset} />
+           )}
+        </div>
+      )}
+
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
+          <div className="bg-white p-6 rounded-2xl w-96 shadow-2xl scale-100 animate-in zoom-in-95">
+            <h3 className="text-xl font-bold mb-4 text-gray-900">Nuevo Proveedor</h3>
+            <input className="w-full p-3 border border-gray-300 rounded-lg mb-3 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nombre del Proveedor" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} />
+            <select className="w-full p-3 border border-gray-300 rounded-lg mb-6 text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 outline-none" value={newSupplierCountry} onChange={e => setNewSupplierCountry(e.target.value)}>
+              <option value="">Seleccionar País</option>
+              {countries?.map((c: any) => <option key={c.code} value={c.code}>{c.name} ({c.currency_code} {c.currency_symbol})</option>)}
+            </select>
+            <div className="flex justify-end space-x-2">
+              <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancelar</button>
+              <button onClick={handleCreateSupplier} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-md">Crear</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCleanModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
+          <div className="bg-white p-8 rounded-2xl w-96 text-center shadow-2xl scale-100 animate-in zoom-in-95">
+            <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><AlertTriangle className="h-8 w-8 text-red-600"/></div>
+            <h3 className="text-xl font-bold mb-2 text-gray-900">¿Estás seguro?</h3>
+            <p className="text-gray-600 mb-6">Eliminarás <span className="font-bold">todo el stock</span> de esta categoría para este proveedor. Esta acción es irreversible.</p>
+            <div className="flex justify-center space-x-3">
+              <button onClick={() => setShowCleanModal(false)} className="px-5 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50">Cancelar</button>
+              <button onClick={handleClean} className="px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-200">{loading ? 'Borrando...' : 'Sí, Borrar Todo'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCleanSuccessModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
+          <div className="bg-white p-8 rounded-2xl w-80 text-center shadow-2xl scale-100 animate-in zoom-in-95">
+            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 className="h-8 w-8 text-green-600"/></div>
+            <h3 className="text-xl font-bold mb-2 text-gray-900">¡Limpieza Exitosa!</h3>
+            <p className="text-gray-600 mb-6 font-medium">Se eliminaron <span className="text-gray-900 font-bold">{cleanDeletedCount}</span> registros antiguos.</p>
+            <button onClick={() => setShowCleanSuccessModal(false)} className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-colors">Entendido</button>
           </div>
         </div>
       )}

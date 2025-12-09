@@ -1,3 +1,5 @@
+//backend/src/config/database.js
+
 const { Pool } = require('pg');
 require('dotenv').config();
 
@@ -9,17 +11,17 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-// Probar la conexión
+// Probar la conexión al iniciar
 pool.connect((err, client, release) => {
   if (err) {
-    console.error('Error conectando a la base de datos:', err.stack);
+    console.error('❌ Error fatal conectando a la BD:', err.stack);
   } else {
-    console.log('✅ Conectado a PostgreSQL - MedBay Platform');
+    console.log(`✅ Conectado a PostgreSQL | DB: ${process.env.DB_NAME} | User: ${process.env.DB_USER}`);
     release();
   }
 });
 
 module.exports = {
   query: (text, params) => pool.query(text, params),
-  pool
+  pool // Exportamos el pool para poder usar transacciones
 };

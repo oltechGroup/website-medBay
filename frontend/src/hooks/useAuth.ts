@@ -1,3 +1,5 @@
+//frontend/src/hooks/useAuth.ts
+
 import { useAuthStore } from '@/stores/authStore';
 
 export const useAuth = () => {

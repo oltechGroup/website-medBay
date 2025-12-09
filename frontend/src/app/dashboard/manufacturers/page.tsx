@@ -1,12 +1,14 @@
+//frontend/src/app/dashboard/manufacturers/page.tsx
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useManufacturers } from '@/hooks/useManufacturers';
 import { ManufacturerStatsCards } from '@/components/features/manufacturers/ManufacturerStatsCards';
 import ManufacturerTable from '@/components/features/manufacturers/ManufacturerTable';
 import { ManufacturerFilters } from '@/components/features/manufacturers/ManufacturerFilters';
-import { Plus, RefreshCw, Factory } from 'lucide-react';
+import { Plus, RefreshCw, Factory, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function ManufacturersPage() {
   const { 
@@ -20,36 +22,41 @@ export default function ManufacturersPage() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 10; // Mostrar 10 fabricantes por página
 
-  // Filtrar fabricantes
-  const filteredManufacturers = manufacturers.filter(manufacturer =>
-    manufacturer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    manufacturer.contact_info?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    manufacturer.contact_info?.contact_person?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    manufacturer.contact_info?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    manufacturer.website?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtrar fabricantes con useMemo para optimización
+  const filteredManufacturers = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return manufacturers;
+    }
+    
+    return manufacturers.filter(manufacturer =>
+      manufacturer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      manufacturer.contact_info?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      manufacturer.contact_info?.contact_person?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      manufacturer.contact_info?.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      manufacturer.website?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [manufacturers, searchTerm]);
 
-  // Paginación
-  const totalPages = Math.ceil(filteredManufacturers.length / itemsPerPage);
-  const paginatedManufacturers = filteredManufacturers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  // Calcular paginación
+  const totalPages = Math.max(1, Math.ceil(filteredManufacturers.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedManufacturers = filteredManufacturers.slice(startIndex, endIndex);
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
-    setCurrentPage(1);
+    setCurrentPage(1); // Resetear a la primera página al buscar
   };
 
   const handleSearchSubmit = () => {
-    // La búsqueda se hace en tiempo real, esto es para logging
     console.log('Búsqueda ejecutada:', searchTerm);
   };
 
   const handleRefresh = () => {
     refetch();
+    setCurrentPage(1);
   };
 
   const handleDelete = async (id: string) => {
@@ -62,6 +69,22 @@ export default function ManufacturersPage() {
         alert('Error al eliminar el fabricante. Puede que esté siendo utilizado en productos.');
       }
     }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page);
   };
 
   if (error) {
@@ -82,6 +105,40 @@ export default function ManufacturersPage() {
       </div>
     );
   }
+
+  // Generar números de página para mostrar (máximo 5 páginas en los controles)
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      // Mostrar todas las páginas
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      // Mostrar páginas alrededor de la página actual
+      let startPage = Math.max(1, currentPage - 2);
+      let endPage = Math.min(totalPages, currentPage + 2);
+      
+      // Ajustar si estamos cerca del inicio o final
+      if (currentPage <= 3) {
+        startPage = 1;
+        endPage = maxVisiblePages;
+      } else if (currentPage >= totalPages - 2) {
+        startPage = totalPages - maxVisiblePages + 1;
+        endPage = totalPages;
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+      }
+    }
+    
+    return pageNumbers;
+  };
+
+  const pageNumbers = getPageNumbers();
 
   return (
     <div className="space-y-6">
@@ -122,7 +179,7 @@ export default function ManufacturersPage() {
         onSearchSubmit={handleSearchSubmit}
       />
 
-      {/* Tabla de fabricantes */}
+      {/* Tabla de fabricantes con paginación */}
       <ManufacturerTable
         manufacturers={paginatedManufacturers}
         loading={isLoading}
@@ -130,11 +187,103 @@ export default function ManufacturersPage() {
         isDeleting={isDeleting}
       />
 
-      {/* Información de paginación */}
-      {filteredManufacturers.length > 0 && (
-        <div className="text-center text-sm text-gray-600">
-          Mostrando {paginatedManufacturers.length} de {filteredManufacturers.length} fabricantes
-          {totalPages > 1 && ` - Página ${currentPage} de ${totalPages}`}
+      {/* Controles de paginación */}
+      {filteredManufacturers.length > itemsPerPage && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-200">
+          {/* Información de paginación */}
+          <div className="text-sm text-gray-600">
+            Mostrando <span className="font-medium">{startIndex + 1}</span> -{' '}
+            <span className="font-medium">
+              {Math.min(endIndex, filteredManufacturers.length)}
+            </span>{' '}
+            de <span className="font-medium">{filteredManufacturers.length}</span> fabricantes
+          </div>
+
+          {/* Controles de navegación */}
+          <div className="flex items-center space-x-2">
+            {/* Botón anterior */}
+            <button
+              onClick={handlePrevPage}
+
+              
+              disabled={currentPage === 1 || isLoading}
+              className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            {/* Números de página */}
+            <div className="flex items-center space-x-1">
+              {pageNumbers.map((pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageClick(pageNum)}
+                  disabled={isLoading}
+                  className={`min-w-[2.5rem] px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                    currentPage === pageNum
+                      ? 'bg-blue-600 text-white'
+                      : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+              
+              {/* Indicador de páginas omitidas */}
+              {totalPages > 5 && currentPage < totalPages - 2 && (
+                <>
+                  <span className="px-1 text-gray-400">...</span>
+                  <button
+                    onClick={() => handlePageClick(totalPages)}
+                    disabled={isLoading}
+                    className="min-w-[2.5rem] px-3 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {totalPages}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Botón siguiente */}
+            <button
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages || isLoading}
+              className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Información de resultados cuando no hay paginación */}
+      {filteredManufacturers.length <= itemsPerPage && (
+        <div className="text-center text-sm text-gray-600 pt-4 border-t border-gray-200">
+          {isLoading ? (
+            <p>Cargando fabricantes...</p>
+          ) : (
+            <>
+              <p>
+                {searchTerm ? (
+                  <>
+                    Mostrando <span className="font-medium">{filteredManufacturers.length}</span> fabricantes
+                    {searchTerm && (
+                      <> para "<span className="font-medium">{searchTerm}</span>"</>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    Total de fabricantes: <span className="font-medium">{manufacturers.length}</span>
+                  </>
+                )}
+              </p>
+              {filteredManufacturers.length === 0 && searchTerm && (
+                <p className="text-amber-600 mt-2">
+                  No se encontraron fabricantes que coincidan con tu búsqueda.
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

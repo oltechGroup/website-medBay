@@ -1,3 +1,5 @@
+//backend/src/controllers/manufacturerController.js
+
 const Manufacturer = require('../models/manufacturerModel');
 
 const manufacturerController = {
