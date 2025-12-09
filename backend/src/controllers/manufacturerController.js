@@ -3,194 +3,97 @@
 const Manufacturer = require('../models/manufacturerModel');
 
 const manufacturerController = {
-  // Crear fabricante con validación de duplicados (ACTUALIZADO)
   create: async (req, res) => {
     try {
       const { name, contact_info, website } = req.body;
+      if (!name || name.trim() === '') return res.status(400).json({ success: false, error: 'Nombre requerido' });
 
-      if (!name || name.trim() === '') {
-        return res.status(400).json({ 
-          success: false,
-          error: 'El nombre del fabricante es requerido' 
-        });
-      }
-
-      // Verificar si ya existe
-      const existingManufacturer = await Manufacturer.findByName(name.trim());
-      if (existingManufacturer) {
-        return res.status(409).json({ 
-          success: false,
-          error: 'El fabricante ya existe',
-          data: existingManufacturer 
-        });
-      }
+      const existing = await Manufacturer.findByName(name.trim());
+      if (existing) return res.status(409).json({ success: false, error: 'El fabricante ya existe' });
 
       const newManufacturer = await Manufacturer.create({ 
-        name: name.trim(),
-        contact_info: contact_info || {},
-        website: website || null
+        name: name.trim(), contact_info: contact_info || {}, website: website || null 
       });
-      
-      res.status(201).json({
-        success: true,
-        message: 'Fabricante creado exitosamente',
-        data: newManufacturer
-      });
-
+      res.status(201).json({ success: true, data: newManufacturer });
     } catch (error) {
-      console.error('Error al crear fabricante:', error);
-      
-      res.status(500).json({ 
-        success: false,
-        error: 'Error interno del servidor',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
+      res.status(500).json({ success: false, error: 'Error interno' });
     }
   },
 
-  // Obtener todos los fabricantes (ACTUALIZADO)
+  // OPTIMIZADO: getAll con paginación real
   getAll: async (req, res) => {
     try {
-      const manufacturers = await Manufacturer.findAll();
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+      const offset = (page - 1) * limit;
+
+      const [manufacturers, totalCount] = await Promise.all([
+        Manufacturer.findAll({ limit, offset, search }),
+        Manufacturer.count(search)
+      ]);
+
+      const totalPages = Math.ceil(totalCount / limit);
+
       res.json({
         success: true,
-        data: manufacturers
+        data: manufacturers,
+        pagination: {
+          page,
+          limit,
+          total: totalCount,
+          totalPages
+        }
       });
     } catch (error) {
       console.error('Error al obtener fabricantes:', error);
-      res.status(500).json({ 
-        success: false,
-        error: 'Error interno del servidor' 
-      });
+      res.status(500).json({ success: false, error: 'Error interno' });
     }
   },
 
-  // Obtener fabricante por ID (ACTUALIZADO)
   getById: async (req, res) => {
     try {
-      const { id } = req.params;
-      const manufacturer = await Manufacturer.findById(id);
-      
-      if (!manufacturer) {
-        return res.status(404).json({ 
-          success: false,
-          error: 'Fabricante no encontrado' 
-        });
-      }
-
-      res.json({
-        success: true,
-        data: manufacturer
-      });
+      const manufacturer = await Manufacturer.findById(req.params.id);
+      if (!manufacturer) return res.status(404).json({ success: false, error: 'No encontrado' });
+      res.json({ success: true, data: manufacturer });
     } catch (error) {
-      console.error('Error al obtener fabricante:', error);
-      res.status(500).json({ 
-        success: false,
-        error: 'Error interno del servidor' 
-      });
+      res.status(500).json({ success: false, error: 'Error interno' });
     }
   },
 
-  // Buscar fabricante por nombre (ACTUALIZADO)
   getByName: async (req, res) => {
     try {
-      const { name } = req.params;
-      const manufacturer = await Manufacturer.findByName(name);
-      
-      if (!manufacturer) {
-        return res.status(404).json({ 
-          success: false,
-          error: 'Fabricante no encontrado' 
-        });
-      }
-
-      res.json({
-        success: true,
-        data: manufacturer
-      });
+      const manufacturer = await Manufacturer.findByName(req.params.name);
+      if (!manufacturer) return res.status(404).json({ success: false, error: 'No encontrado' });
+      res.json({ success: true, data: manufacturer });
     } catch (error) {
-      console.error('Error al buscar fabricante:', error);
-      res.status(500).json({ 
-        success: false,
-        error: 'Error interno del servidor' 
-      });
+      res.status(500).json({ success: false, error: 'Error interno' });
     }
   },
 
-  // Actualizar fabricante (ACTUALIZADO)
   update: async (req, res) => {
     try {
-      const { id } = req.params;
       const { name, contact_info, website } = req.body;
+      if (!name || name.trim() === '') return res.status(400).json({ success: false, error: 'Nombre requerido' });
 
-      if (!name || name.trim() === '') {
-        return res.status(400).json({ 
-          success: false,
-          error: 'El nombre del fabricante es requerido' 
-        });
-      }
-
-      const updatedManufacturer = await Manufacturer.update(id, { 
-        name: name.trim(),
-        contact_info: contact_info || {},
-        website: website || null
+      const updated = await Manufacturer.update(req.params.id, { 
+        name: name.trim(), contact_info: contact_info || {}, website: website || null 
       });
-      
-      if (!updatedManufacturer) {
-        return res.status(404).json({ 
-          success: false,
-          error: 'Fabricante no encontrado' 
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'Fabricante actualizado exitosamente',
-        data: updatedManufacturer
-      });
+      if (!updated) return res.status(404).json({ success: false, error: 'No encontrado' });
+      res.json({ success: true, data: updated });
     } catch (error) {
-      console.error('Error al actualizar fabricante:', error);
-      
-      res.status(500).json({ 
-        success: false,
-        error: 'Error interno del servidor',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
+      res.status(500).json({ success: false, error: 'Error interno' });
     }
   },
 
-  // Eliminar fabricante (MANTENIDO)
   delete: async (req, res) => {
     try {
-      const { id } = req.params;
-      const deletedManufacturer = await Manufacturer.delete(id);
-      
-      if (!deletedManufacturer) {
-        return res.status(404).json({ 
-          success: false,
-          error: 'Fabricante no encontrado' 
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'Fabricante eliminado exitosamente',
-        data: deletedManufacturer
-      });
+      const deleted = await Manufacturer.delete(req.params.id);
+      if (!deleted) return res.status(404).json({ success: false, error: 'No encontrado' });
+      res.json({ success: true, data: deleted });
     } catch (error) {
-      console.error('Error al eliminar fabricante:', error);
-      
-      if (error.code === '23503') {
-        return res.status(400).json({ 
-          success: false,
-          error: 'No se puede eliminar el fabricante porque está siendo utilizado en productos' 
-        });
-      }
-
-      res.status(500).json({ 
-        success: false,
-        error: 'Error interno del servidor' 
-      });
+      if (error.code === '23503') return res.status(400).json({ success: false, error: 'No se puede eliminar: en uso por productos' });
+      res.status(500).json({ success: false, error: 'Error interno' });
     }
   }
 };

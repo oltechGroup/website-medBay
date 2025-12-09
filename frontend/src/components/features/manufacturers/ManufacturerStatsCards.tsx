@@ -1,3 +1,5 @@
+//frontend/src/app/components/features/manufacturers/ManufacturerStatsCards.tsx
+
 'use client';
 
 import { Factory, TrendingUp } from 'lucide-react';
@@ -35,20 +37,6 @@ export const ManufacturerStatsCards = ({ totalCount, isLoading }: ManufacturerSt
           </div>
           <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
             <Factory className="h-6 w-6 text-blue-600" />
-          </div>
-        </div>
-      </div>
-
-      {/* Estado del Sistema */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-600 mb-1">Estado del Sistema</p>
-            <p className="text-2xl font-bold text-green-600">Activo</p>
-            <p className="text-xs text-gray-500 mt-1">Todos los sistemas operativos</p>
-          </div>
-          <div className="p-3 bg-green-50 rounded-xl border border-green-100">
-            <TrendingUp className="h-6 w-6 text-green-600" />
           </div>
         </div>
       </div>
