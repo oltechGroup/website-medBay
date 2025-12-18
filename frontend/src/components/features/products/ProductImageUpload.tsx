@@ -1,10 +1,12 @@
 // frontend/src/components/features/products/ProductImageUpload.tsx
+
+// frontend/src/components/features/products/ProductImageUpload.tsx
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Product, ProductImage, useProducts } from '@/hooks/useProducts';
 
-// 🌎 CONFIGURACIÓN URL (Igual que en el otro componente)
+// 🌎 CONFIGURACIÓN URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface ProductImageUploadProps {
@@ -29,12 +31,17 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     isUploadingImagesWithMetadata 
   } = useProducts();
   
+  // Estados principales
   const [selectedImages, setSelectedImages] = useState<{ [productId: string]: ImageWithMetadata[] }>({});
   const [uploadStatus, setUploadStatus] = useState<{ [productId: string]: 'idle' | 'uploading' | 'success' | 'error' }>({});
   const [uploadErrors, setUploadErrors] = useState<{ [productId: string]: string }>({});
   const [existingImages, setExistingImages] = useState<{ [productId: string]: ProductImage[] }>({});
   const [loadingImages, setLoadingImages] = useState<{ [productId: string]: boolean }>({});
   
+  // Estado para visualización del Drag & Drop (archivo externo)
+  const [dragActive, setDragActive] = useState<{ [productId: string]: boolean }>({});
+
+  // Refs para reordenamiento interno
   const dragItem = useRef<{ index: number, productId: string } | null>(null);
   const dragOverItem = useRef<{ index: number, productId: string } | null>(null);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
@@ -51,6 +58,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     return `${API_URL}/${cleanPath}`;
   };
 
+  // Carga inicial de imágenes existentes (si las hay)
   useEffect(() => {
     let isMounted = true;
     const loadExistingImages = async () => {
@@ -80,10 +88,12 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     return () => { isMounted = false; };
   }, [productsWithoutImages]);
 
-  const handleFileSelect = (productId: string, files: FileList | null) => {
+  // --- LÓGICA DE PROCESAMIENTO DE ARCHIVOS ---
+  const processFiles = (productId: string, files: FileList | null) => {
     if (!files) return;
     const fileArray = Array.from(files);
     
+    // Validar tipo y tamaño (Max 5MB)
     const validFiles = fileArray.filter(file => 
       file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024
     );
@@ -105,8 +115,41 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     setUploadStatus(prev => ({ ...prev, [productId]: 'idle' }));
     setUploadErrors(prev => ({ ...prev, [productId]: '' }));
     
-    // Reset input
+    // Reset input value para permitir subir el mismo archivo si se borró
     if (fileInputRefs.current[productId]) fileInputRefs.current[productId]!.value = '';
+  };
+
+  // --- MANEJADORES DE EVENTOS DE DRAG & DROP (ARCHIVOS EXTERNOS) ---
+  const handleDragEnter = (e: React.DragEvent, productId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(prev => ({ ...prev, [productId]: true }));
+  };
+
+  const handleDragLeave = (e: React.DragEvent, productId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(prev => ({ ...prev, [productId]: false }));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent, productId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(prev => ({ ...prev, [productId]: false }));
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(productId, e.dataTransfer.files);
+    }
+  };
+
+  // --- MANEJADORES EXISTENTES ---
+  const handleFileSelect = (productId: string, files: FileList | null) => {
+    processFiles(productId, files);
   };
 
   const handleSetPrimaryBeforeUpload = (productId: string, fileName: string) => {
@@ -134,6 +177,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     });
   };
 
+  // Reordenamiento visual (Drag & Drop interno)
   const handleSort = (productId: string) => {
     const currentList = [...(selectedImages[productId] || [])];
     const dragIndex = dragItem.current?.index;
@@ -156,6 +200,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     dragOverItem.current = null;
   };
 
+  // Subida al servidor
   const handleUploadWithMetadata = async (productId: string) => {
     const imagesToUpload = selectedImages[productId];
     if (!imagesToUpload || imagesToUpload.length === 0) return;
@@ -219,7 +264,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     }
   };
 
-  // --- COMPONENTE: Imágenes Nuevas (Seleccionadas) ---
+  // --- SUBCOMPONENTE: Imágenes Nuevas (Seleccionadas) ---
   const SelectedImagesManager = ({ productId, images }: { productId: string; images: ImageWithMetadata[] }) => {
     if (images.length === 0) return null;
 
@@ -244,32 +289,24 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
               onDragEnter={() => { dragOverItem.current = { index, productId }; }}
               onDragEnd={() => handleSort(productId)}
               onDragOver={(e) => e.preventDefault()}
-              className="group relative aspect-square bg-blue-50 rounded-lg overflow-hidden border border-blue-200 shadow-sm cursor-move"
+              className="group relative aspect-square bg-blue-50 rounded-lg overflow-hidden border border-blue-200 shadow-sm cursor-move hover:shadow-md transition-all"
             >
-              <img
-                src={image.preview}
-                alt="preview"
-                className="w-full h-full object-cover"
-              />
+              <img src={image.preview} alt="preview" className="w-full h-full object-cover" />
               
-              {/* Badge Nueva */}
-              <div className="absolute top-1 left-1 bg-blue-600 text-white text-[10px] font-bold px-1.5 rounded shadow-sm">
-                NUEVA
-              </div>
+              <div className="absolute top-1 left-1 bg-blue-600 text-white text-[10px] font-bold px-1.5 rounded shadow-sm">NUEVA</div>
 
-              {/* Estrella Favorito */}
               <button
                 type="button"
-                onMouseDown={(e) => e.stopPropagation()} // Fix drag conflict
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); handleSetPrimaryBeforeUpload(productId, image.fileName); }}
                 className={`absolute top-1 right-1 p-1 rounded-full backdrop-blur-sm shadow-sm transition-all ${
                   image.isPrimary ? 'bg-yellow-400 text-white' : 'bg-white/70 text-gray-400 hover:bg-white hover:text-yellow-400'
                 }`}
+                title="Marcar como principal"
               >
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" /></svg>
               </button>
 
-              {/* Botón Borrar */}
               <button
                 type="button"
                 onMouseDown={(e) => e.stopPropagation()}
@@ -285,11 +322,9 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     );
   };
 
-  // --- COMPONENTE: Imágenes Existentes ---
+  // --- SUBCOMPONENTE: Imágenes Existentes ---
   const ExistingImagesManager = ({ productId, images }: { productId: string; images: ProductImage[] }) => {
     if (loadingImages[productId]) return <div className="mt-4 flex gap-2 animate-pulse"><div className="w-16 h-16 bg-gray-200 rounded-lg"/><div className="w-16 h-16 bg-gray-200 rounded-lg"/></div>;
-    
-    // Si no hay imágenes, no mostramos nada para no ensuciar la UI
     if (images.length === 0) return null;
 
     return (
@@ -299,16 +334,14 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
           {images.map((image) => (
             <div key={image.id} className="group relative aspect-square bg-white rounded-lg overflow-hidden border border-gray-200 shadow-sm">
               <img 
-                src={getFullImageUrl(image.image_url)} // ✅ URL FIX
+                src={getFullImageUrl(image.image_url)} 
                 alt="Producto" 
                 className="w-full h-full object-cover" 
                 onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "https://placehold.co/400x400/f1f5f9/475569?text=Sin+Imagen"; }}
               />
               
               {image.is_primary && (
-                <div className="absolute top-0 right-0 bg-yellow-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-bl shadow-sm z-10">
-                  ★
-                </div>
+                <div className="absolute top-0 right-0 bg-yellow-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-bl shadow-sm z-10">★</div>
               )}
 
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
@@ -328,7 +361,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     );
   };
 
-  // --- MAIN RENDER ---
+  // --- RENDER PRINCIPAL ---
   if (productsWithoutImages.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
@@ -338,7 +371,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
             </svg>
         </div>
         <h3 className="text-xl font-bold text-gray-900">¡Todo listo!</h3>
-        <p className="mt-2 text-gray-500">Todos los productos tienen sus imágenes.</p>
+        <p className="mt-2 text-gray-500">Todos los productos visibles tienen sus imágenes.</p>
       </div>
     );
   }
@@ -349,6 +382,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
         const productSelectedImages = selectedImages[product.id] || [];
         const productStatus = uploadStatus[product.id] || 'idle';
         const productError = uploadErrors[product.id];
+        const isActive = dragActive[product.id];
         
         return (
           <div key={product.id} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -372,17 +406,27 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
               />
 
               {productSelectedImages.length === 0 ? (
-                  <button
+                  <div
+                    onDragEnter={(e) => handleDragEnter(e, product.id)}
+                    onDragLeave={(e) => handleDragLeave(e, product.id)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, product.id)}
                     onClick={() => fileInputRefs.current[product.id]?.click()}
-                    className="w-full border-2 border-dashed border-gray-300 rounded-xl p-8 hover:border-blue-500 hover:bg-blue-50 transition-all group flex flex-col items-center justify-center text-center cursor-pointer"
+                    className={`w-full border-2 border-dashed rounded-xl p-8 transition-all group flex flex-col items-center justify-center text-center cursor-pointer 
+                      ${isActive 
+                        ? 'border-blue-600 bg-blue-50 scale-[1.01]' 
+                        : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
+                      }`}
                   >
-                    <div className="bg-blue-50 p-3 rounded-full mb-3 group-hover:bg-blue-200 transition-colors">
-                        <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className={`p-3 rounded-full mb-3 transition-colors ${isActive ? 'bg-blue-200' : 'bg-blue-50 group-hover:bg-blue-200'}`}>
+                        <svg className={`w-6 h-6 ${isActive ? 'text-blue-700' : 'text-blue-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                     </div>
-                    <span className="text-gray-700 font-medium text-sm">Click para seleccionar imágenes</span>
-                  </button>
+                    <span className={`font-medium text-sm ${isActive ? 'text-blue-800' : 'text-gray-700'}`}>
+                      {isActive ? '¡Suelta las imágenes aquí!' : 'Click o Arrastra imágenes aquí'}
+                    </span>
+                  </div>
               ) : (
                   <div className="flex justify-end">
                       <button 
@@ -405,9 +449,9 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
                         {productError}
                     </div>
                   ) : (
-                      <div className="text-sm text-gray-500">
-                          {productSelectedImages.length} nuevas
-                      </div>
+                    <div className="text-sm text-gray-500">
+                        {productSelectedImages.length} nuevas
+                    </div>
                   )}
 
                   <button

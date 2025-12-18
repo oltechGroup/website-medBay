@@ -1,4 +1,4 @@
-//backend/server.js
+// backend/server.js
 
 const express = require('express');
 const cors = require('cors');
@@ -11,31 +11,29 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Aumentamos límite para jsons grandes
+app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Configuración de Directorios
-const directories = [
-  path.join(__dirname, 'uploads'),
-  path.join(__dirname, 'uploads', 'images')
-];
+// ✅ CORRECCIÓN CRÍTICA: Usamos process.cwd() para apuntar a la raíz del proyecto.
+// Esto alinea la carpeta de lectura con la carpeta donde Multer guarda los archivos.
+const uploadsPath = path.join(process.cwd(), 'uploads');
+const imagesPath = path.join(uploadsPath, 'images');
 
-directories.forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`📂 Directorio creado: ${dir}`);
-  }
-});
+// Crear directorios si no existen
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
+if (!fs.existsSync(imagesPath)) {
+  fs.mkdirSync(imagesPath, { recursive: true });
+}
 
-// Servir archivos estáticos
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// ✅ Servir archivos estáticos desde la ruta absoluta correcta
+// Esto hace que http://localhost:3001/uploads/... funcione siempre
+app.use('/uploads', express.static(uploadsPath));
 
 // ==================== RUTAS ====================
 
-// Importación (El módulo estrella)
 app.use('/api/import', require('./src/routes/importRoutes'));
-
-// Módulos Core
 app.use('/api/users', require('./src/routes/userRoutes'));
 app.use('/api/auth', require('./src/routes/authRoutes'));
 app.use('/api/products', require('./src/routes/productRoutes'));
@@ -69,6 +67,7 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 MedBay Server listo en http://localhosto:${PORT}`);
+  console.log(`\n🚀 MedBay Server listo en http://localhost:${PORT}`);
   console.log(`🌎 Moneda Base: USD`);
+  console.log(`📸 Carpeta de imágenes: ${uploadsPath}`);
 });
