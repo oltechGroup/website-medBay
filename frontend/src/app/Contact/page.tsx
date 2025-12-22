@@ -1,3 +1,4 @@
+//frontend/src/app/Contact/page.tsx
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import "./Contact.css";

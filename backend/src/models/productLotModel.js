@@ -3,7 +3,7 @@
 const db = require('../config/database');
 
 const ProductLot = {
-  // ✅ CREAR LOTE - SIN unit
+  // ✅ CREAR LOTE
   create: async (lotData) => {
     const {
       product_supplier_id,
@@ -32,27 +32,24 @@ const ProductLot = {
     return result.rows[0];
   },
 
-  // ✅ OBTENER TODOS LOS LOTES CON INFORMACIÓN COMPLETA - SIN unit
+  // ✅ OBTENER TODOS LOS LOTES (FILTROS)
   findAll: async (filters = {}) => {
     let whereConditions = [];
     let queryParams = [];
     let paramCount = 0;
 
-    // Filtro por proveedor
     if (filters.supplier_id) {
       paramCount++;
       whereConditions.push(`s.id = $${paramCount}`);
       queryParams.push(filters.supplier_id);
     }
 
-    // Filtro por estado
     if (filters.status) {
       paramCount++;
       whereConditions.push(`pl.status = $${paramCount}`);
       queryParams.push(filters.status);
     }
 
-    // Filtro por búsqueda - CORREGIDO: usar p.description en lugar de p.name
     if (filters.search) {
       paramCount++;
       whereConditions.push(`(p.description ILIKE $${paramCount} OR p.global_sku ILIKE $${paramCount} OR s.name ILIKE $${paramCount})`);
@@ -80,19 +77,16 @@ const ProductLot = {
       ORDER BY pl.expiry_date ASC, pl.created_at DESC
     `;
     
-    console.log('🔍 Ejecutando query:', query);
-    console.log('📊 Con parámetros:', queryParams);
-    
     try {
       const result = await db.query(query, queryParams);
       return result.rows;
     } catch (error) {
-      console.error('❌ Error en la consulta:', error);
+      console.error('❌ Error en la consulta findAll:', error);
       throw error;
     }
   },
 
-  // ✅ OBTENER POR ID - SIN unit
+  // ✅ OBTENER POR ID DE LOTE
   findById: async (id) => {
     const query = `
       SELECT 
@@ -114,7 +108,32 @@ const ProductLot = {
     return result.rows[0];
   },
 
-  // ✅ ACTUALIZAR LOTE - SIN unit
+  // ✅ [NUEVO] OBTENER LOTES POR ID DE PRODUCTO (Para el Frontend del Cliente)
+  findByProductId: async (productId) => {
+    const query = `
+      SELECT 
+        pl.*,
+        s.name as supplier_name,
+        ps.supplier_sku
+      FROM product_lots pl
+      INNER JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
+      LEFT JOIN suppliers s ON ps.supplier_id = s.id
+      WHERE ps.product_id = $1
+      AND pl.status IN ('available', 'near_expiry', 'expired') 
+      AND pl.quantity > 0
+      ORDER BY pl.expiry_date ASC
+    `;
+    
+    try {
+      const result = await db.query(query, [productId]);
+      return result.rows;
+    } catch (error) {
+      console.error('❌ Error buscando lotes por producto:', error);
+      throw error;
+    }
+  },
+
+  // ✅ ACTUALIZAR LOTE
   update: async (id, lotData) => {
     const {
       product_supplier_id,
@@ -157,7 +176,7 @@ const ProductLot = {
     return result.rows[0];
   },
 
-  // ✅ MÉTRICAS DEL DASHBOARD
+  // ✅ MÉTRICAS DASHBOARD
   getDashboardMetrics: async () => {
     const query = `
       SELECT 
@@ -178,7 +197,7 @@ const ProductLot = {
     return result.rows[0];
   },
 
-  // ✅ MÉTRICAS POR PROVEEDOR
+  // ✅ MÉTRICAS PROVEEDORES
   getSuppliersMetrics: async () => {
     const query = `
       SELECT 

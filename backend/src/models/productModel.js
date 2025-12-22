@@ -1,7 +1,5 @@
 // backend/src/models/productModel.js
 
-// backend/src/models/productModel.js
-
 const db = require('../config/database');
 
 const Product = {
@@ -24,7 +22,7 @@ const Product = {
     return result.rows[0];
   },
 
-  // ✅ FUNCION OPTIMIZADA Y CORREGIDA
+  // ✅ FUNCION OPTIMIZADA (Ahora busca también en Categorías)
   findPaginated: async ({ page = 1, limit = 20, searchTerm = '', hasImages = 'all', manufacturerId = '', categoryId = '', categoryStatus = 'all' }) => {
     const offset = (page - 1) * limit;
     
@@ -32,11 +30,22 @@ const Product = {
     let params = [];
     let paramCount = 1;
 
+    // --- AQUÍ ESTÁ LA MAGIA DE LA BÚSQUEDA INTELIGENTE ---
     if (searchTerm) {
-      whereConditions.push(`(p.description ILIKE $${paramCount} OR p.global_sku ILIKE $${paramCount})`);
+      whereConditions.push(`(
+        p.description ILIKE $${paramCount} OR 
+        p.global_sku ILIKE $${paramCount} OR
+        EXISTS (
+          SELECT 1 FROM product_categories pc 
+          JOIN categories c ON pc.category_id = c.id 
+          WHERE pc.product_id = p.id AND c.name ILIKE $${paramCount}
+        )
+      )`);
       params.push(`%${searchTerm}%`);
       paramCount++;
     }
+    // -----------------------------------------------------
+
     if (manufacturerId) {
       whereConditions.push(`p.manufacturer_id = $${paramCount}`);
       params.push(manufacturerId);
@@ -47,6 +56,7 @@ const Product = {
     } else if (hasImages === 'without') {
       whereConditions.push(`NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id)`);
     }
+    
     if (categoryId) {
       whereConditions.push(`EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id AND pc.category_id = $${paramCount})`);
       params.push(categoryId);
@@ -59,6 +69,7 @@ const Product = {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
+    // Query para contar el total real (para saber cuántos "resultados más" hay)
     const countQuery = `SELECT COUNT(*) FROM products p ${whereClause}`;
     const countResult = await db.query(countQuery, params);
     const totalItems = parseInt(countResult.rows[0].count);
@@ -77,21 +88,18 @@ const Product = {
         p.updated_at,
         m.name as manufacturer_name,
         
-        -- ✅ Contadores casteados a INTEGER
         (SELECT COUNT(*)::integer FROM product_images pi WHERE pi.product_id = p.id) as image_count,
         
-        -- ✅ CORRECCIÓN DE IMAGEN: Si no hay primary, trae la más reciente.
         (SELECT image_url FROM product_images pi 
          WHERE pi.product_id = p.id 
          ORDER BY pi.is_primary DESC, pi.created_at DESC 
          LIMIT 1) as primary_image,
-         
+          
         (SELECT array_agg(category_id) FROM product_categories WHERE product_id = p.id) as category_ids,
         (SELECT array_agg(c.name) FROM product_categories pc 
           JOIN categories c ON pc.category_id = c.id 
           WHERE pc.product_id = p.id) as category_names,
           
-        -- ✅ Precios casteados a FLOAT
         (SELECT MIN(pl.price)::float FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
           WHERE ps.product_id = p.id 
@@ -127,7 +135,6 @@ const Product = {
     };
   },
 
-  // ... (Resto de funciones: findAll, findById, update, delete, search, getStats, etc. se mantienen igual)
   findAll: async () => {
     const query = `SELECT * FROM products ORDER BY created_at DESC`;
     const result = await db.query(query);

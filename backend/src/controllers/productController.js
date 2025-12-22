@@ -1,10 +1,9 @@
-// backend/src/controllers/productController.js - MODIFICADO
-
 // backend/src/controllers/productController.js
 
 const Product = require('../models/productModel');
 const ProductImage = require('../models/productImageModel');
 const ProductCategory = require('../models/productCategoryModel');
+const ProductLot = require('../models/productLotModel'); // ✅ IMPORTANTE: Importamos el modelo de lotes
 
 const productController = {
   // CREATE (Mantenido igual)
@@ -16,7 +15,6 @@ const productController = {
         return res.status(400).json({ error: 'La descripción del producto es requerida' });
       }
 
-      // Validaciones de duplicados... (Mantenido igual que tu código original)
       if (productData.description) {
         const existingByDescription = await Product.findByDescription(productData.description);
         if (existingByDescription) {
@@ -58,7 +56,7 @@ const productController = {
     }
   },
 
-  // ✅ GET ALL - ACTUALIZADO
+  // GET ALL (Mantenido igual)
   getAll: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
@@ -67,9 +65,7 @@ const productController = {
       const hasImages = req.query.hasImages || 'all';
       const manufacturerId = req.query.manufacturerId || '';
       const categoryId = req.query.categoryId || '';
-      
-      // Capturamos el nuevo filtro
-      const categoryStatus = req.query.categoryStatus || 'all'; // 'all', 'uncategorized', 'categorized'
+      const categoryStatus = req.query.categoryStatus || 'all'; 
 
       const result = await Product.findPaginated({
         page,
@@ -78,7 +74,7 @@ const productController = {
         hasImages,
         manufacturerId,
         categoryId,
-        categoryStatus // Pasamos el filtro al modelo
+        categoryStatus
       });
 
       res.json(result);
@@ -111,7 +107,6 @@ const productController = {
       const { id } = req.params;
       const productData = req.body;
 
-      // Validaciones básicas de duplicados (Mantenido igual)
       if (productData.description !== undefined && !productData.description.trim()) {
         return res.status(400).json({ error: 'La descripción del producto es requerida' });
       }
@@ -159,7 +154,6 @@ const productController = {
       });
 
     } catch (error) {
-      // ✅ MANEJO DE ERROR DE LLAVE FORÁNEA (PostgreSQL Error 23503)
       if (error.code === '23503') {
         return res.status(409).json({ 
           error: 'No se puede eliminar este producto porque está asociado a otros registros (Inventario, Proveedores o Pedidos).',
@@ -221,10 +215,34 @@ const productController = {
     }
   },
 
+  // ✅ NUEVO: Obtener Lotes de un Producto
+  getProductLots: async (req, res) => {
+    try {
+      const { id } = req.params;
+      // Usamos la nueva función del modelo ProductLot
+      const lots = await ProductLot.findByProductId(id);
+      res.json(lots);
+    } catch (error) {
+      console.error('Error al obtener lotes del producto:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
+
+  // ✅ NUEVO: Obtener Categorías de un Producto
+  getProductCategories: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const categories = await ProductCategory.findByProductId(id);
+      res.json(categories);
+    } catch (error) {
+      console.error('Error al obtener categorías del producto:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
+
   batchAssignCategories: async (req, res) => {
     try {
       const { productIds, categoryIds } = req.body;
-      // Validaciones básicas (Mantenido igual)
       if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
         return res.status(400).json({ error: 'Se requiere un array de IDs de productos' });
       }
