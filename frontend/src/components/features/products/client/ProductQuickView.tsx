@@ -1,10 +1,13 @@
+//frontend/src/components/features/products/client/ProductQuickView.tsx
+
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom"; 
 import { X, ChevronLeft, ChevronRight, Package, Calendar, AlertCircle, ShoppingCart } from "lucide-react";
 import { Product } from "@/hooks/useProducts";
 import { getImageUrl, formatCurrency, formatDate, getLotStatusConfig } from "@/lib/formatters";
-import { useProductDetails } from "@/hooks/useProductDetails"; // ✅ Usamos el hook nuevo
+import { useProductDetails } from "@/hooks/useProductDetails"; 
 
 interface ProductQuickViewProps {
   product: Product;
@@ -14,17 +17,29 @@ interface ProductQuickViewProps {
 
 export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  // Estado para saber si el componente ya se montó en el cliente (necesario para el Portal)
+  const [mounted, setMounted] = useState(false);
   
-  // ✅ Traemos categorias, imagenes extra y lotes con el hook nuevo
+  // Hook de datos
   const { lots, categories, images, isLoadingDetails } = useProductDetails(product.id, isOpen);
 
-  // Combinar imagen principal con las extra
   const allImages = [
     { image_url: product.primary_image, id: 'primary' },
     ...images.filter((img: any) => !img.is_primary)
   ];
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setMounted(true);
+    // Bloquear el scroll del body cuando el modal está abierto
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  if (!isOpen || !mounted) return null;
 
   const handleNextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
@@ -34,16 +49,24 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
     setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
   };
 
-  return (
-    // Z-INDEX 100: CRÍTICO para que salga encima de todo
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+  
+  // Ignorando si el buscador está en un header pequeño, con scale, o sticky.
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      
+      {/* Backdrop oscuro con animación */}
+      <div 
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200" 
+        onClick={onClose}
+      ></div>
 
-      {/* Modal */}
-      <div className="relative bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row animate-in zoom-in-95 duration-200">
+      {/* Contenedor del Modal */}
+      <div className="relative bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row animate-in zoom-in-95 duration-200 ring-1 ring-black/5">
         
-        <button onClick={onClose} className="absolute top-4 right-4 z-20 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+        <button 
+          onClick={onClose} 
+          className="absolute top-4 right-4 z-20 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+        >
           <X size={24} className="text-gray-600"/>
         </button>
 
@@ -86,7 +109,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
         </div>
 
         {/* === COLUMNA DER: INFO Y LOTES === */}
-        <div className="w-full md:w-1/2 p-8 overflow-y-auto bg-white">
+        <div className="w-full md:w-1/2 p-8 overflow-y-auto bg-white custom-scrollbar">
           <div className="mb-6">
             <span className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2 block">
               {product.manufacturer_name || "Fabricante Genérico"}
@@ -98,7 +121,6 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
                <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded text-xs font-mono border border-gray-200">
                  SKU: {product.global_sku}
                </span>
-               {/* Categorías (Ahora sí aparecen gracias al hook) */}
                {categories.map((cat: any) => (
                  <span key={cat.id} className="bg-blue-50 text-blue-700 px-3 py-1 rounded text-xs font-bold uppercase tracking-wide border border-blue-100">
                    {cat.name}
@@ -111,7 +133,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
 
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-bold text-gray-800 flex items-center gap-2 text-lg">
-              <Package size={20} className="text-blue-500"/> Lotes Disponibles
+              <Package size={20} className="text-blue-500"/> Inventario Disponible
             </h3>
           </div>
 
@@ -157,7 +179,6 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
                 )
               })
             ) : (
-              // Empty State (Sin lotes)
               <div className="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                 <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
                    <AlertCircle className="text-slate-400" size={32} />
@@ -174,6 +195,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body 
   );
 };

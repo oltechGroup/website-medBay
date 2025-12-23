@@ -5,8 +5,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, ChevronRight, Package, Loader2 } from "lucide-react";
-import { useProducts } from "@/hooks/useProducts"; // Este hook llama a la API real
+import { useProducts, Product } from "@/hooks/useProducts"; 
 import { getImageUrl, formatCurrency } from "@/lib/formatters";
+import { ProductQuickView } from "./ProductQuickView"; // ✅ Importamos el Modal
 
 export const ClientSearch = () => {
   const router = useRouter();
@@ -17,8 +18,10 @@ export const ClientSearch = () => {
   const [isActive, setIsActive] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // DEBOUNCE: Espera 500ms después de que el usuario deja de escribir para buscar
-  // Esto es VITAL para bases de datos grandes (millones de productos)
+  // ✅ Estado para controlar el Modal desde el buscador
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // DEBOUNCE: Espera 500ms
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedTerm(searchTerm);
@@ -27,15 +30,14 @@ export const ClientSearch = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Hook conectado a la API Real. 
-  // Pide 15 resultados para tener suficientes para el scroll.
+  // Hook conectado a la API Real
   const { products, pagination, isLoading } = useProducts({
-    searchTerm: debouncedTerm, // Busca por lo que el usuario escribió (ya reposado)
+    searchTerm: debouncedTerm,
     limit: 15, 
     page: 1
   });
 
-  // Cerrar al hacer click fuera
+  // Cerrar dropdown al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -57,8 +59,14 @@ export const ClientSearch = () => {
     if (e.key === 'Enter') handleSearch();
   };
 
+  // ✅ Función para abrir el modal en lugar de navegar
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product); // Guardamos el producto para el modal
+    setIsActive(false); // Cerramos el dropdown de búsqueda
+  };
+
   return (
-    // Z-INDEX 50: Asegura que todo el componente flote sobre el resto de la página
+    // Z-INDEX 50
     <div ref={containerRef} className="relative z-50 w-full max-w-2xl mx-auto">
       
       {/* --- INPUT BAR --- */}
@@ -104,7 +112,7 @@ export const ClientSearch = () => {
         </button>
       </div>
 
-      {/* --- DROPDOWN RESULTADOS (PREMIUM) --- */}
+      {/* --- DROPDOWN RESULTADOS --- */}
       {isActive && debouncedTerm && (
         <div className="absolute top-full left-0 w-full bg-white rounded-b-2xl shadow-2xl border-t border-gray-100 overflow-hidden animate-in slide-in-from-top-2 duration-200">
           
@@ -115,12 +123,12 @@ export const ClientSearch = () => {
             </div>
           ) : products && products.length > 0 ? (
             <>
-              {/* Contenedor con Scroll (Muestra aprox 5 items y scrolleas para ver los 15) */}
+              {/* Contenedor con Scroll */}
               <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
                 {products.map((prod) => (
                   <div 
                     key={prod.id}
-                    onClick={() => router.push(`/products/${prod.id}`)}
+                    onClick={() => handleProductClick(prod)} // ✅ AHORA ABRE MODAL
                     className="flex items-center gap-4 p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors group"
                   >
                     {/* Imagen */}
@@ -163,14 +171,14 @@ export const ClientSearch = () => {
                 ))}
               </div>
               
-              {/* Footer del Dropdown: Muestra cuántos resultados más hay en total */}
+              {/* Footer */}
               {pagination && pagination.total > products.length && (
                 <div 
                   onClick={handleSearch}
                   className="p-4 bg-gray-50 text-center cursor-pointer hover:bg-blue-50 transition-colors border-t border-gray-100 group"
                 >
                   <span className="text-sm font-bold text-blue-600 group-hover:underline">
-                    Ver {pagination.total - products.length} resultados más
+                    Ver {pagination.total - products.length} resultados más en catálogo
                   </span>
                 </div>
               )}
@@ -183,6 +191,15 @@ export const ClientSearch = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* ✅ RENDERIZADO DEL MODAL */}
+      {selectedProduct && (
+        <ProductQuickView 
+          product={selectedProduct} 
+          isOpen={!!selectedProduct} 
+          onClose={() => setSelectedProduct(null)} 
+        />
       )}
     </div>
   );

@@ -1,8 +1,10 @@
+//frontend/src/components/features/products/client/catalog/ProductFilters.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Filter, Search, Check } from "lucide-react";
+import { Filter, Search, Check, DollarSign, X } from "lucide-react";
 import { useManufacturers } from "@/hooks/useManufacturers";
 import { useCategories } from "@/hooks/useCategories"; 
 
@@ -10,20 +12,25 @@ export const ProductFilters = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Hooks
-  const { manufacturers } = useManufacturers(1, 200); // Traemos más para el buscador local
+  // Hooks de datos (Lógica intacta)
+  const { manufacturers } = useManufacturers(1, 300); 
   const { categories } = useCategories();
 
   // Estados locales
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
-  const [mfgSearch, setMfgSearch] = useState(""); // Buscador local de marcas
+  
+  // Buscadores locales (Lógica intacta)
+  const [mfgSearch, setMfgSearch] = useState(""); 
+  const [catSearch, setCatSearch] = useState("");
 
+  // Sincronizar precios si cambian en URL
   useEffect(() => {
     setMinPrice(searchParams.get("minPrice") || "");
     setMaxPrice(searchParams.get("maxPrice") || "");
   }, [searchParams]);
 
+  // Aplicar filtro genérico
   const applyFilter = (key: string, value: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value) {
@@ -35,6 +42,7 @@ export const ProductFilters = () => {
     router.push(`/products?${params.toString()}`);
   };
 
+  // Aplicar filtro de precio
   const handlePriceApply = () => {
     const params = new URLSearchParams(searchParams.toString());
     if (minPrice) params.set("minPrice", minPrice); else params.delete("minPrice");
@@ -43,54 +51,69 @@ export const ProductFilters = () => {
     router.push(`/products?${params.toString()}`);
   };
 
-  // Filtrado local de fabricantes
+  // Filtrado local de Fabricantes
   const filteredManufacturers = manufacturers.filter(m => 
     m.name.toLowerCase().includes(mfgSearch.toLowerCase())
+  );
+
+  // Filtrado local de Categorías
+  const filteredCategories = categories.filter(c => 
+    c.name.toLowerCase().includes(catSearch.toLowerCase())
   );
 
   const currentCategory = searchParams.get("categoryId");
   const currentManufacturer = searchParams.get("manufacturerId");
 
+  // Verificar si hay filtros activos para mostrar el botón de limpiar
+  const hasActiveFilters = currentCategory || currentManufacturer || minPrice || maxPrice;
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 w-full lg:w-72 flex-shrink-0 h-fit sticky top-24">
+    <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-white p-6 w-full lg:w-80 flex-shrink-0 h-fit sticky top-28 transition-all">
       
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
-        <div className="flex items-center gap-2 text-slate-800">
-          <Filter size={18} className="text-slate-500" />
-          <h2 className="font-bold text-lg">Filtrar por</h2>
+      {/* Header del Panel */}
+      <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
+        <div className="flex items-center gap-2 text-slate-900">
+          <div className="p-2 bg-slate-100 rounded-lg text-slate-500">
+             <Filter size={16} />
+          </div>
+          <h2 className="font-black text-sm uppercase tracking-widest">Filtros</h2>
         </div>
-        {(currentCategory || currentManufacturer || minPrice || maxPrice) && (
+        {hasActiveFilters && (
           <button 
-            onClick={() => router.push(`/products?status=${searchParams.get('status') || 'all'}`)}
-            className="text-xs text-blue-600 hover:text-blue-800 font-semibold uppercase tracking-wide"
+            onClick={() => {
+              const currentStatus = searchParams.get('status') || 'all';
+              router.push(`/products?status=${currentStatus}`);
+            }}
+            className="flex items-center gap-1 text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md hover:bg-red-100 transition-colors uppercase tracking-wide"
           >
-            Limpiar
+            <X size={12} /> Limpiar
           </button>
         )}
       </div>
 
       {/* 1. RANGO DE PRECIO */}
-      <div className="mb-8">
-        <h3 className="font-bold text-sm text-slate-800 mb-3">Precio</h3>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+      <div className="mb-10">
+        <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wider flex items-center gap-2">
+            <DollarSign size={14} className="text-blue-500"/> Rango de Precio
+        </h3>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="relative flex-1 group">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">$</span>
             <input
               type="number"
               placeholder="Min"
-              className="w-full pl-6 pr-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
+              className="w-full pl-6 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all group-hover:bg-slate-100"
               value={minPrice}
               onChange={(e) => setMinPrice(e.target.value)}
             />
           </div>
-          <span className="text-gray-300">-</span>
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+          <span className="text-slate-300 font-bold">-</span>
+          <div className="relative flex-1 group">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">$</span>
             <input
               type="number"
               placeholder="Max"
-              className="w-full pl-6 pr-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
+              className="w-full pl-6 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all group-hover:bg-slate-100"
               value={maxPrice}
               onChange={(e) => setMaxPrice(e.target.value)}
             />
@@ -98,67 +121,100 @@ export const ProductFilters = () => {
         </div>
         <button 
           onClick={handlePriceApply}
-          className="w-full py-2 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition-transform active:scale-95 shadow-sm"
+          className="w-full py-3 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10 active:scale-95"
         >
-          Aplicar
+          Aplicar Rango
         </button>
       </div>
 
       {/* 2. CATEGORÍAS */}
-      <div className="mb-8">
-        <h3 className="font-bold text-sm text-slate-800 mb-3">Categorías</h3>
-        <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
-          {categories.map((cat) => {
-            const isSelected = currentCategory === cat.id;
-            return (
-              <label 
-                key={cat.id} 
-                className={`flex items-center gap-3 text-sm cursor-pointer p-2 rounded-lg transition-colors group ${isSelected ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-              >
-                <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'border-blue-600 bg-blue-600' : 'border-gray-300 group-hover:border-blue-400'}`}>
-                  {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                  <input 
-                    type="radio" 
-                    name="category"
-                    className="hidden"
-                    checked={isSelected}
-                    onChange={() => applyFilter("categoryId", isSelected ? null : cat.id)}
-                  />
-                </div>
-                <span className={`truncate ${isSelected ? 'font-semibold' : ''}`}>{cat.name}</span>
-              </label>
-            );
-          })}
+      <div className="mb-10">
+        <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wider flex items-center gap-2">
+            Categorías
+            <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-mono">{filteredCategories.length}</span>
+        </h3>
+        
+        {/* Buscador de Categorías */}
+        <div className="relative mb-4 group">
+          <input 
+            type="text"
+            placeholder="Buscar categoría..."
+            className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-blue-400 focus:bg-white transition-all"
+            value={catSearch}
+            onChange={(e) => setCatSearch(e.target.value)}
+          />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+        </div>
+
+        <div className="space-y-1 max-h-[240px] overflow-y-auto custom-scrollbar pr-2">
+          {filteredCategories.length > 0 ? (
+            filteredCategories.map((cat) => {
+              const isSelected = currentCategory === cat.id;
+              return (
+                <label 
+                  key={cat.id} 
+                  className={`flex items-center gap-3 text-sm cursor-pointer p-2.5 rounded-xl transition-all group ${
+                    isSelected ? 'bg-blue-50 text-blue-700 font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 font-medium'
+                  }`}
+                >
+                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 transition-all ${
+                    isSelected ? 'border-blue-600 bg-blue-600' : 'border-slate-300 group-hover:border-blue-400'
+                  }`}>
+                    {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full shadow-sm" />}
+                    <input 
+                      type="radio" 
+                      name="category"
+                      className="hidden"
+                      checked={isSelected}
+                      onChange={() => applyFilter("categoryId", isSelected ? null : cat.id)}
+                    />
+                  </div>
+                  <span className="truncate">{cat.name}</span>
+                </label>
+              );
+            })
+          ) : (
+            <div className="text-center py-4 opacity-50">
+               <p className="text-xs font-bold text-slate-400">Sin resultados</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 3. FABRICANTES (Con Buscador) */}
+      {/* 3. FABRICANTES */}
       <div>
-        <h3 className="font-bold text-sm text-slate-800 mb-3">Marcas</h3>
+        <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wider flex items-center gap-2">
+            Marcas
+            <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-mono">{filteredManufacturers.length}</span>
+        </h3>
         
         {/* Buscador de Marcas */}
-        <div className="relative mb-3">
+        <div className="relative mb-4 group">
           <input 
             type="text"
             placeholder="Buscar marca..."
-            className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-md text-xs focus:outline-none focus:border-blue-300"
+            className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-blue-400 focus:bg-white transition-all"
             value={mfgSearch}
             onChange={(e) => setMfgSearch(e.target.value)}
           />
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
         </div>
 
-        <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+        <div className="space-y-1 max-h-[240px] overflow-y-auto custom-scrollbar pr-2">
           {filteredManufacturers.length > 0 ? (
             filteredManufacturers.map((mfg) => {
               const isSelected = currentManufacturer === mfg.id;
               return (
                 <label 
                   key={mfg.id} 
-                  className={`flex items-center gap-3 text-sm cursor-pointer p-2 rounded-lg transition-colors group ${isSelected ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                  className={`flex items-center gap-3 text-sm cursor-pointer p-2.5 rounded-xl transition-all group ${
+                    isSelected ? 'bg-blue-50 text-blue-700 font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 font-medium'
+                  }`}
                 >
-                  <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'border-blue-600 bg-blue-600' : 'border-gray-300 group-hover:border-blue-400'}`}>
-                    {isSelected && <Check size={10} className="text-white" />}
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all ${
+                    isSelected ? 'border-blue-600 bg-blue-600' : 'border-slate-300 group-hover:border-blue-400'
+                  }`}>
+                    {isSelected && <Check size={10} className="text-white stroke-[3px]" />}
                     <input 
                       type="checkbox" 
                       className="hidden"
@@ -166,12 +222,14 @@ export const ProductFilters = () => {
                       onChange={() => applyFilter("manufacturerId", isSelected ? null : mfg.id)}
                     />
                   </div>
-                  <span className={`truncate ${isSelected ? 'font-semibold' : ''}`}>{mfg.name}</span>
+                  <span className="truncate">{mfg.name}</span>
                 </label>
               );
             })
           ) : (
-            <p className="text-xs text-gray-400 text-center py-2">No se encontraron marcas</p>
+            <div className="text-center py-4 opacity-50">
+               <p className="text-xs font-bold text-slate-400">Sin resultados</p>
+            </div>
           )}
         </div>
       </div>

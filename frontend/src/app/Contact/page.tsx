@@ -83,7 +83,7 @@ export default function Contacto() {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Email Corporativo</p>
-                    <p className="text-lg font-bold text-slate-700">contacto@medbay.com</p>
+                    <p className="text-lg font-bold text-slate-700">medbay.info02@gmail.com</p>
                   </div>
                 </div>
 

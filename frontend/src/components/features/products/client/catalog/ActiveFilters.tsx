@@ -1,51 +1,41 @@
+//frontend/src/components/features/products/client/catalog/ActiveFilters.tsx
+
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
-import { useCategories } from "@/hooks/useCategories"; // O tu hook correcto
+import { X, Tag } from "lucide-react";
+import { useCategories } from "@/hooks/useCategories";
 import { useManufacturers } from "@/hooks/useManufacturers";
 
 export const ActiveFilters = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { categories } = useCategories();
-  const { manufacturers } = useManufacturers(1, 100);
+  const { manufacturers } = useManufacturers(1, 300);
 
   const filters = [];
 
-  // 1. Filtro de Texto
   const search = searchParams.get("search");
-  if (search) filters.push({ key: "search", label: `Búsqueda: "${search}"` });
+  if (search) filters.push({ key: "search", label: `Búsqueda: ${search}` });
 
-  // 2. Filtro de Categoría (Buscamos el nombre)
   const catId = searchParams.get("categoryId");
   if (catId) {
     const catName = categories.find(c => c.id === catId)?.name || "Categoría";
     filters.push({ key: "categoryId", label: catName });
   }
 
-  // 3. Filtro de Fabricante
   const mfgId = searchParams.get("manufacturerId");
   if (mfgId) {
     const mfgName = manufacturers.find(m => m.id === mfgId)?.name || "Marca";
     filters.push({ key: "manufacturerId", label: mfgName });
   }
 
-  // 4. Filtro de Precio
   const minPrice = searchParams.get("minPrice");
   const maxPrice = searchParams.get("maxPrice");
   if (minPrice && maxPrice) filters.push({ key: "price", label: `$${minPrice} - $${maxPrice}`, isPrice: true });
   else if (minPrice) filters.push({ key: "minPrice", label: `Desde $${minPrice}` });
   else if (maxPrice) filters.push({ key: "maxPrice", label: `Hasta $${maxPrice}` });
 
-  // 5. Filtro de Estado
-  const status = searchParams.get("status");
-  if (status && status !== 'all') {
-    const label = status === 'available' ? 'Vigentes' : status === 'near_expiry' ? 'Próximos a Vencer' : 'Caducados';
-    filters.push({ key: "status", label: label });
-  }
-
-  // Función para remover un filtro
   const removeFilter = (key: string, isPrice = false) => {
     const params = new URLSearchParams(searchParams.toString());
     if (isPrice) {
@@ -58,29 +48,43 @@ export const ActiveFilters = () => {
     router.push(`/products?${params.toString()}`);
   };
 
+  const clearAll = () => {
+    const currentStatus = searchParams.get('status') || 'all';
+    router.push(`/products?status=${currentStatus}`);
+  };
+
   if (filters.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 mb-4 animate-in fade-in slide-in-from-top-1">
+    <div className="flex flex-wrap items-center gap-3 mb-8 animate-in fade-in slide-in-from-left-2 duration-500">
+      <div className="flex items-center gap-2 text-slate-400 mr-2">
+         <Tag size={14} />
+         <span className="text-[10px] font-black uppercase tracking-[0.2em]">Filtros:</span>
+      </div>
+
       {filters.map((filter) => (
         <span 
           key={filter.key} 
-          className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-700 shadow-sm"
+          className="group inline-flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-full text-[11px] font-black text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
         >
+          <span className="opacity-60 uppercase tracking-tighter">
+             {filter.key === 'search' ? 'TXT' : filter.key.includes('Price') ? 'PRC' : 'REF'}:
+          </span>
           {filter.label}
           <button 
             onClick={() => removeFilter(filter.key, filter.isPrice)}
-            className="p-0.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-red-500 transition-colors"
+            className="ml-1 p-0.5 bg-slate-100 rounded-full text-slate-400 group-hover:bg-red-50 group-hover:text-red-500 transition-all"
           >
-            <X size={14} />
+            <X size={12} />
           </button>
         </span>
       ))}
+      
       <button 
-        onClick={() => router.push('/products')}
-        className="text-xs text-blue-600 hover:underline font-medium ml-2"
+        onClick={clearAll}
+        className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 border-b-2 border-transparent hover:border-blue-600 transition-all ml-4 py-1"
       >
-        Borrar todos
+        Limpiar Todo
       </button>
     </div>
   );

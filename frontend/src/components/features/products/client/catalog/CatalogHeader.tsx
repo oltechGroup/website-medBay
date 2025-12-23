@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ListFilter } from "lucide-react";
 
 interface CatalogHeaderProps {
   totalResults: number;
@@ -21,40 +21,49 @@ export const CatalogHeader = ({ totalResults, startIndex, endIndex }: CatalogHea
     router.push(`/products?${params.toString()}`);
   };
 
-  // Safe check para no mostrar "Mostrando 1-0" si no hay resultados
+  // Safe check logic (Intacto)
   const safeEndIndex = totalResults === 0 ? 0 : endIndex;
   const safeStartIndex = totalResults === 0 ? 0 : startIndex;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+    <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 p-5 mb-8 flex flex-col sm:flex-row justify-between items-center gap-4 transition-all hover:shadow-md">
       
       {/* Izquierda: Contador */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-800">Catálogo de Productos</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Mostrando <span className="font-semibold text-gray-900">{safeStartIndex}-{safeEndIndex}</span> de <span className="font-semibold text-gray-900">{totalResults}</span> resultados
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg hidden sm:block">
+           <ListFilter size={20} />
+        </div>
+        <div>
+            <h1 className="text-lg font-black text-slate-800 tracking-tight leading-none">Resultados del Catálogo</h1>
+            <p className="text-xs font-medium text-slate-500 mt-1">
+            Mostrando <span className="font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded">{safeStartIndex}-{safeEndIndex}</span> de <span className="font-bold text-slate-900">{totalResults}</span> productos
+            </p>
+        </div>
       </div>
 
       {/* Derecha: Ordenamiento */}
-      <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-lg border border-gray-100">
-        <ArrowUpDown size={16} className="text-gray-400 ml-2" />
-        <label htmlFor="sort" className="text-sm font-medium text-gray-600 whitespace-nowrap">
-          Ordenar por:
-        </label>
-        <div className="relative">
-          <select
-            id="sort"
-            value={currentSort}
-            onChange={handleSortChange}
-            className="appearance-none bg-transparent border-none text-gray-800 text-sm font-bold focus:ring-0 cursor-pointer pr-8 py-1"
-          >
-            <option value="newest">Más Recientes</option>
-            <option value="price_asc">Precio: Menor a Mayor</option>
-            <option value="price_desc">Precio: Mayor a Menor</option>
-            <option value="name_asc">Nombre: A - Z</option>
-            <option value="name_desc">Nombre: Z - A</option>
-          </select>
+      <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="relative group w-full sm:w-auto">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors pointer-events-none">
+                <ArrowUpDown size={14} />
+            </div>
+            
+            <select
+                id="sort"
+                value={currentSort}
+                onChange={handleSortChange}
+                className="w-full sm:w-auto appearance-none bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold pl-9 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 cursor-pointer transition-all hover:bg-white hover:shadow-sm uppercase tracking-wide"
+            >
+                <option value="newest">Más Recientes</option>
+                <option value="price_asc">Precio: Menor a Mayor</option>
+                <option value="price_desc">Precio: Mayor a Menor</option>
+                <option value="name_asc">Nombre: A - Z</option>
+                <option value="name_desc">Nombre: Z - A</option>
+            </select>
+
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                <ChevronDown size={14} />
+            </div>
         </div>
       </div>
     </div>

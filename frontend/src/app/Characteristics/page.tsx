@@ -28,9 +28,9 @@ export default function Caracteristicas() {
           </Link>
 
           <nav className="hidden md:flex gap-8 text-sm font-semibold text-slate-500">
+            <Link href="/products" className="hover:text-blue-600 transition-colors">Catálogo</Link>
             <Link href="/Characteristics" className="text-blue-600 transition-colors font-bold">Características</Link>
             <Link href="/About" className="hover:text-blue-600 transition-colors">Nosotros</Link>
-            <Link href="/products" className="hover:text-blue-600 transition-colors">Catálogo</Link>
             <Link href="/Contact" className="hover:text-blue-600 transition-colors">Contacto</Link>
           </nav>
 
@@ -189,9 +189,9 @@ export default function Caracteristicas() {
             <div>
               <h4 className="text-white font-black uppercase tracking-widest text-xs mb-6">Plataforma</h4>
               <ul className="space-y-4 text-sm font-semibold">
+                <li><Link href="/products" className="hover:text-blue-400 flex items-center justify-center md:justify-start gap-2 transition-colors"><ChevronRight size={14}/> Catálogo</Link></li>
                 <li><Link href="/About" className="hover:text-blue-400 flex items-center justify-center md:justify-start gap-2 transition-colors"><ChevronRight size={14}/> Nosotros</Link></li>
                 <li><Link href="/Characteristics" className="text-blue-500 flex items-center justify-center md:justify-start gap-2"><ChevronRight size={14}/> Características</Link></li>
-                <li><Link href="/products" className="hover:text-blue-400 flex items-center justify-center md:justify-start gap-2 transition-colors"><ChevronRight size={14}/> Catálogo</Link></li>
               </ul>
             </div>
 
