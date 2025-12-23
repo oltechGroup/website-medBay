@@ -2,27 +2,33 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { ProductLot } from './useProductLots'; // Reutilizamos tus tipos existentes
-import { Category } from './useCategories';   // Reutilizamos tus tipos existentes
+import { ProductLot } from './useProductLots'; 
+import { Category } from './useCategories';   
 
-export const useProductDetails = (productId: string, enabled: boolean = true) => {
+// ✅ Aceptamos filterStatus como parámetro opcional
+export const useProductDetails = (
+  productId: string, 
+  enabled: boolean = true, 
+  filterStatus: string = 'all'
+) => {
   
-  // 1. Obtener Lotes del Producto
+  // 1. Obtener Lotes del Producto (Con filtro de estado)
   const lotsQuery = useQuery({
-    queryKey: ['product-lots', productId],
+    // Incluimos el filtro en la key para que el cache sea único por filtro
+    queryKey: ['product-lots', productId, filterStatus],
     queryFn: async () => {
       if (!productId) return [];
       try {
-        // Intenta obtener los lotes específicos de este producto
-        const response = await api.get(`/products/${productId}/lots`);
+        // ✅ Enviamos el status al backend
+        const response = await api.get(`/products/${productId}/lots?status=${filterStatus}`);
         return response.data as ProductLot[];
       } catch (error) {
         console.error("Error cargando lotes:", error);
         return [];
       }
     },
-    enabled: enabled && !!productId, // Solo ejecuta si el modal/card está abierto
-    staleTime: 1000 * 60 * 2, // Guarda en caché 2 minutos
+    enabled: enabled && !!productId,
+    staleTime: 1000 * 60 * 2, 
   });
 
   // 2. Obtener Categorías del Producto

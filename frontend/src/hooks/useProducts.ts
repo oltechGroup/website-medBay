@@ -1,7 +1,5 @@
 // frontend/src/hooks/useProducts.ts
 
-// frontend/src/hooks/useProducts.ts
-
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
@@ -74,7 +72,7 @@ export interface BatchAssignCategoriesData {
   categoryIds: string[];
 }
 
-// 1. Agregar al interface
+// ✅ INTERFAZ ACTUALIZADA CON TODOS LOS FILTROS
 interface UseProductsParams {
   page?: number;
   limit?: number;
@@ -82,10 +80,14 @@ interface UseProductsParams {
   hasImages?: 'all' | 'with' | 'without';
   manufacturerId?: string;
   categoryId?: string;
-  categoryStatus?: 'all' | 'uncategorized' | 'categorized'; // ✅ NUEVO
+  categoryStatus?: 'all' | 'uncategorized' | 'categorized'; 
+  // Nuevos filtros:
+  status?: string; // 'available', 'near_expiry', 'expired'
+  minPrice?: number;
+  maxPrice?: number;
+  sortBy?: string; // 'price_asc', 'price_desc', 'newest', etc.
 }
 
-// 2. Actualizar la función useProducts
 export const useProducts = (params?: UseProductsParams) => {
   const queryClient = useQueryClient();
 
@@ -95,17 +97,23 @@ export const useProducts = (params?: UseProductsParams) => {
   const hasImages = params?.hasImages || 'all';
   const manufacturerId = params?.manufacturerId || '';
   const categoryId = params?.categoryId || '';
-  const categoryStatus = params?.categoryStatus || 'all'; // ✅ NUEVO
+  const categoryStatus = params?.categoryStatus || 'all';
+  
+  // ✅ Capturamos los nuevos parámetros
+  const status = params?.status || 'all';
+  const minPrice = params?.minPrice;
+  const maxPrice = params?.maxPrice;
+  const sortBy = params?.sortBy || 'newest';
 
   const { 
     data: responseData, 
     isLoading, 
-    isFetching, // Importante para loading states suaves
+    isFetching, 
     error,
     refetch 
   } = useQuery({
-    // ✅ Agregamos categoryStatus a la key para que refetch al cambiar
-    queryKey: ['products', page, limit, searchTerm, hasImages, manufacturerId, categoryId, categoryStatus],
+    // ✅ Agregamos TODAS las variables a la key para que refetch al cambiar cualquiera
+    queryKey: ['products', page, limit, searchTerm, hasImages, manufacturerId, categoryId, categoryStatus, status, minPrice, maxPrice, sortBy],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
       queryParams.append('page', page.toString());
@@ -114,9 +122,13 @@ export const useProducts = (params?: UseProductsParams) => {
       if (hasImages !== 'all') queryParams.append('hasImages', hasImages);
       if (manufacturerId) queryParams.append('manufacturerId', manufacturerId);
       if (categoryId) queryParams.append('categoryId', categoryId);
-      
-      // ✅ Enviamos el status al backend
       if (categoryStatus !== 'all') queryParams.append('categoryStatus', categoryStatus);
+      
+      // ✅ Enviamos los nuevos filtros al backend
+      if (status !== 'all') queryParams.append('status', status);
+      if (minPrice !== undefined) queryParams.append('minPrice', minPrice.toString());
+      if (maxPrice !== undefined) queryParams.append('maxPrice', maxPrice.toString());
+      if (sortBy) queryParams.append('sortBy', sortBy);
 
       const response = await api.get(`/products?${queryParams.toString()}`);
       return response.data;
@@ -133,7 +145,7 @@ export const useProducts = (params?: UseProductsParams) => {
     totalPages: 1
   };
 
-  // 📊 Obtener estadísticas (Separado para que no dependa de la paginación)
+  // 📊 Obtener estadísticas
   const statsQuery = useQuery({
     queryKey: ['products', 'stats'],
     queryFn: async (): Promise<ProductStats> => {
@@ -142,7 +154,7 @@ export const useProducts = (params?: UseProductsParams) => {
     },
   });
 
-  // 📥 Obtener productos sin imágenes (Para el módulo de subida masiva)
+  // 📥 Obtener productos sin imágenes
   const productsWithoutImagesQuery = useQuery({
     queryKey: ['products', 'without-images'],
     queryFn: async (): Promise<Product[]> => {
@@ -154,12 +166,10 @@ export const useProducts = (params?: UseProductsParams) => {
         return [];
       }
     },
-    // Solo ejecutamos esto si estamos en la pantalla correspondiente, 
-    // pero como es un hook global, lo dejamos lazy o cached.
     staleTime: 5 * 60 * 1000, 
   });
 
-  // 📥 Obtener productos sin categorías (Para exportar/filtrar)
+  // 📥 Obtener productos sin categorías
   const productsWithoutCategoriesQuery = useQuery({
     queryKey: ['products', 'without-categories'],
     queryFn: async (): Promise<Product[]> => {
@@ -187,22 +197,17 @@ export const useProducts = (params?: UseProductsParams) => {
 
   // ---------------- MUTACIONES (Crear, Editar, Borrar) ----------------
 
-  // ➕ Crear producto
   const createMutation = useMutation({
     mutationFn: async (productData: CreateProductData) => {
       const response = await api.post('/products', productData);
       return response.data;
     },
     onSuccess: () => {
-      // Invalidamos para recargar la lista
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'without-images'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'without-categories'] });
     },
   });
 
-  // ✏️ Actualizar producto
   const updateMutation = useMutation({
     mutationFn: async ({ id, productData }: { id: string; productData: UpdateProductData }) => {
       const response = await api.put(`/products/${id}`, productData);
@@ -210,11 +215,9 @@ export const useProducts = (params?: UseProductsParams) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'without-categories'] });
     },
   });
 
-  // 🗑️ Eliminar producto
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await api.delete(`/products/${id}`);
@@ -223,8 +226,6 @@ export const useProducts = (params?: UseProductsParams) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'without-images'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'without-categories'] });
     },
   });
 
@@ -238,9 +239,7 @@ export const useProducts = (params?: UseProductsParams) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] }); // Recarga lista principal (thumbnails)
-      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'without-images'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 
@@ -253,8 +252,6 @@ export const useProducts = (params?: UseProductsParams) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'without-images'] });
     },
   });
 
@@ -276,12 +273,9 @@ export const useProducts = (params?: UseProductsParams) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'without-images'] });
     },
   });
 
-  // ✅ Asignación masiva de categorías
   const batchAssignCategoriesMutation = useMutation({
     mutationFn: async (data: BatchAssignCategoriesData) => {
       const response = await api.post('/products/batch/categories', data);
@@ -289,12 +283,9 @@ export const useProducts = (params?: UseProductsParams) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'without-categories'] });
-      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
     },
   });
 
-  // Wrappers simplificados
   const uploadImage = async (productId: string, file: File) => {
     const formData = new FormData();
     formData.append('images', file);
@@ -323,19 +314,16 @@ export const useProducts = (params?: UseProductsParams) => {
   };
 
   return {
-    // Datos Principales
-    products,       // Array de productos (paginado)
-    pagination,     // Info de paginación { total, page, limit, totalPages }
+    products,
+    pagination,
     stats: statsQuery.data,
     productsWithoutImages: productsWithoutImagesQuery.data,
     productsWithoutCategories: productsWithoutCategoriesQuery.data,
     
-    // Estados de carga
-    isLoading, // Carga inicial
-    isFetching, // Recarga en background (cambio de página)
-    isProductsWithoutImagesLoading: productsWithoutImagesQuery.isLoading, // ✅ Corregido el error que tenías
+    isLoading,
+    isFetching,
+    isProductsWithoutImagesLoading: productsWithoutImagesQuery.isLoading,
     
-    // Estados de mutación
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
@@ -345,13 +333,11 @@ export const useProducts = (params?: UseProductsParams) => {
     isDeletingImage: deleteImageMutation.isPending,
     isBatchAssigning: batchAssignCategoriesMutation.isPending,
     
-    // Errores
     error,
     createError: createMutation.error,
     updateError: updateMutation.error,
     batchAssignError: batchAssignCategoriesMutation.error,
     
-    // Funciones
     refetch,
     createProduct: createMutation.mutateAsync,
     updateProduct: updateMutation.mutateAsync,

@@ -108,8 +108,18 @@ const ProductLot = {
     return result.rows[0];
   },
 
-  // ✅ [NUEVO] OBTENER LOTES POR ID DE PRODUCTO (Para el Frontend del Cliente)
-  findByProductId: async (productId) => {
+  // ✅ [ACTUALIZADO] OBTENER LOTES POR PRODUCTO + FILTRO STATUS
+  // Ahora acepta statusFilter (ej: 'expired') para cumplir tu requerimiento
+  findByProductId: async (productId, statusFilter = 'all') => {
+    let statusCondition = "AND pl.status IN ('available', 'near_expiry', 'expired')";
+    let params = [productId];
+
+    // Si nos piden un estado específico (ej: página de caducados), filtramos estrictamente
+    if (statusFilter && statusFilter !== 'all') {
+      statusCondition = "AND pl.status = $2";
+      params.push(statusFilter);
+    }
+
     const query = `
       SELECT 
         pl.*,
@@ -119,13 +129,13 @@ const ProductLot = {
       INNER JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
       LEFT JOIN suppliers s ON ps.supplier_id = s.id
       WHERE ps.product_id = $1
-      AND pl.status IN ('available', 'near_expiry', 'expired') 
+      ${statusCondition}
       AND pl.quantity > 0
       ORDER BY pl.expiry_date ASC
     `;
     
     try {
-      const result = await db.query(query, [productId]);
+      const result = await db.query(query, params);
       return result.rows;
     } catch (error) {
       console.error('❌ Error buscando lotes por producto:', error);

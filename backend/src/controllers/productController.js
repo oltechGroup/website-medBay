@@ -3,7 +3,7 @@
 const Product = require('../models/productModel');
 const ProductImage = require('../models/productImageModel');
 const ProductCategory = require('../models/productCategoryModel');
-const ProductLot = require('../models/productLotModel'); // ✅ IMPORTANTE: Importamos el modelo de lotes
+const ProductLot = require('../models/productLotModel'); 
 
 const productController = {
   // CREATE (Mantenido igual)
@@ -56,7 +56,7 @@ const productController = {
     }
   },
 
-  // GET ALL (Mantenido igual)
+  // ✅ GET ALL - OPTIMIZADO CON ORDENAMIENTO (SORTBY)
   getAll: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
@@ -65,7 +65,14 @@ const productController = {
       const hasImages = req.query.hasImages || 'all';
       const manufacturerId = req.query.manufacturerId || '';
       const categoryId = req.query.categoryId || '';
-      const categoryStatus = req.query.categoryStatus || 'all'; 
+      
+      // Filtros avanzados
+      const status = req.query.status || 'all'; 
+      const minPrice = req.query.minPrice ? parseFloat(req.query.minPrice) : null;
+      const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice) : null;
+      
+      // ✅ NUEVO: Ordenamiento
+      const sortBy = req.query.sortBy || 'newest'; // 'price_asc', 'price_desc', etc.
 
       const result = await Product.findPaginated({
         page,
@@ -74,7 +81,10 @@ const productController = {
         hasImages,
         manufacturerId,
         categoryId,
-        categoryStatus
+        status,
+        minPrice,
+        maxPrice,
+        sortBy
       });
 
       res.json(result);
@@ -215,12 +225,13 @@ const productController = {
     }
   },
 
-  // ✅ NUEVO: Obtener Lotes de un Producto
+  // ✅ GET LOTES POR PRODUCTO (Ahora soporta filtro ?status=expired)
   getProductLots: async (req, res) => {
     try {
       const { id } = req.params;
-      // Usamos la nueva función del modelo ProductLot
-      const lots = await ProductLot.findByProductId(id);
+      const statusFilter = req.query.status || 'all'; // Capturamos el filtro
+      
+      const lots = await ProductLot.findByProductId(id, statusFilter);
       res.json(lots);
     } catch (error) {
       console.error('Error al obtener lotes del producto:', error);
@@ -228,7 +239,6 @@ const productController = {
     }
   },
 
-  // ✅ NUEVO: Obtener Categorías de un Producto
   getProductCategories: async (req, res) => {
     try {
       const { id } = req.params;

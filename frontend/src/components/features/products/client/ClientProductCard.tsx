@@ -1,24 +1,27 @@
+//frontend/src/app/components/features/products/client/ClientProductCard.tsx
+
 "use client";
 
 import { useState } from "react";
 import { Product } from "@/hooks/useProducts";
 import { ChevronDown, ChevronUp, ShoppingCart, Package, Calendar, AlertTriangle, CheckCircle, XCircle, FileText } from "lucide-react";
-import { formatCurrency, formatDate, getImageUrl, getLotStatusConfig } from "@/lib/formatters"; // ✅ Usamos las utils nuevas
-import { useProductDetails } from "@/hooks/useProductDetails"; // ✅ Usamos el hook nuevo
+import { formatCurrency, formatDate, getImageUrl, getLotStatusConfig } from "@/lib/formatters"; 
+import { useProductDetails } from "@/hooks/useProductDetails"; 
 import { ProductQuickView } from "./ProductQuickView"; 
 
 interface ClientProductCardProps {
   product: Product;
+  filterStatus?: string; // ✅ NUEVO: Recibimos el contexto (ej: 'expired')
 }
 
-export const ClientProductCard = ({ product }: ClientProductCardProps) => {
+export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProductCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false); 
 
-  // ✅ Usamos el hook nuevo. Solo carga datos si se expande la tarjeta.
-  const { lots, isLoadingLots } = useProductDetails(product.id, isExpanded);
+  // ✅ ENVIAMOS EL FILTRO AL HOOK
+  // Si filterStatus es 'expired', el hook traerá solo lotes caducados.
+  const { lots, isLoadingLots } = useProductDetails(product.id, isExpanded, filterStatus);
 
-  // Verificamos si hay lotes activos reportados por el producto principal
   const hasActiveLots = product.active_lots && product.active_lots > 0;
 
   return (
@@ -31,7 +34,7 @@ export const ClientProductCard = ({ product }: ClientProductCardProps) => {
         {/* === CARD HEADER === */}
         <div className="p-5 flex flex-col md:flex-row gap-6 items-center">
           
-          {/* 1. IMAGEN (Click abre Modal) */}
+          {/* 1. IMAGEN */}
           <div 
             onClick={() => setIsModalOpen(true)} 
             className="w-full md:w-32 h-32 flex-shrink-0 bg-gray-50 rounded-xl p-2 border border-gray-100 cursor-pointer group hover:border-blue-300 transition-colors"
@@ -40,12 +43,11 @@ export const ClientProductCard = ({ product }: ClientProductCardProps) => {
               src={getImageUrl(product.primary_image)} 
               alt={product.description}
               className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
-              // Fallback por si falla la carga
               onError={(e) => e.currentTarget.src = getImageUrl(null)}
             />
           </div>
 
-          {/* 2. INFO (Click abre Modal) */}
+          {/* 2. INFO */}
           <div className="flex-1 w-full text-center md:text-left space-y-2 cursor-pointer" onClick={() => setIsModalOpen(true)}>
             <div className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center justify-center md:justify-start gap-2">
               {product.manufacturer_name || "Fabricante Genérico"}
@@ -65,7 +67,7 @@ export const ClientProductCard = ({ product }: ClientProductCardProps) => {
                  </span>
                ) : (
                  <span className="flex items-center gap-1 text-amber-600 font-medium bg-amber-50 px-2 py-1 rounded-full text-xs border border-amber-100">
-                   <AlertTriangle size={12} /> Bajo stock / Sobre pedido
+                   <AlertTriangle size={12} /> Bajo stock
                  </span>
                )}
             </div>
@@ -83,7 +85,6 @@ export const ClientProductCard = ({ product }: ClientProductCardProps) => {
                      <div className="flex flex-col items-end">
                        <p className="text-xs text-gray-500">Desde</p>
                        <p className="text-lg font-bold text-blue-600">{formatCurrency(product.min_price)}</p>
-                       {/*<p className="text-[10px] text-gray-400">Hasta {formatCurrency(product.max_price)}</p>*/}
                      </div>
                    )}
                  </>
@@ -112,7 +113,9 @@ export const ClientProductCard = ({ product }: ClientProductCardProps) => {
           <div className="border-t border-gray-100 bg-gray-50/50 p-4 md:p-6 animate-in slide-in-from-top-2 duration-200">
             <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
               <Package className="text-blue-500" size={18}/> 
-              Selecciona un lote para agregar al carrito
+              {filterStatus !== 'all' 
+                ? `Lotes filtrados (${filterStatus === 'expired' ? 'Caducados' : 'Próximos a vencer'})` 
+                : 'Selecciona un lote para agregar al carrito'}
             </h4>
 
             {isLoadingLots ? (
@@ -175,7 +178,7 @@ export const ClientProductCard = ({ product }: ClientProductCardProps) => {
               </div>
             ) : (
               <div className="text-center py-6 text-gray-500 text-sm">
-                No se encontraron lotes públicos disponibles para este producto.
+                No hay lotes disponibles con este criterio ({filterStatus === 'all' ? 'General' : filterStatus}).
               </div>
             )}
           </div>

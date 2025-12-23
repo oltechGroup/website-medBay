@@ -22,15 +22,26 @@ const Product = {
     return result.rows[0];
   },
 
-  // ✅ FUNCION OPTIMIZADA (Ahora busca también en Categorías)
-  findPaginated: async ({ page = 1, limit = 20, searchTerm = '', hasImages = 'all', manufacturerId = '', categoryId = '', categoryStatus = 'all' }) => {
+  // ✅ FUNCION OPTIMIZADA: Ordenamiento por Precio corregido
+  findPaginated: async ({ 
+    page = 1, 
+    limit = 20, 
+    searchTerm = '', 
+    hasImages = 'all', 
+    manufacturerId = '', 
+    categoryId = '', 
+    status = 'all', 
+    minPrice = null,
+    maxPrice = null,
+    sortBy = 'newest' 
+  }) => {
     const offset = (page - 1) * limit;
     
     let whereConditions = [];
     let params = [];
     let paramCount = 1;
 
-    // --- AQUÍ ESTÁ LA MAGIA DE LA BÚSQUEDA INTELIGENTE ---
+    // --- 1. BÚSQUEDA ---
     if (searchTerm) {
       whereConditions.push(`(
         p.description ILIKE $${paramCount} OR 
@@ -44,32 +55,97 @@ const Product = {
       params.push(`%${searchTerm}%`);
       paramCount++;
     }
-    // -----------------------------------------------------
 
+    // --- 2. FABRICANTE ---
     if (manufacturerId) {
       whereConditions.push(`p.manufacturer_id = $${paramCount}`);
       params.push(manufacturerId);
       paramCount++;
     }
+
+    // --- 3. IMÁGENES ---
     if (hasImages === 'with') {
       whereConditions.push(`EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id)`);
     } else if (hasImages === 'without') {
       whereConditions.push(`NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id)`);
     }
     
+    // --- 4. CATEGORÍA ---
     if (categoryId) {
       whereConditions.push(`EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id AND pc.category_id = $${paramCount})`);
       params.push(categoryId);
       paramCount++;
-    } else if (categoryStatus === 'uncategorized') {
-      whereConditions.push(`NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id)`);
-    } else if (categoryStatus === 'categorized') {
-      whereConditions.push(`EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id)`);
+    }
+
+    // --- 5. STATUS (Filtro Estricto) ---
+    // Si status != 'all', el producto DEBE tener al menos un lote con ese status
+    if (status && status !== 'all') {
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM product_lots pl 
+        JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+        WHERE ps.product_id = p.id 
+        AND pl.status = $${paramCount}
+        AND pl.quantity > 0
+      )`);
+      params.push(status);
+      paramCount++;
+    }
+
+    // --- 6. PRECIO (Filtro) ---
+    if (minPrice !== null) {
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM product_lots pl 
+        JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+        WHERE ps.product_id = p.id AND pl.price >= $${paramCount}
+      )`);
+      params.push(minPrice);
+      paramCount++;
+    }
+    if (maxPrice !== null) {
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM product_lots pl 
+        JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+        WHERE ps.product_id = p.id AND pl.price <= $${paramCount}
+      )`);
+      params.push(maxPrice);
+      paramCount++;
     }
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    // Query para contar el total real (para saber cuántos "resultados más" hay)
+    // --- ORDENAMIENTO (CORREGIDO) ---
+    // Calculamos el precio mínimo válido para ordenar
+    // Usamos COALESCE para evitar problemas con NULLs si no hay lotes
+    let orderByClause = 'ORDER BY p.created_at DESC'; 
+
+    const priceSortColumn = `(
+      SELECT MIN(pl.price) 
+      FROM product_lots pl 
+      JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+      WHERE ps.product_id = p.id 
+      AND pl.quantity > 0
+      ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
+    )`;
+
+    switch (sortBy) {
+      case 'price_asc':
+        orderByClause = `ORDER BY ${priceSortColumn} ASC NULLS LAST`;
+        break;
+      case 'price_desc':
+        orderByClause = `ORDER BY ${priceSortColumn} DESC NULLS LAST`;
+        break;
+      case 'name_asc':
+        orderByClause = `ORDER BY p.description ASC`;
+        break;
+      case 'name_desc':
+        orderByClause = `ORDER BY p.description DESC`;
+        break;
+      case 'newest':
+      default:
+        orderByClause = `ORDER BY p.created_at DESC`;
+        break;
+    }
+
     const countQuery = `SELECT COUNT(*) FROM products p ${whereClause}`;
     const countResult = await db.query(countQuery, params);
     const totalItems = parseInt(countResult.rows[0].count);
@@ -100,25 +176,29 @@ const Product = {
           JOIN categories c ON pc.category_id = c.id 
           WHERE pc.product_id = p.id) as category_names,
           
+        -- Precios (Respetando el filtro de status si existe)
         (SELECT MIN(pl.price)::float FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
-          WHERE ps.product_id = p.id 
-          AND pl.status IN ('available', 'near_expiry', 'expired') 
-          AND pl.quantity > 0) as min_price,
+          WHERE ps.product_id = p.id AND pl.quantity > 0
+          ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
+        ) as min_price,
+          
         (SELECT MAX(pl.price)::float FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
-          WHERE ps.product_id = p.id 
-          AND pl.status IN ('available', 'near_expiry', 'expired') 
-          AND pl.quantity > 0) as max_price,
+          WHERE ps.product_id = p.id AND pl.quantity > 0
+          ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
+        ) as max_price,
+          
         (SELECT COUNT(pl.id)::integer FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
-          WHERE ps.product_id = p.id 
-          AND pl.status IN ('available', 'near_expiry', 'expired') 
-          AND pl.quantity > 0) as active_lots
+          WHERE ps.product_id = p.id AND pl.quantity > 0
+          ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
+        ) as active_lots
+
       FROM products p
       LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
       ${whereClause}
-      ORDER BY p.created_at DESC
+      ${orderByClause}
       LIMIT $${paramCount} OFFSET $${paramCount + 1}
     `;
 

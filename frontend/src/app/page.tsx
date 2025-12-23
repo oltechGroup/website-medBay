@@ -54,7 +54,7 @@ export default function Home() {
          {/* CAPA 1: Fondo Decorativo (z-0) */}
          {/* Se queda al fondo de todo */}
          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-            <div className="absolute inset-0 opacity-40 bg-[url('/Images/Home1.png')] bg-cover bg-center mix-blend-overlay"></div>
+            <div className="absolute inset-0 opacity-40 bg-[url('/Images/5.png')] bg-cover bg-center mix-blend-overlay"></div>
             <div className="absolute inset-0 bg-gradient-to-b from-slate-900/50 to-slate-900/10"></div>
          </div>
          
