@@ -1,6 +1,7 @@
-//frontend/src/app/Contact/page.tsx
+// frontend/src/app/Contact/page.tsx
+"use client"; // Necesario para hooks de estado
 
-
+import React, { useState } from "react";
 import Link from "next/link";
 import { 
   Mail, 
@@ -10,10 +11,65 @@ import {
   ChevronRight, 
   MessageSquare, 
   Clock, 
-  ShieldCheck 
+  ShieldCheck,
+  Loader2, // Icono de carga
+  CheckCircle2, // Icono de éxito
+  AlertCircle // Icono de error
 } from "lucide-react";
 
 export default function Contacto() {
+  // --- ESTADOS ---
+  const [formData, setFormData] = useState({
+    nombre: "",
+    email: "",
+    asunto: "",
+    mensaje: ""
+  });
+
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // --- MANEJADORES ---
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus("loading");
+    setErrorMessage("");
+
+    try {
+      // Ajusta la URL si tu backend está en otro puerto o dominio
+      const response = await fetch("http://localhost:3001/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setStatus("success");
+        setFormData({ nombre: "", email: "", asunto: "", mensaje: "" }); // Limpiar form
+        
+        // Regresar el botón a la normalidad después de 5 segundos
+        setTimeout(() => setStatus("idle"), 5000);
+      } else {
+        throw new Error(data.error || "Error al enviar el mensaje");
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus("error");
+      setErrorMessage("Hubo un problema al conectar con el servidor. Intenta de nuevo.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
       
@@ -124,24 +180,32 @@ export default function Contacto() {
                 <h2 className="text-3xl font-black text-slate-800 mb-2">Envíanos un mensaje</h2>
                 <p className="text-slate-500 mb-10 font-medium">Recibirás una respuesta en menos de 24 horas hábiles.</p>
                 
-                <form className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-slate-700 ml-1">Nombre</label>
                       <input 
                         type="text" 
+                        name="nombre"
+                        value={formData.nombre}
+                        onChange={handleChange}
                         placeholder="Tu nombre completo" 
                         className="w-full bg-slate-50 border-slate-200 rounded-2xl p-4 text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium" 
                         required 
+                        disabled={status === 'loading'}
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-slate-700 ml-1">Correo Electrónico</label>
                       <input 
                         type="email" 
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
                         placeholder="ejemplo@medbay.com" 
                         className="w-full bg-slate-50 border-slate-200 rounded-2xl p-4 text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium" 
                         required 
+                        disabled={status === 'loading'}
                       />
                     </div>
                   </div>
@@ -150,28 +214,66 @@ export default function Contacto() {
                     <label className="text-sm font-bold text-slate-700 ml-1">Asunto</label>
                     <input 
                       type="text" 
+                      name="asunto"
+                      value={formData.asunto}
+                      onChange={handleChange}
                       placeholder="Ej. Consulta sobre lotes masivos" 
                       className="w-full bg-slate-50 border-slate-200 rounded-2xl p-4 text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium" 
                       required 
+                      disabled={status === 'loading'}
                     />
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-700 ml-1">Mensaje</label>
                     <textarea 
+                      name="mensaje"
+                      value={formData.mensaje}
+                      onChange={handleChange}
                       placeholder="Cuéntanos cómo podemos ayudarte..." 
                       rows={5}
                       className="w-full bg-slate-50 border-slate-200 rounded-2xl p-4 text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium resize-none" 
                       required 
+                      disabled={status === 'loading'}
                     ></textarea>
                   </div>
 
+                  {/* Feedback Messages */}
+                  {status === 'success' && (
+                    <div className="bg-green-50 text-green-700 px-4 py-3 rounded-xl flex items-center gap-3 border border-green-200 animate-in fade-in slide-in-from-top-2">
+                      <CheckCircle2 size={20} />
+                      <p className="text-sm font-bold">¡Mensaje enviado! Nos pondremos en contacto pronto.</p>
+                    </div>
+                  )}
+
+                  {status === 'error' && (
+                    <div className="bg-red-50 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3 border border-red-200 animate-in fade-in slide-in-from-top-2">
+                      <AlertCircle size={20} />
+                      <p className="text-sm font-bold">{errorMessage}</p>
+                    </div>
+                  )}
+
                   <button 
                     type="submit" 
-                    className="w-full group bg-blue-600 text-white py-5 rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 flex items-center justify-center gap-3 active:scale-95"
+                    disabled={status === 'loading' || status === 'success'}
+                    className={`w-full group bg-blue-600 text-white py-5 rounded-2xl font-black text-lg transition-all shadow-xl shadow-blue-600/30 flex items-center justify-center gap-3 
+                      ${status === 'loading' ? 'opacity-80 cursor-wait' : 'hover:bg-blue-700 active:scale-95'}
+                      ${status === 'success' ? 'bg-green-600 hover:bg-green-600' : ''}
+                    `}
                   >
-                    Enviar Mensaje
-                    <Send size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                    {status === 'loading' ? (
+                      <>
+                        <Loader2 size={24} className="animate-spin" />
+                        Enviando...
+                      </>
+                    ) : status === 'success' ? (
+                      <>Enviado con Éxito</>
+                    ) : (
+                      <>
+                        Enviar Mensaje
+                        <Send size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                      </>
+                    )}
                   </button>
                 </form>
               </div>
