@@ -1,29 +1,21 @@
+// backend/src/routes/userRoutes.js
+
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const authMiddleware = require('../middleware/auth');
+// Importamos la configuración de Multer que creamos en la Fase 1
+const upload = require('../config/multerConfig'); 
 
-// Ruta para registrar usuario (pública)
-router.post('/register', userController.register);
+// --- RUTAS PÚBLICAS ---
 
-// Ruta para obtener todos los usuarios (protegida - solo admin)
-router.get('/', 
-  authMiddleware.verifyToken, 
-  authMiddleware.requireRole(['admin']),
-  userController.getAllUsers
-);
+// AHORA: Inyectamos 'upload.single' para procesar el archivo ANTES de llegar al controlador
+router.post('/register', upload.single('documentFile'), userController.register);
 
-// Ruta para obtener usuario por ID (protegida - usuario propio o admin)
-router.get('/:id', 
-  authMiddleware.verifyToken, 
-  (req, res, next) => {
-    // Verificar que el usuario está viendo su propio perfil o es admin
-    if (req.user.id !== req.params.id && req.user.verification_level !== 'admin') {
-      return res.status(403).json({ error: 'No tienes permisos para ver este usuario' });
-    }
-    next();
-  },
-  userController.getUserById
-);
+// --- RUTAS PROTEGIDAS (Requieren Token) ---
 
+router.get('/', authMiddleware.verifyToken, authMiddleware.requireRole(['admin']), userController.getAllUsers);
+router.get('/:id', authMiddleware.verifyToken, userController.getUserById);
+
+module.exports = router;
 module.exports = router;

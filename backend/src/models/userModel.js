@@ -1,19 +1,25 @@
-//backend/src/models/userModel.js
+// backend/src/models/userModel.js
 
 const db = require('../config/database');
 
 const User = {
-  // Crear un nuevo usuario
+  // Crear un nuevo usuario (Sin cambios)
   create: async (userData) => {
-    const { email, password_hash, full_name, company_name, tax_id, country, verification_level } = userData;
+    const { 
+      email, password_hash, full_name, company_name, tax_id, country, verification_level, phone 
+    } = userData;
     
+    const account_status = 'pending';
+
     const query = `
-      INSERT INTO users (email, password_hash, full_name, company_name, tax_id, country, verification_level)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO users (
+        email, password_hash, full_name, company_name, tax_id, country, verification_level, phone, account_status
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
     
-    const values = [email, password_hash, full_name, company_name, tax_id, country, verification_level];
+    const values = [email, password_hash, full_name, company_name, tax_id, country, verification_level, phone, account_status];
     
     try {
       const result = await db.query(query, values);
@@ -23,7 +29,7 @@ const User = {
     }
   },
 
-  // Buscar usuario por email
+  // Buscar usuario por email (Sin cambios)
   findByEmail: async (email) => {
     const query = 'SELECT * FROM users WHERE email = $1';
     try {
@@ -34,9 +40,13 @@ const User = {
     }
   },
 
-  // Buscar usuario por ID
+  // Buscar usuario por ID (Sin cambios)
   findById: async (id) => {
-    const query = 'SELECT id, email, full_name, company_name, verification_level, created_at FROM users WHERE id = $1';
+    const query = `
+      SELECT id, email, full_name, company_name, verification_level, account_status, phone, created_at 
+      FROM users 
+      WHERE id = $1
+    `;
     try {
       const result = await db.query(query, [id]);
       return result.rows[0];
@@ -45,18 +55,49 @@ const User = {
     }
   },
 
-  // Obtener todos los usuarios
+  // Obtener todos los usuarios (Sin cambios)
   findAll: async () => {
-    const query = 'SELECT id, email, full_name, company_name, verification_level, created_at FROM users';
+    const query = `
+      SELECT id, email, full_name, company_name, verification_level, account_status, created_at 
+      FROM users 
+      ORDER BY created_at DESC
+    `;
     try {
       const result = await db.query(query);
       return result.rows;
     } catch (error) {
       throw error;
     }
-  }
+  },
 
-  
+  // Actualizar estado (Para aprobar)
+  updateStatus: async (id, status) => {
+    const query = `
+      UPDATE users 
+      SET account_status = $1 
+      WHERE id = $2 
+      RETURNING id, email, account_status
+    `;
+    try {
+      const result = await db.query(query, [status, id]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // NUEVO: Eliminar usuario físicamente (Para rechazar)
+  delete: async (id) => {
+    // Nota: Si tienes ON DELETE CASCADE en tus llaves foráneas en Postgres,
+    // esto borrará automáticamente sus documentos y notificaciones.
+    const query = 'DELETE FROM users WHERE id = $1 RETURNING id';
+    try {
+      const result = await db.query(query, [id]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  }
 };
 
 module.exports = User;

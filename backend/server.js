@@ -48,6 +48,7 @@ app.use('/api/documents', require('./src/routes/documentRoutes'));
 app.use('/api/compliance', require('./src/routes/complianceRoutes'));
 app.use('/api/contact', require('./src/routes/contactRoutes'));
 app.use('/api/notifications', require('./src/routes/notificationRoutes'));
+app.use('/api/admin', require('./src/routes/adminRoutes'));
 
 // Health Check
 app.get('/api/health', (req, res) => {
