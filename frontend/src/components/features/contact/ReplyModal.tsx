@@ -1,0 +1,150 @@
+//frontend/src/components/features/contact/ReplyModal.tsx
+
+// frontend/src/components/features/contact/ReplyModal.tsx
+import React, { useState } from 'react';
+import { X, Send, Loader2, CornerUpLeft } from 'lucide-react';
+
+interface ReplyModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  recipientName: string;
+  recipientEmail: string;
+  originalSubject: string;
+}
+
+export default function ReplyModal({ 
+  isOpen, 
+  onClose, 
+  recipientName, 
+  recipientEmail, 
+  originalSubject 
+}: ReplyModalProps) {
+  
+  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+
+  if (!isOpen) return null;
+
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('sending');
+
+    try {
+      const response = await fetch('http://localhost:3001/api/contact/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetEmail: recipientEmail,
+          originalSubject: originalSubject,
+          message: message
+        }),
+      });
+
+      if (response.ok) {
+        setStatus('success');
+        setTimeout(() => {
+          setStatus('idle');
+          setMessage('');
+          onClose(); // Cierra el modal automáticamente tras el éxito
+        }, 2000);
+      } else {
+        throw new Error('Error al enviar');
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center px-4">
+      {/* Fondo oscuro extra para enfocar la respuesta */}
+      <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+
+      <div className="relative bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        
+        {/* Header */}
+        <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-blue-600">
+            <CornerUpLeft size={20} />
+            <h3 className="font-bold text-slate-800">Redactar Respuesta</h3>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full transition-colors">
+            <X size={20} className="text-slate-400" />
+          </button>
+        </div>
+
+        {/* Formulario */}
+        <form onSubmit={handleSendReply} className="p-6 space-y-4">
+          
+          {/* Info de Destinatario (Read Only) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+              <span className="block text-xs font-bold text-slate-400 uppercase">Para:</span>
+              <span className="font-semibold text-slate-700">{recipientName}</span>
+              <span className="block text-xs text-slate-500">{recipientEmail}</span>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+              <span className="block text-xs font-bold text-slate-400 uppercase">Asunto:</span>
+              <span className="font-semibold text-slate-700 truncate">RE: {originalSubject}</span>
+            </div>
+          </div>
+
+          {/* Área de Texto */}
+          <div>
+            <label className="text-xs font-bold text-slate-700 uppercase ml-1">Tu Mensaje</label>
+            <textarea 
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Escribe tu respuesta oficial aquí..."
+              className="w-full mt-1 bg-white border border-slate-200 rounded-xl p-4 text-slate-800 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all resize-none h-40 font-medium"
+              required
+              disabled={status === 'sending' || status === 'success'}
+            ></textarea>
+          </div>
+
+          {/* Mensajes de Estado */}
+          {status === 'success' && (
+            <div className="bg-green-50 text-green-700 px-4 py-2 rounded-lg text-sm font-bold text-center border border-green-200">
+              ¡Respuesta enviada correctamente!
+            </div>
+          )}
+          {status === 'error' && (
+            <div className="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm font-bold text-center border border-red-200">
+              Error al enviar. Revisa la consola o intenta de nuevo.
+            </div>
+          )}
+
+          {/* Footer Actions */}
+          <div className="pt-2 flex justify-end gap-3">
+            <button 
+              type="button"
+              onClick={onClose}
+              disabled={status === 'sending'}
+              className="px-5 py-2.5 rounded-xl text-slate-500 font-bold hover:bg-slate-100 transition-colors text-sm"
+            >
+              Cancelar
+            </button>
+            <button 
+              type="submit"
+              disabled={status === 'sending' || status === 'success'}
+              className="px-6 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 text-sm disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {status === 'sending' ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  Enviar Respuesta
+                  <Send size={18} />
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
