@@ -2,18 +2,35 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { 
   ShoppingCart, Heart, ShieldCheck, 
   CheckCircle, AlertTriangle, XCircle,
-  ChevronRight, ArrowRight, Sparkles, Stethoscope
+  ChevronRight, ArrowRight, Sparkles, Stethoscope, LogOut, User
 } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
+import { useAuth } from "@/hooks/useAuth"; // ✅ Importamos Auth
 import { ClientProductCard } from "@/components/features/products/client/ClientProductCard"; 
 import { ClientSearch } from "@/components/features/products/client/ClientSearch"; 
 
 export default function Home() {
   const { products } = useProducts();
+  const { user, isAuthenticated, logout } = useAuth(); // ✅ Hook de autenticación
+  const [mounted, setMounted] = useState(false); // ✅ Estado para controlar hidratación
+
+  // Solución al problema de "pérdida de token al recargar":
+  // Esperamos a que el componente se monte en el cliente para leer el estado de Zustand persistido.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Función auxiliar para formatear el rol visualmente
+  const getRoleBadge = (role: string) => {
+    if (role === 'admin') return <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-200">ADMIN</span>;
+    if (role === 'medical_professional') return <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200">MÉDICO</span>;
+    return <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200">EMPRESA</span>;
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
@@ -37,25 +54,46 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center gap-3">
-             <Link href="/wishlist" className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors">
-               <Heart size={20} />
-             </Link>
-             <Link href="/cart" className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors relative">
-               <ShoppingCart size={20} />
-               <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full font-bold">2</span>
-             </Link>
-             <div className="h-6 w-px bg-gray-200 mx-2 hidden sm:block"></div>
-             <Link href="/login" className="hidden sm:block text-sm font-semibold text-blue-600 hover:text-blue-700 px-3">Ingresar</Link>
-             <Link href="/register" className="hidden sm:block bg-slate-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-600 transition-all shadow-lg">Registro</Link>
+              <Link href="/wishlist" className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors">
+                <Heart size={20} />
+              </Link>
+              <Link href="/cart" className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors relative">
+                <ShoppingCart size={20} />
+                {/* Aquí conectaremos el contador real del carrito después */}
+                <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full font-bold">0</span>
+              </Link>
+              
+              <div className="h-6 w-px bg-gray-200 mx-2 hidden sm:block"></div>
+              
+              {/* ✅ LÓGICA DE USUARIO / INVITADO */}
+              {mounted && isAuthenticated && user ? (
+                <div className="flex items-center gap-3 animate-in fade-in">
+                  <div className="flex flex-col items-end leading-tight mr-2 hidden sm:flex">
+                    <span className="text-sm font-bold text-slate-700">{user.full_name.split(' ')[0]}</span>
+                    {getRoleBadge(user.verification_level)}
+                  </div>
+                  
+                  {/* Botón de Logout */}
+                  <button 
+                    onClick={logout}
+                    className="p-2 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-lg transition-colors"
+                    title="Cerrar Sesión"
+                  >
+                    <LogOut size={18} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <Link href="/login" className="hidden sm:block text-sm font-semibold text-blue-600 hover:text-blue-700 px-3">Ingresar</Link>
+                  <Link href="/register" className="hidden sm:block bg-slate-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-600 transition-all shadow-lg">Registro</Link>
+                </>
+              )}
           </div>
         </div>
       </header>
 
       {/* ======= HERO ======= */}
-      {/* CORRECCIÓN 1: Quitamos overflow-hidden de aquí para que el buscador no se corte */}
       <section className="relative pt-24 pb-32 bg-slate-900">
-         
-         {/* Fondo Decorativo (Aquí sí mantenemos overflow-hidden para la imagen de fondo) */}
          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
             <img 
               src="/Images/5.png" 
@@ -65,7 +103,6 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-b from-slate-900/80 via-slate-900/40 to-slate-50"></div>
          </div>
          
-         {/* Contenido Hero + Buscador */}
          <div className="relative z-50 w-[90%] max-w-[1000px] mx-auto text-center text-white">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-400 text-xs font-bold mb-8 animate-fade-in">
                <Stethoscope size={14} /> EL ESTÁNDAR GLOBAL EN SUMINISTROS B2B
@@ -77,7 +114,7 @@ export default function Home() {
               Gestiona compras B2B con fechas de caducidad transparentes y múltiples lotes por producto en una sola plataforma.
             </p>
 
-            <div className="mt-8 relative z-[60]"> {/* Z-Index alto para el buscador */}
+            <div className="mt-8 relative z-[60]"> 
               <ClientSearch />
             </div>
          </div>
@@ -133,7 +170,6 @@ export default function Home() {
       <section className="py-24 w-[90%] max-w-[1200px] mx-auto px-4 md:px-0">
         <div className="relative bg-slate-950 rounded-[3rem] p-10 md:p-20 shadow-2xl text-white overflow-hidden flex flex-col md:flex-row items-center border border-white/5">
            
-           {/* Imagen de fondo sutil */}
            <div className="absolute inset-0 opacity-10 pointer-events-none">
              <img src="/Images/2.jpg" alt="" className="w-full h-full object-cover grayscale" />
            </div>
@@ -153,7 +189,6 @@ export default function Home() {
              </Link>
            </div>
 
-           {/* CORRECCIÓN 2: Imagen centrada verticalmente */}
            <div className="hidden lg:block absolute right-10 top-1/2 -translate-y-1/2 w-[40%] h-auto pointer-events-none">
              <img 
                src="/Images/Home2.png" 
@@ -233,12 +268,12 @@ export default function Home() {
           </div>
 
           <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-40 text-center md:text-left">
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em] opacity-40 text-center md:text-left">
               © 2025 MedBay Inc. Global Access to Medical Devices.
             </p>
             <div className="flex gap-8 opacity-40 grayscale hover:grayscale-0 transition-all">
                 <img src="/icons/logomedblanco.png" alt="Icon" className="h-5" />
-                <span className="text-[10px] font-black border border-white px-2 py-0.5 rounded">ISO 13485 CERTIFIED</span>
+                <span className="text-white text-[10px] font-black border border-white px-2 py-0.5 rounded">ISO 13485 CERTIFIED</span>
             </div>
           </div>
         </div>

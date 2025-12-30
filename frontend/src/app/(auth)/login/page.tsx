@@ -27,8 +27,20 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      await loginMutation.mutateAsync(data);
-      router.push('/dashboard');
+      // 1. Ejecutamos la mutación y capturamos la respuesta del backend
+      const response = await loginMutation.mutateAsync(data);
+      
+      // 2. Extraemos el usuario de la respuesta
+      const user = response.user;
+
+      // 3. Lógica de Redirección basada en Roles
+      if (user.verification_level === 'admin') {
+        router.push('/dashboard');
+      } else {
+        // Usuarios: medical_professional, business_verified, guest, etc.
+        router.push('/');
+      }
+
     } catch (error: any) {
       setError('root', {
         type: 'manual',
