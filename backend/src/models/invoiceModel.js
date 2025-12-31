@@ -1,3 +1,4 @@
+//backend/src/models/invoiceModel.js
 const db = require('../config/database');
 
 const Invoice = {

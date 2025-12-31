@@ -1,3 +1,4 @@
+//backend/src/controllers/supplierController.js
 const Supplier = require('../models/supplierModel');
 
 const supplierController = {
