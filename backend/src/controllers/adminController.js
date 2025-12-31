@@ -1,9 +1,10 @@
 // backend/src/controllers/adminController.js
 
 const User = require('../models/userModel');
-const Address = require('../models/addressModel'); // <--- IMPORTANTE
+const Address = require('../models/addressModel');
 const nodemailer = require('nodemailer');
-const { generateHtml, getBrandingAttachments } = require('../utils/emailTemplates');
+// ✅ IMPORTANTE: Importamos generateResponseTemplate
+const { generateResponseTemplate, getBrandingAttachments } = require('../utils/emailTemplates');
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
@@ -27,16 +28,23 @@ const adminController = {
 
       const subject = "🎉 ¡Tu cuenta en MedBay ha sido Aprobada!";
       const message = `
-        <p>Hola <strong>${userName || 'Usuario'}</strong>,</p>
-        <p>Tu documentación ha sido validada y tu cuenta empresarial está <strong>ACTIVA</strong>.</p>
-        <p>Bienvenido a la red de suministros médicos más confiable.</p>
+        Hola <strong>${userName || 'Usuario'}</strong>,
+        
+        Tu documentación ha sido validada exitosamente y tu cuenta empresarial está <strong>ACTIVA</strong>.
+        
+        Ya puedes iniciar sesión para acceder a precios mayoristas, gestión de lotes y facturación automática.
+        
+        Bienvenido a la red de suministros médicos más confiable.
       `;
       
+      // ✅ Usamos generateResponseTemplate con flag true (éxito/verde)
+      const htmlContent = generateResponseTemplate('Cuenta Activada', message, true);
+
       await transporter.sendMail({
         from: `"Admin MedBay" <${process.env.EMAIL_USER}>`,
         to: userEmail,
         subject: subject,
-        html: generateHtml('Cuenta Activada', {}, message),
+        html: htmlContent,
         attachments: getBrandingAttachments()
       });
 
@@ -56,28 +64,32 @@ const adminController = {
       // 1. Enviar correo de rechazo primero
       const subject = "Actualización sobre tu solicitud en MedBay";
       const message = `
-        <p>Hola <strong>${userName || 'Usuario'}</strong>,</p>
-        <p>Hemos revisado tu solicitud de registro.</p>
-        <p style="color: #ef4444; font-weight: bold;">Tu solicitud no ha sido aprobada.</p>
-        <p><strong>Motivo:</strong> ${reason}</p>
-        <p>Tus datos han sido eliminados de nuestro sistema por seguridad.</p>
+        Hola <strong>${userName || 'Usuario'}</strong>,
+        
+        Hemos revisado tu solicitud de registro.
+        Tu solicitud no ha sido aprobada debido a:
+        
+        <strong>${reason}</strong>
+        
+        Tus datos han sido eliminados de nuestro sistema por seguridad. Puedes volver a intentarlo con la documentación corregida.
       `;
+
+      // ✅ Usamos generateResponseTemplate con flag false (alerta/rojo)
+      const htmlContent = generateResponseTemplate('Solicitud Rechazada', message, false);
 
       await transporter.sendMail({
         from: `"Verificación MedBay" <${process.env.EMAIL_USER}>`,
         to: userEmail,
         subject: subject,
-        html: generateHtml('Solicitud Rechazada', {}, message),
+        html: htmlContent,
         attachments: getBrandingAttachments()
       });
 
       // 2. LIMPIEZA PROFUNDA DE DB
-      // Primero borramos direcciones asociadas
       await Address.deleteAllByUserId(userId);
-      // Luego borramos al usuario (Postgres debería borrar docs y notifs por cascade, pero esto asegura la dirección)
       await User.delete(userId);
 
-      res.json({ success: true, message: 'Usuario rechazado y eliminado de la base de datos.' });
+      res.json({ success: true, message: 'Usuario rechazado y eliminado.' });
 
     } catch (error) {
       console.error('Error en rejectUser:', error);
@@ -85,12 +97,15 @@ const adminController = {
     }
   },
 
+  // RESPUESTA MANUAL
   manualReply: async (req, res) => {
     try {
         const { userEmail, subject, message } = req.body;
         if (!userEmail || !message) return res.status(400).json({ error: 'Faltan datos' });
 
-        const htmlContent = generateHtml(subject || 'Mensaje de Soporte', {}, message);
+        // ✅ Usamos generateResponseTemplate (neutro/verde por defecto)
+        const htmlContent = generateResponseTemplate(subject || 'Mensaje de Soporte', message, true);
+        
         await transporter.sendMail({
             from: `"Soporte MedBay" <${process.env.EMAIL_USER}>`,
             to: userEmail,

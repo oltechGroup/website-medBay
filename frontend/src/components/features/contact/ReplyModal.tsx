@@ -1,6 +1,6 @@
 //frontend/src/components/features/contact/ReplyModal.tsx
 import React, { useState } from 'react';
-import { X, Send, Loader2, CornerUpLeft } from 'lucide-react';
+import { X, Send, Loader2, CornerUpLeft, Package } from 'lucide-react';
 
 interface ReplyModalProps {
   isOpen: boolean;
@@ -8,6 +8,12 @@ interface ReplyModalProps {
   recipientName: string;
   recipientEmail: string;
   originalSubject: string;
+  // ✅ NUEVO: Recibimos detalles si es una cotización
+  quoteDetails?: {
+    name: string;
+    sku: string;
+    quantity: number;
+  };
 }
 
 export default function ReplyModal({ 
@@ -15,7 +21,8 @@ export default function ReplyModal({
   onClose, 
   recipientName, 
   recipientEmail, 
-  originalSubject 
+  originalSubject,
+  quoteDetails 
 }: ReplyModalProps) {
   
   const [message, setMessage] = useState('');
@@ -34,7 +41,10 @@ export default function ReplyModal({
         body: JSON.stringify({
           targetEmail: recipientEmail,
           originalSubject: originalSubject,
-          message: message
+          message: message,
+          recipientName: recipientName, // Para personalizar el saludo
+          // ✅ ENVIAMOS LOS DETALLES AL BACKEND
+          quoteDetails: quoteDetails 
         }),
       });
 
@@ -43,7 +53,7 @@ export default function ReplyModal({
         setTimeout(() => {
           setStatus('idle');
           setMessage('');
-          onClose(); // Cierra el modal automáticamente tras el éxito
+          onClose(); 
         }, 2000);
       } else {
         throw new Error('Error al enviar');
@@ -55,8 +65,7 @@ export default function ReplyModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center px-4">
-      {/* Fondo oscuro extra para enfocar la respuesta */}
+    <div className="fixed inset-0 z-[150] flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
 
       <div className="relative bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -75,7 +84,7 @@ export default function ReplyModal({
         {/* Formulario */}
         <form onSubmit={handleSendReply} className="p-6 space-y-4">
           
-          {/* Info de Destinatario (Read Only) */}
+          {/* Info Destinatario */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
               <span className="block text-xs font-bold text-slate-400 uppercase">Para:</span>
@@ -88,13 +97,24 @@ export default function ReplyModal({
             </div>
           </div>
 
+          {/* ✅ Contexto de Cotización (Visual para el Admin) */}
+          {quoteDetails && (
+             <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg flex items-center gap-3 text-sm">
+                <Package className="text-blue-600" size={18} />
+                <div>
+                   <p className="font-bold text-blue-800 text-xs uppercase">Respondiendo sobre:</p>
+                   <p className="text-slate-700 font-medium">{quoteDetails.name} (x{quoteDetails.quantity})</p>
+                </div>
+             </div>
+          )}
+
           {/* Área de Texto */}
           <div>
             <label className="text-xs font-bold text-slate-700 uppercase ml-1">Tu Mensaje</label>
             <textarea 
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Escribe tu respuesta oficial aquí..."
+              placeholder="Escribe la respuesta oficial (precio, disponibilidad, tiempos de entrega)..."
               className="w-full mt-1 bg-white border border-slate-200 rounded-xl p-4 text-slate-800 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all resize-none h-40 font-medium"
               required
               disabled={status === 'sending' || status === 'success'}
@@ -109,7 +129,7 @@ export default function ReplyModal({
           )}
           {status === 'error' && (
             <div className="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm font-bold text-center border border-red-200">
-              Error al enviar. Revisa la consola o intenta de nuevo.
+              Error al enviar. Revisa la consola.
             </div>
           )}
 

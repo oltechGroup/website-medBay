@@ -1,11 +1,12 @@
-//backend/src/controllers/contactController.js
+// backend/src/controllers/contactController.js
 
 const nodemailer = require('nodemailer');
 const { Pool } = require('pg');
 const { 
   generateQuoteTemplate, 
   generateContactTemplate, 
-  generateResponseTemplate, 
+  generateResponseTemplate,      // Para respuestas generales
+  generateQuoteResponseTemplate, // ✅ NUEVO: Para respuestas de cotización
   getBrandingAttachments 
 } = require('../utils/emailTemplates');
 
@@ -42,7 +43,7 @@ const sendContactEmail = async (req, res) => {
     let htmlContent = '';
     let dbContent = {}; // Lo que se guardará en el JSONB de la base de datos
 
-    // === LÓGICA DE SELECCIÓN DE TEMPLATE ===
+    // === LÓGICA DE SELECCIÓN DE TEMPLATE (ENTRANTE) ===
     if (tipo === 'Solicitud de Cotización') {
       // 1. Caso Cotización
       const quoteData = {
@@ -114,17 +115,39 @@ const sendContactEmail = async (req, res) => {
 
 // --- RESPONDER (Admin -> Cliente) ---
 const replyToEmail = async (req, res) => {
-  const { targetEmail, subject, message, originalSubject } = req.body;
+  const { 
+    targetEmail, 
+    subject, 
+    message, 
+    originalSubject,
+    // Datos opcionales para respuesta de cotización
+    quoteDetails, // { name, sku, quantity... }
+    recipientName 
+  } = req.body;
 
   if (!targetEmail || !message) {
-    return res.status(400).json({ success: false, error: 'Datos incompletos.' });
+    return res.status(400).json({ success: false, error: 'Faltan datos obligatorios (email o mensaje).' });
   }
 
   try {
     const finalSubject = subject || `RE: ${originalSubject || 'Soporte MedBay'}`;
-    
-    // Usamos el template de respuesta limpio (sin botón de dashboard)
-    const htmlContent = generateResponseTemplate(message);
+    let htmlContent = '';
+
+    // === LÓGICA DE SELECCIÓN DE TEMPLATE (SALIENTE) ===
+    if (quoteDetails) {
+      // ✅ 1. Respuesta a Cotización (Diseño Específico)
+      htmlContent = generateQuoteResponseTemplate({
+        userName: recipientName || 'Cliente',
+        productName: quoteDetails.name,
+        sku: quoteDetails.sku,
+        quantity: quoteDetails.quantity,
+        message: message
+      });
+    } else {
+      // ✅ 2. Respuesta General (Diseño Estándar)
+      // generateResponseTemplate(Title, Message, isSuccess) -> isSuccess true para color verde/neutro
+      htmlContent = generateResponseTemplate('Respuesta a su Solicitud', message, true);
+    }
 
     await transporter.sendMail({
       from: `"Soporte MedBay" <${process.env.EMAIL_USER}>`,
@@ -134,7 +157,7 @@ const replyToEmail = async (req, res) => {
       attachments: getBrandingAttachments()
     });
 
-    res.status(200).json({ success: true, message: 'Respuesta enviada.' });
+    res.status(200).json({ success: true, message: 'Respuesta enviada correctamente.' });
 
   } catch (error) {
     console.error('🔥 Error en replyToEmail:', error);

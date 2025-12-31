@@ -6,9 +6,9 @@ const Address = require('../models/addressModel');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const nodemailer = require('nodemailer'); 
-const { generateHtml, getBrandingAttachments } = require('../utils/emailTemplates');
+// ✅ IMPORTANTE: Importamos la nueva función generateRegisterTemplate
+const { generateRegisterTemplate, getBrandingAttachments } = require('../utils/emailTemplates');
 
-// Pool para notificaciones DB
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -17,7 +17,6 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-// Configuración Nodemailer
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: process.env.EMAIL_PORT,
@@ -32,7 +31,6 @@ const userController = {
   
   register: async (req, res) => {
     try {
-      // 1. Extraer TODOS los datos del body (Multer ya procesó el multipart)
       const { 
         email, password, full_name, company_name, tax_id, verification_level, phone,
         country, postal_code, state, city, colony, street, street_number, 
@@ -41,7 +39,7 @@ const userController = {
 
       const documentFile = req.file; 
 
-      // 2. Limpieza de datos (Convertir "null", "undefined" o vacíos a null real)
+      // Limpieza de datos
       const clean = (val) => (val && val !== 'null' && val !== 'undefined' && val.trim() !== '') ? val : null;
 
       const cleanCompany = clean(company_name);
@@ -51,24 +49,20 @@ const userController = {
       const cleanBetween = clean(between_streets);
       const cleanRef = clean(reference_point);
 
-      // 3. Validaciones
       if (!email || !password || !full_name) {
         return res.status(400).json({ error: 'Faltan datos obligatorios de la cuenta.' });
       }
 
-      // Validación estricta de documentos para roles profesionales
       const rolesRequireDoc = ['medical_professional', 'business_verified'];
       if (rolesRequireDoc.includes(verification_level) && !documentFile) {
         return res.status(400).json({ error: 'Es obligatorio adjuntar el documento probatorio (Cédula/Acta).' });
       }
 
-      // Verificar duplicados
       const existingUser = await User.findByEmail(email);
       if (existingUser) {
         return res.status(409).json({ error: 'Este correo electrónico ya está registrado.' });
       }
 
-      // Traducción de Rol (Para Dashboard y Email)
       const roleFriendlyName = verification_level === 'medical_professional' 
         ? 'Profesional de Salud' 
         : verification_level === 'business_verified' 
@@ -77,7 +71,7 @@ const userController = {
 
       const password_hash = await bcrypt.hash(password, 12);
 
-      // --- PASO 1: CREAR USUARIO ---
+      // --- 1. CREAR USUARIO ---
       const newUser = await User.create({
         email,
         password_hash,
@@ -89,7 +83,7 @@ const userController = {
         phone: cleanPhone
       });
 
-      // --- PASO 2: CREAR DIRECCIÓN ---
+      // --- 2. CREAR DIRECCIÓN ---
       await Address.create({
         user_id: newUser.id,
         address_type: 'billing',
@@ -106,12 +100,10 @@ const userController = {
         is_fiscal: true
       });
 
-      // --- PASO 3: CREAR DOCUMENTO (Si aplica) ---
+      // --- 3. CREAR DOCUMENTO ---
       let filePathDB = null;
       if (documentFile) {
-        // Guardamos la ruta relativa para la DB
         filePathDB = `/uploads/documents/${documentFile.filename}`;
-        
         await Document.create({
           owner_type: 'user',
           owner_id: newUser.id,
@@ -122,7 +114,6 @@ const userController = {
         });
       }
 
-      // --- CONSTRUCCIÓN DE DIRECCIÓN COMPLETA ---
       const fullAddress = [
         `${street} #${street_number} ${cleanSuite ? 'Int. ' + cleanSuite : ''}`,
         `Col. ${colony}, CP: ${postal_code}`,
@@ -131,8 +122,7 @@ const userController = {
         cleanRef ? `Ref: ${cleanRef}` : null
       ].filter(Boolean).join('\n');
 
-      // --- PASO 4: NOTIFICACIÓN EN DASHBOARD (JSONB Estructurado) ---
-      // Esta estructura es la que leerá tu nuevo Modal inteligente
+      // --- 4. NOTIFICACIÓN DASHBOARD ---
       const notifContent = {
         mensaje: `Nueva solicitud de registro recibida para validación.`,
         extra_data: {
@@ -142,7 +132,7 @@ const userController = {
           tax_id: cleanTaxId || 'N/A',
           phone: cleanPhone || 'N/A',
           address: fullAddress,
-          file_path: filePathDB // Importante para el botón "Descargar" del dashboard
+          file_path: filePathDB 
         }
       };
       
@@ -157,37 +147,26 @@ const userController = {
         ]
       );
 
-      // --- PASO 5: CORREO AL ADMIN ---
-      // Usamos un HTML simple pero claro para el admin por ahora, o podrías usar generateHtml si lo prefieres
-      const adminMessage = `
-        <div style="font-family: Arial, sans-serif; color: #334155;">
-          <h2 style="color: #0f172a;">Nueva Solicitud de Registro</h2>
-          <p>Un usuario ha completado el formulario de registro y requiere validación.</p>
-          
-          <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;">
-            <tr style="background: #f1f5f9;"><td style="padding: 10px; font-weight: bold;">Nombre:</td><td style="padding: 10px;">${full_name}</td></tr>
-            <tr><td style="padding: 10px; font-weight: bold;">Perfil:</td><td style="padding: 10px; color: #2563eb;">${roleFriendlyName}</td></tr>
-            <tr style="background: #f1f5f9;"><td style="padding: 10px; font-weight: bold;">Empresa:</td><td style="padding: 10px;">${cleanCompany || 'N/A'}</td></tr>
-            <tr><td style="padding: 10px; font-weight: bold;">Email:</td><td style="padding: 10px;">${email}</td></tr>
-          </table>
+      // --- 5. CORREO AL ADMIN (CON NUEVO TEMPLATE) ---
+      // Preparamos los datos para el template bonito
+      const registerEmailData = {
+        fullName: full_name,
+        roleName: roleFriendlyName,
+        email: email,
+        phone: cleanPhone,
+        company: cleanCompany,
+        taxId: cleanTaxId,
+        fullAddress: fullAddress.replace(/\n/g, '<br>') // Formato HTML para dirección
+      };
 
-          <div style="margin-top: 30px; text-align: center;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard" 
-               style="background: #0f172a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-               Ir al Dashboard para Validar
-            </a>
-          </div>
-        </div>
-      `;
-
-      // Si tienes la función generateHtml disponible y prefieres usarla:
-      // const htmlAdmin = generateHtml('Nueva Solicitud de Registro', {}, adminMessage);
+      // Generamos el HTML usando la nueva función
+      const adminHtml = generateRegisterTemplate(registerEmailData);
 
       await transporter.sendMail({
         from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com",
         subject: `🔔 Nueva Solicitud: ${full_name} (${roleFriendlyName})`,
-        html: adminMessage, 
+        html: adminHtml, 
         attachments: getBrandingAttachments()
       });
 
