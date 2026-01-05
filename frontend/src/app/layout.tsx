@@ -1,15 +1,16 @@
 //frontend/src/app/layout.tsx
-
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import Providers from './providers';
+// ✅ Importamos el nuevo Layout Maestro
+import MainLayout from '@/components/layout/MainLayout';
 
-const inter = Inter({ subsets: ['latin'] });7
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'MedBay',
-  description: 'Plataforma B2B especializada en insumos médicos',
+  title: 'MedBay - Plataforma Médica B2B',
+  description: 'Plataforma B2B especializada en insumos médicos y gestión de inventario.',
 };
 
 export default function RootLayout({
@@ -21,7 +22,10 @@ export default function RootLayout({
     <html lang="es">
       <body className={inter.className}>
         <Providers>
-          {children}
+          {/* ✅ Envolvemos todo en MainLayout */}
+          <MainLayout>
+            {children}
+          </MainLayout>
         </Providers>
       </body>
     </html>
