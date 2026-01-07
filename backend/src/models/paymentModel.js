@@ -1,3 +1,4 @@
+//backned/src/models/paymentModel.js
 const db = require('../config/database');
 
 const Payment = {

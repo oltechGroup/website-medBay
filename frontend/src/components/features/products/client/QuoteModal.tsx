@@ -1,4 +1,5 @@
 //frontend/src/components/features/products/client/QuoteModal.tsx
+//frontend/src/components/features/products/client/QuoteModal.tsx
 
 "use client";
 
@@ -109,7 +110,8 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
                 <select 
                   value={type}
                   onChange={(e) => setType(e.target.value as QuoteType)}
-                  className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium"
+                  // ✅ CAMBIO: Agregado 'text-slate-900' para forzar color oscuro
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-900"
                 >
                   <option value="En Fecha (Estándar)">En Fecha (Estándar)</option>
                   <option value="Fecha Corta (Descuento)">Fecha Corta (Descuento)</option>
@@ -124,7 +126,8 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
                   min={1}
                   value={quantity}
                   onChange={(e) => setQuantity(parseInt(e.target.value))}
-                  className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium"
+                  // ✅ CAMBIO: Agregado 'text-slate-900' para forzar color oscuro
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-900"
                 />
               </div>
 
@@ -135,7 +138,8 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Ej: Necesito que tengan al menos 6 meses de vigencia..."
-                  className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm resize-none"
+                  // ✅ CAMBIO: Agregado 'text-slate-900' para forzar color oscuro
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm resize-none text-slate-900"
                 />
               </div>
 

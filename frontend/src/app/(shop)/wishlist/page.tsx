@@ -1,17 +1,47 @@
 //frontend/src/app/(shop)/wishlist/page.tsx
-
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { useWishlist } from "@/hooks/useWishlist";
+import { useWishlist, WishlistItem } from "@/hooks/useWishlist";
 import { getImageUrl } from "@/lib/formatters";
 import { 
-  Trash2, ShoppingBag, Heart, ArrowRight, 
-  PackageOpen, ShoppingCart, ShieldCheck, ChevronRight 
+  Trash2, Heart, ArrowRight, 
+  PackageOpen, ShoppingBag 
 } from "lucide-react";
+import { ProductQuickView } from "@/components/features/products/client/ProductQuickView";
+import { Product } from "@/hooks/useProducts";
 
 export default function WishlistPage() {
   const { wishlistItems, isLoading, removeFromWishlist } = useWishlist();
+  
+  // Estado para controlar el modal
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // --- HELPER: CONVERTIR WISHLIST ITEM A PRODUCT ---
+  // Adaptamos los datos para que el Modal los entienda
+  const mapWishlistToProduct = (item: WishlistItem): Product => {
+    return {
+      id: item.product_id,
+      description: item.product_name,
+      manufacturer_name: item.manufacturer_name,
+      global_sku: item.global_sku,
+      primary_image: item.product_image,
+      manufacturer_id: "", // No crítico para el modal
+      notes: null,
+      created_at: "",
+      updated_at: "",
+      // Estos se rellenarán dentro del modal con useProductDetails
+      min_price: 0,
+      max_price: 0,
+      active_lots: parseInt(item.total_stock) || 0
+    };
+  };
+
+  const handleOpenProduct = (item: WishlistItem) => {
+    const productData = mapWishlistToProduct(item);
+    setSelectedProduct(productData);
+  };
 
   // --- LOADING STATE ---
   if (isLoading) {
@@ -66,7 +96,8 @@ export default function WishlistPage() {
                 return (
                   <div 
                     key={item.wishlist_item_id} 
-                    className="group bg-white rounded-[2rem] border border-white shadow-sm hover:shadow-xl hover:border-blue-100 transition-all duration-300 flex flex-col overflow-hidden"
+                    className="group bg-white rounded-[2rem] border border-white shadow-sm hover:shadow-xl hover:border-blue-100 transition-all duration-300 flex flex-col overflow-hidden cursor-pointer"
+                    onClick={() => handleOpenProduct(item)}
                   >
                     {/* Imagen */}
                     <div className="relative h-56 bg-slate-50 p-8 flex items-center justify-center border-b border-slate-50 group-hover:bg-white transition-colors">
@@ -77,8 +108,11 @@ export default function WishlistPage() {
                         onError={(e) => e.currentTarget.src = getImageUrl(null)}
                       />
                       <button 
-                        onClick={() => removeFromWishlist(item.product_id)}
-                        className="absolute top-4 right-4 p-2.5 bg-white border border-slate-100 text-slate-400 hover:text-red-500 hover:border-red-100 rounded-xl transition-all shadow-sm hover:shadow-md active:scale-90"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Evitar abrir modal al borrar
+                          removeFromWishlist(item.product_id);
+                        }}
+                        className="absolute top-4 right-4 p-2.5 bg-white border border-slate-100 text-slate-400 hover:text-red-500 hover:border-red-100 rounded-xl transition-all shadow-sm hover:shadow-md active:scale-90 z-10"
                         title="Quitar de favoritos"
                       >
                         <Trash2 size={18} />
@@ -92,9 +126,7 @@ export default function WishlistPage() {
                           {item.manufacturer_name}
                         </p>
                         <h3 className="font-bold text-slate-800 text-lg leading-snug line-clamp-2 mb-3 group-hover:text-blue-700 transition-colors">
-                          <Link href={`/products/${item.product_id}`}>
-                            {item.product_name}
-                          </Link>
+                          {item.product_name}
                         </h3>
                         <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded border border-slate-200">
                           SKU: {item.global_sku}
@@ -117,12 +149,11 @@ export default function WishlistPage() {
                       </div>
 
                       {/* Botón de Acción */}
-                      <Link 
-                        href={`/products?search=${item.global_sku}`} 
+                      <button 
                         className="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2 group-hover:shadow-blue-600/20"
                       >
                         <ShoppingBag size={16} /> Ver Opciones
-                      </Link>
+                      </button>
                     </div>
                   </div>
                 );
@@ -131,6 +162,15 @@ export default function WishlistPage() {
           </>
         )}
       </main>
+
+      {/* ✅ MODAL DE PRODUCTO */}
+      {selectedProduct && (
+        <ProductQuickView 
+          product={selectedProduct}
+          isOpen={!!selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
+      )}
     </div>
   );
 }

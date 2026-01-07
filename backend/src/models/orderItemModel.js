@@ -1,3 +1,4 @@
+//backend/src/models/orderItemModel.js
 const db = require('../config/database');
 
 const OrderItem = {
