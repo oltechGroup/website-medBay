@@ -12,9 +12,17 @@ interface MainLayoutProps {
 export default function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname();
 
-  // Detectamos si estamos en alguna ruta de productos para cambiar el header
-  // (Puede ser /products o /products/categoria...)
+  // Detectamos si estamos en alguna ruta de productos (catálogo)
   const isCatalog = pathname?.startsWith('/products');
+  
+  // ✅ CORRECCIÓN CRÍTICA:
+  // Detectamos si estamos dentro del Panel de Administrador.
+  // Si es así, NO renderizamos el Header/Footer públicos para evitar conflictos.
+  const isDashboard = pathname?.startsWith('/dashboard');
+
+  if (isDashboard) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex flex-col min-h-screen">

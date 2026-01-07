@@ -1,7 +1,7 @@
 //frontend/src/components/layout/DashboardSidebar.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,8 +27,10 @@ import {
 } from 'lucide-react';
 
 interface DashboardSidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen: boolean;           // Controla si está abierto en MÓVIL (Off-canvas)
+  onClose: () => void;       // Función para cerrar en móvil
+  isCollapsed: boolean;      // ✅ Controla si está Colapsado en ESCRITORIO (Mini)
+  onToggleCollapse: () => void; // ✅ Función para alternar el tamaño
 }
 
 const navigation = [
@@ -50,23 +52,25 @@ const settingsNav = [
   { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
 ];
 
-export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
+export default function DashboardSidebar({ 
+  isOpen, 
+  onClose, 
+  isCollapsed, 
+  onToggleCollapse 
+}: DashboardSidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   
-  // Estado local para colapsar en escritorio (Desktop)
-  // false = Expandido por defecto (Texto + Icono)
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  // Helper para items de navegación
+  // Helper para renderizar cada item de navegación de forma limpia
   const NavItem = ({ item }: { item: any }) => {
+    // Detecta si la ruta actual coincide con el link
     const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
     
     return (
       <Link
         href={item.href}
         onClick={() => {
-          // En móvil, cerramos el menú al hacer click en un link para ver el contenido
+          // En móvil, cerramos el menú al navegar
           if (window.innerWidth < 1024) onClose();
         }}
         className={cn(
@@ -74,6 +78,7 @@ export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarPr
           isActive
             ? "bg-blue-50 text-blue-700 font-bold shadow-sm ring-1 ring-blue-100"
             : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium",
+          // Si está colapsado, centramos el icono
           isCollapsed ? "justify-center px-2" : ""
         )}
         title={isCollapsed ? item.name : undefined}
@@ -82,15 +87,17 @@ export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarPr
           className={cn(
             "flex-shrink-0 transition-colors z-10", 
             isActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600",
+            // Ajustamos tamaño de icono según estado
             isCollapsed ? "w-6 h-6" : "w-5 h-5 mr-3"
           )} 
         />
         
+        {/* Solo mostramos texto si NO está colapsado */}
         {!isCollapsed && (
           <span className="truncate z-10 relative">{item.name}</span>
         )}
 
-        {/* Indicador visual activo (línea lateral) */}
+        {/* Línea lateral azul para item activo (solo expandido) */}
         {isActive && !isCollapsed && (
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-600 rounded-r-full"></div>
         )}
@@ -101,23 +108,22 @@ export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarPr
   return (
     <>
       {/* SIDEBAR CONTAINER */}
-      {/* h-screen y flex-col aseguran que ocupe toda la altura y distribuya el contenido */}
       <aside
         className={cn(
           "fixed top-0 left-0 z-[70] h-screen bg-white border-r border-slate-200 shadow-2xl lg:shadow-none transition-all duration-300 ease-in-out flex flex-col",
-          // Ancho dinámico en escritorio
+          // ANCHO DINÁMICO: 80px (w-20) si colapsado, 256px (w-64) si expandido
           isCollapsed ? "lg:w-20" : "lg:w-64",
-          // Posición en móvil (off-canvas)
+          // Posición Móvil: Fuera de pantalla o dentro
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        {/* === HEADER DEL SIDEBAR (Logo) === */}
+        {/* === HEADER DEL SIDEBAR (Logos) === */}
         <div className={cn(
           "flex items-center h-[72px] flex-shrink-0 transition-all duration-300",
           isCollapsed ? "justify-center bg-white" : "justify-between px-6 bg-gradient-to-r from-blue-600 to-blue-700"
         )}>
           
-          {/* Logo Expandido (Imagen Real) */}
+          {/* LOGO EXPANDIDO (Con Texto) */}
           <div className={cn("flex items-center gap-3 transition-opacity duration-200", isCollapsed && "hidden opacity-0")}>
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner border border-white/10">
                <img 
@@ -132,11 +138,12 @@ export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarPr
             </div>
           </div>
 
-          {/* Logo Colapsado (Mini Imagen) */}
+          {/* LOGO COLAPSADO (Solo Icono) */}
           {isCollapsed && (
             <div 
               className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center cursor-pointer shadow-md hover:bg-blue-700 transition-colors"
-              onClick={() => setIsCollapsed(false)}
+              onClick={onToggleCollapse} // Click en el logo también expande el menú
+              title="Expandir menú"
             >
                <img 
                  src="/icons/logomedblanco.png" 
@@ -146,7 +153,7 @@ export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarPr
             </div>
           )}
 
-          {/* Botón Cerrar (Solo visible en Móvil) */}
+          {/* Botón Cerrar (Solo Móvil) */}
           <button 
             onClick={onClose}
             className="lg:hidden p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors backdrop-blur-sm"
@@ -155,8 +162,7 @@ export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarPr
           </button>
         </div>
 
-        {/* === CONTENIDO SCROLLEABLE (Menú) === */}
-        {/* flex-1 y overflow-y-auto hacen que SOLO esta parte tenga scroll si la pantalla es pequeña */}
+        {/* === CONTENIDO SCROLLEABLE === */}
         <div className="flex-1 overflow-y-auto custom-scrollbar py-6 space-y-8">
           
           {/* Grupo Gestión */}
@@ -188,35 +194,37 @@ export default function DashboardSidebar({ isOpen, onClose }: DashboardSidebarPr
           </div>
         </div>
 
-        {/* === FOOTER DEL SIDEBAR (Perfil & Colapso) === */}
-        {/* flex-shrink-0 asegura que el footer siempre esté visible abajo y no se aplaste */}
+        {/* === FOOTER DEL SIDEBAR === */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex-shrink-0">
           {isCollapsed ? (
+            // Botón para expandir (Flecha derecha)
             <button 
-              onClick={() => setIsCollapsed(false)}
+              onClick={onToggleCollapse}
               className="w-full flex justify-center p-2 hover:bg-white rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-200 text-slate-500 hover:text-blue-600"
               title="Expandir menú"
             >
               <ChevronRight size={20} />
             </button>
           ) : (
+            // Tarjeta de Usuario completa
             <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2">
-               {/* Tarjeta Usuario */}
                <div className="flex items-center gap-3 px-2 py-1">
                   <div className="w-10 h-10 rounded-full bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-600 font-bold text-sm overflow-hidden">
-                    {/* Si quieres foto real, ponla aquí. Si no, inicial: */}
                     {user?.full_name?.charAt(0).toUpperCase() || 'A'}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-800 truncate">{user?.full_name || 'Admin'}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase truncate tracking-wide">{user?.email}</p>
+                    
+                    {/* ✅ CORRECCIÓN VISUAL: Eliminada clase 'uppercase' */}
+                    <p className="text-[10px] font-bold text-slate-400 truncate tracking-wide">
+                      {user?.email}
+                    </p>
                   </div>
                </div>
 
-               {/* Botones Acción */}
                <div className="flex gap-2">
                   <button 
-                    onClick={() => setIsCollapsed(true)}
+                    onClick={onToggleCollapse}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors shadow-sm"
                   >
                     <ChevronLeft size={14} /> Ocultar

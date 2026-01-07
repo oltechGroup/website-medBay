@@ -7,13 +7,16 @@ import { formatCurrency, formatDate, getImageUrl } from "@/lib/formatters";
 import { 
   Trash2, Plus, Minus, ShoppingCart, ArrowRight, 
   Package, Calendar, AlertCircle, ShieldCheck, 
-  ChevronRight, Heart 
+  Tag, X, AlertTriangle 
 } from "lucide-react";
 import { useState } from "react";
 
 export default function CartPage() {
   const { cartItems, summary, isLoading, updateQuantity, removeItem, clearCart } = useCart();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  
+  // ✅ Nuevo estado para el modal de confirmación
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
 
   const handleUpdateQuantity = async (itemId: string, lotId: string, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -23,6 +26,12 @@ export default function CartPage() {
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  // ✅ Función para ejecutar el vaciado y cerrar el modal
+  const confirmClearCart = () => {
+    clearCart();
+    setIsClearModalOpen(false);
   };
 
   // --- LOADING STATE ---
@@ -43,7 +52,7 @@ export default function CartPage() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden flex flex-col">
       {/* ======= MAIN CONTENT ======= */}
-      <main className="flex-grow w-[90%] max-w-[1400px] mx-auto py-12">
+      <main className="flex-grow w-[90%] max-w-[1400px] mx-auto py-12 relative">
         
         {cartItems.length === 0 ? (
           /* --- EMPTY STATE PREMIUM --- */
@@ -151,10 +160,18 @@ export default function CartPage() {
                           </div>
 
                           <div className="text-right">
-                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Subtotal</p>
-                             <p className="text-2xl font-black text-slate-900">
-                               {formatCurrency(parseFloat(item.unit_price) * item.cart_quantity)}
-                             </p>
+                             <div className="flex items-center justify-end gap-1.5 mb-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                <Tag size={12} className="text-slate-400" />
+                                <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Unitario:</span>
+                                <span className="text-xs font-bold text-slate-700">{formatCurrency(parseFloat(item.unit_price))}</span>
+                             </div>
+                             
+                             <div className="flex items-baseline justify-end gap-2">
+                               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Subtotal</p>
+                               <p className="text-2xl font-black text-slate-900 leading-none">
+                                 {formatCurrency(parseFloat(item.unit_price) * item.cart_quantity)}
+                               </p>
+                             </div>
                           </div>
                         </div>
                       </div>
@@ -163,8 +180,9 @@ export default function CartPage() {
                 ))}
                 
                 <div className="flex justify-end pt-4">
+                  {/* ✅ BOTÓN DE VACIAR CARRITO CON MODAL */}
                   <button 
-                    onClick={() => { if(confirm('¿Estás seguro de vaciar el carrito?')) clearCart() }}
+                    onClick={() => setIsClearModalOpen(true)}
                     className="text-red-500 text-xs font-black uppercase tracking-widest hover:text-red-700 flex items-center gap-2 px-4 py-2 hover:bg-red-50 rounded-lg transition-all"
                   >
                     <Trash2 size={14} /> Vaciar Todo
@@ -200,7 +218,7 @@ export default function CartPage() {
                   </div>
 
                   <div className="space-y-4">
-                     <button className="group w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-3">
+                     <button className="group w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-600 transition-all shadow-xl shadow-blue-900/10 flex items-center justify-center gap-3">
                        Proceder al Pago 
                        <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform text-white/50 group-hover:text-white"/>
                      </button>
@@ -221,6 +239,45 @@ export default function CartPage() {
             </div>
           </>
         )}
+
+        {/* ✅ MODAL DE CONFIRMACIÓN (Premium Design) */}
+        {isClearModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <div 
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200" 
+              onClick={() => setIsClearModalOpen(false)}
+            ></div>
+
+            {/* Contenido Modal */}
+            <div className="relative bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl text-center animate-in zoom-in-95 duration-200 ring-1 ring-black/5">
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertTriangle className="text-red-500" size={32} />
+              </div>
+              
+              <h3 className="text-2xl font-black text-slate-900 mb-3">¿Vaciar Carrito?</h3>
+              <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+                Esta acción eliminará todos los productos seleccionados de tu orden actual. No podrás deshacer esta acción.
+              </p>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setIsClearModalOpen(false)}
+                  className="flex-1 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors text-sm"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={confirmClearCart}
+                  className="flex-1 py-3.5 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-lg shadow-red-500/20 text-sm flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={16} /> Vaciar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );
