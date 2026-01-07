@@ -34,64 +34,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
-      
-      {/* ======= HEADER ======= */}
-      <header className="bg-white/80 backdrop-blur-md sticky top-0 z-[60] border-b border-gray-100">
-        <div className="w-[90%] max-w-[1400px] mx-auto py-4 flex items-center justify-between">
-          
-          <Link href="/" className="flex items-center gap-2 group">
-            <img src="/icons/logomed.png" alt="Logo" className="w-10 h-10 rounded-lg transition-transform group-hover:scale-105" />
-            <div className="flex text-2xl font-bold leading-none tracking-tight">
-              <span className="text-blue-500">Med</span><span className="text-slate-700">Bay</span>
-            </div>
-          </Link>
-
-          <nav className="hidden md:flex gap-8 text-sm font-semibold text-slate-500">
-            <Link href="/products" className="hover:text-blue-600 transition-colors font-bold">Catálogo</Link>
-            <Link href="/Characteristics" className="hover:text-blue-600 transition-colors">Características</Link>
-            <Link href="/About" className="hover:text-blue-600 transition-colors">Nosotros</Link>
-            <Link href="/Contact" className="hover:text-blue-600 transition-colors">Contacto</Link>
-          </nav>
-
-          <div className="flex items-center gap-3">
-              <Link href="/wishlist" className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors">
-                <Heart size={20} />
-              </Link>
-              <Link href="/cart" className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors relative">
-                <ShoppingCart size={20} />
-                {/* Aquí conectaremos el contador real del carrito después */}
-                <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full font-bold">0</span>
-              </Link>
-              
-              <div className="h-6 w-px bg-gray-200 mx-2 hidden sm:block"></div>
-              
-              {/* ✅ LÓGICA DE USUARIO / INVITADO */}
-              {mounted && isAuthenticated && user ? (
-                <div className="flex items-center gap-3 animate-in fade-in">
-                  <div className="flex flex-col items-end leading-tight mr-2 hidden sm:flex">
-                    <span className="text-sm font-bold text-slate-700">{user.full_name.split(' ')[0]}</span>
-                    {getRoleBadge(user.verification_level)}
-                  </div>
-                  
-                  {/* Botón de Logout */}
-                  <button 
-                    onClick={logout}
-                    className="p-2 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-lg transition-colors"
-                    title="Cerrar Sesión"
-                  >
-                    <LogOut size={18} />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <Link href="/login" className="hidden sm:block text-sm font-semibold text-blue-600 hover:text-blue-700 px-3">Ingresar</Link>
-                  <Link href="/register" className="hidden sm:block bg-slate-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-600 transition-all shadow-lg">Registro</Link>
-                </>
-              )}
-          </div>
-        </div>
-      </header>
-
       {/* ======= HERO ======= */}
       <section className="relative pt-24 pb-32 bg-slate-900">
          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
@@ -228,57 +170,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* ======= FOOTER ROBUSTO ======= */}
-      <footer className="bg-slate-950 text-slate-400 py-20 border-t border-slate-900">
-        <div className="w-[90%] max-w-[1200px] mx-auto px-4 md:px-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16 text-center md:text-left">
-            
-            <div className="space-y-6">
-              <img src="/icons/logocompletoblanco.png" alt="MedBay Full Logo" className="w-52 mx-auto md:mx-0 opacity-90" />
-              <p className="text-sm leading-relaxed max-w-xs mx-auto md:mx-0 font-medium italic">
-                Socio estratégico líder en la distribución y gestión inteligente de dispositivos médicos B2B.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="text-white font-black uppercase tracking-widest text-xs mb-6 underline underline-offset-8 decoration-blue-500/50">Plataforma</h4>
-              <ul className="space-y-4 text-sm font-semibold">
-                <li><Link href="/About" className="hover:text-blue-400 flex items-center justify-center md:justify-start gap-2 transition-colors"><ChevronRight size={14}/> Nosotros</Link></li>
-                <li><Link href="/Characteristics" className="hover:text-blue-400 flex items-center justify-center md:justify-start gap-2 transition-colors"><ChevronRight size={14}/> Características</Link></li>
-                <li><Link href="/products" className="hover:text-blue-400 flex items-center justify-center md:justify-start gap-2 transition-colors"><ChevronRight size={14}/> Catálogo</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-black uppercase tracking-widest text-xs mb-6 underline underline-offset-8 decoration-blue-500/50">Soporte</h4>
-              <ul className="space-y-4 text-sm font-semibold">
-                <li><Link href="/Contact" className="hover:text-white flex items-center justify-center md:justify-start gap-2 transition-colors"><ChevronRight size={14}/> Contacto</Link></li>
-                <li><a href="#" className="hover:text-white flex items-center justify-center md:justify-start gap-2 transition-colors"><ChevronRight size={14}/> Devoluciones</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-black uppercase tracking-widest text-xs mb-6 underline underline-offset-8 decoration-blue-500/50">Legal</h4>
-              <ul className="space-y-4 text-sm font-semibold">
-                <li><a href="#" className="hover:text-white transition-colors">Privacidad</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Términos</a></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em] opacity-40 text-center md:text-left">
-              © 2025 MedBay Inc. Global Access to Medical Devices.
-            </p>
-            <div className="flex gap-8 opacity-40 grayscale hover:grayscale-0 transition-all">
-                <img src="/icons/logomedblanco.png" alt="Icon" className="h-5" />
-                <span className="text-white text-[10px] font-black border border-white px-2 py-0.5 rounded">ISO 13485 CERTIFIED</span>
-            </div>
-          </div>
-        </div>
-      </footer>
-
     </div>
   );
 }
