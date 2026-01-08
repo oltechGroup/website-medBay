@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/hooks/useCart";
 import { formatCurrency, getImageUrl } from "@/lib/formatters";
-import { api } from "@/lib/api"; // ✅ Importamos la API para enviar la orden
+import { api } from "@/lib/api"; 
 import { 
   Check, ShieldCheck, MapPin, 
   Truck, CreditCard, ShoppingCart, Loader2 
@@ -14,7 +14,7 @@ import {
 // Componentes de los Pasos
 import { AddressSelection } from "./steps/AddressSelection";
 import { ShippingSelection } from "./steps/ShippingSelection";
-import { PaymentSelection } from "./steps/PaymentSelection"; // ✅ Paso 3 Integrado
+import { PaymentSelection } from "./steps/PaymentSelection"; 
 
 // --- TIPOS ---
 export type CheckoutState = {
@@ -33,7 +33,7 @@ const STEPS = [
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cartItems, summary, isLoading } = useCart(); // Si tu hook tiene refetch, úsalo aquí
+  const { cartItems, summary, isLoading } = useCart();
   
   // Estado del Wizard
   const [currentStep, setCurrentStep] = useState(1);
@@ -87,14 +87,14 @@ export default function CheckoutPage() {
     setIsProcessing(true);
 
     try {
-      // Construimos el Payload para el endpoint POST /api/orders
+      // Payload
       const payload = {
         items: cartItems.map(item => ({
           product_lot_id: item.product_lot_id,
-          product_supplier_id: item.product_supplier_id, // Asegúrate que venga en cartItems
+          product_supplier_id: item.product_supplier_id,
           quantity: item.cart_quantity,
           unit_price: parseFloat(item.unit_price),
-          lot_status: item.lot_status // Para guardar referencia si era caducado
+          lot_status: item.lot_status 
         })),
         shipping_address_id: orderData.addressId,
         shipping_method: orderData.shippingMethod,
@@ -106,9 +106,8 @@ export default function CheckoutPage() {
       const response = await api.post('/orders', payload);
 
       if (response.data.success) {
-        // Redirigir al Dashboard o Página de Éxito
-        // Como el backend ya limpió el carrito, al redirigir se actualizará el estado
-        router.push('/dashboard?orderSuccess=true');
+        // ✅ CORRECCIÓN: Redirigir a "Mis Pedidos" (Cliente), NO al Dashboard (Admin)
+        router.push('/orders?newOrder=true'); 
       } else {
         throw new Error("La orden no se pudo procesar.");
       }
@@ -121,7 +120,7 @@ export default function CheckoutPage() {
     }
   };
 
-  // Redirigir si no hay carrito (Protección)
+  // Redirigir si no hay carrito
   useEffect(() => {
     if (!isLoading && cartItems.length === 0) {
       router.push('/cart');
@@ -184,7 +183,6 @@ export default function CheckoutPage() {
           
           <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 min-h-[500px]">
             
-            {/* PASO 1: SELECCIÓN DE DIRECCIÓN */}
             {currentStep === 1 && (
               <AddressSelection 
                 selectedAddressId={orderData.addressId}
@@ -193,7 +191,6 @@ export default function CheckoutPage() {
               />
             )}
             
-            {/* PASO 2: SELECCIÓN DE ENVÍO */}
             {currentStep === 2 && (
               <ShippingSelection 
                 selectedMethod={orderData.shippingMethod}
@@ -203,7 +200,6 @@ export default function CheckoutPage() {
               />
             )}
 
-            {/* ✅ PASO 3: SELECCIÓN DE PAGO Y CONFIRMACIÓN */}
             {currentStep === 3 && (
               <PaymentSelection 
                 selectedMethod={orderData.paymentMethod}
