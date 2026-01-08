@@ -15,7 +15,7 @@ export default function CartPage() {
   const { cartItems, summary, isLoading, updateQuantity, removeItem, clearCart } = useCart();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   
-  // ✅ Nuevo estado para el modal de confirmación
+  // Estado para el modal de confirmación
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
 
   const handleUpdateQuantity = async (itemId: string, lotId: string, newQuantity: number) => {
@@ -28,7 +28,7 @@ export default function CartPage() {
     }
   };
 
-  // ✅ Función para ejecutar el vaciado y cerrar el modal
+  // Función para ejecutar el vaciado y cerrar el modal
   const confirmClearCart = () => {
     clearCart();
     setIsClearModalOpen(false);
@@ -180,7 +180,7 @@ export default function CartPage() {
                 ))}
                 
                 <div className="flex justify-end pt-4">
-                  {/* ✅ BOTÓN DE VACIAR CARRITO CON MODAL */}
+                  {/* BOTÓN DE VACIAR CARRITO */}
                   <button 
                     onClick={() => setIsClearModalOpen(true)}
                     className="text-red-500 text-xs font-black uppercase tracking-widest hover:text-red-700 flex items-center gap-2 px-4 py-2 hover:bg-red-50 rounded-lg transition-all"
@@ -218,13 +218,18 @@ export default function CartPage() {
                   </div>
 
                   <div className="space-y-4">
-                     <button className="group w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-600 transition-all shadow-xl shadow-blue-900/10 flex items-center justify-center gap-3">
-                       Proceder al Pago 
-                       <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform text-white/50 group-hover:text-white"/>
-                     </button>
-                     <Link href="/products" className="w-full block text-center py-3 text-xs font-black text-slate-400 hover:text-blue-600 uppercase tracking-widest transition-colors">
-                       Continuar Comprando
-                     </Link>
+                      {/* ✅ LINK AL CHECKOUT */}
+                      <Link 
+                        href="/checkout" 
+                        className="group w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-600 transition-all shadow-xl shadow-blue-900/10 flex items-center justify-center gap-3"
+                      >
+                        Proceder al Pago 
+                        <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform text-white/50 group-hover:text-white"/>
+                      </Link>
+                      
+                      <Link href="/products" className="w-full block text-center py-3 text-xs font-black text-slate-400 hover:text-blue-600 uppercase tracking-widest transition-colors">
+                        Continuar Comprando
+                      </Link>
                   </div>
 
                   <div className="mt-8 bg-blue-50/50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
@@ -240,16 +245,14 @@ export default function CartPage() {
           </>
         )}
 
-        {/* ✅ MODAL DE CONFIRMACIÓN (Premium Design) */}
+        {/* MODAL DE CONFIRMACIÓN */}
         {isClearModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            {/* Backdrop */}
             <div 
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200" 
               onClick={() => setIsClearModalOpen(false)}
             ></div>
 
-            {/* Contenido Modal */}
             <div className="relative bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl text-center animate-in zoom-in-95 duration-200 ring-1 ring-black/5">
               <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
                 <AlertTriangle className="text-red-500" size={32} />

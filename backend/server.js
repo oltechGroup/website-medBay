@@ -37,6 +37,7 @@ app.use('/api/import', require('./src/routes/importRoutes'));
 app.use('/api/users', require('./src/routes/userRoutes'));
 app.use('/api/auth', require('./src/routes/authRoutes'));
 app.use('/api/products', require('./src/routes/productRoutes'));
+app.use('/api/addresses', require('./src/routes/addressRoutes'));
 app.use('/api/categories', require('./src/routes/categoryRoutes'));
 app.use('/api/countries', require('./src/routes/countryRoutes'));
 app.use('/api/manufacturers', require('./src/routes/manufacturerRoutes'));

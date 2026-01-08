@@ -1,3 +1,4 @@
+//backend/src/models/supplierModel.js
 const db = require('../config/database');
 
 const Supplier = {

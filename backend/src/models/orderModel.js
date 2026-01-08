@@ -1,8 +1,9 @@
-//backend/src/models/orderModel.js
+// backend/src/models/orderModel.js
+
 const db = require('../config/database');
 
 const Order = {
-  // Crear una nueva orden
+  // Crear una nueva orden (Actualizado Fase 2)
   create: async (orderData) => {
     const {
       customer_id,
@@ -14,21 +15,43 @@ const Order = {
       shipping_address_id,
       billing_address_id,
       notes,
-      review_deadline
+      review_deadline,
+      // ✅ Nuevos campos Fase 2
+      shipping_method,
+      shipping_cost,
+      payment_method,
+      payment_fee,
+      referral_code,
+      evidence_file
     } = orderData;
     
     const query = `
       INSERT INTO orders (
         customer_id, status, subtotal, tax, total, currency,
-        shipping_address_id, billing_address_id, notes, review_deadline
+        shipping_address_id, billing_address_id, notes, review_deadline,
+        shipping_method, shipping_cost, payment_method, payment_fee, referral_code, evidence_file
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `;
     
     const values = [
-      customer_id, status, subtotal, tax, total, currency,
-      shipping_address_id, billing_address_id, notes, review_deadline
+      customer_id, 
+      status, 
+      subtotal, 
+      tax, 
+      total, 
+      currency,
+      shipping_address_id, 
+      billing_address_id, 
+      notes, 
+      review_deadline,
+      shipping_method || 'standard',
+      shipping_cost || 0,
+      payment_method,
+      payment_fee || 0,
+      referral_code || null,
+      evidence_file || null
     ];
     
     try {
@@ -81,7 +104,7 @@ const Order = {
     }
   },
 
-  // Obtener orden por ID
+  // Obtener orden por ID (Incluye los nuevos campos automáticamente por el SELECT *)
   findById: async (id) => {
     const query = `
       SELECT 
@@ -90,9 +113,14 @@ const Order = {
         u.full_name as customer_name,
         u.company_name as customer_company,
         u.tax_id as customer_tax_id,
-        u.country as customer_country
+        u.country as customer_country,
+        -- Traer también info de direcciones para mostrar en el detalle
+        sa.street as shipping_street, sa.city as shipping_city, sa.postal_code as shipping_zip,
+        ba.street as billing_street, ba.city as billing_city, ba.postal_code as billing_zip
       FROM orders o
       LEFT JOIN users u ON o.customer_id = u.id
+      LEFT JOIN addresses sa ON o.shipping_address_id = sa.id
+      LEFT JOIN addresses ba ON o.billing_address_id = ba.id
       WHERE o.id = $1
     `;
     
@@ -104,7 +132,7 @@ const Order = {
     }
   },
 
-  // Actualizar estado de orden
+  // Actualizar estado de orden (Mantenido igual, útil para flujo de aprobación)
   updateStatus: async (id, status, approved_by = null) => {
     const query = `
       UPDATE orders 
@@ -121,7 +149,23 @@ const Order = {
     }
   },
 
-  // Actualizar información de orden
+  // ✅ NUEVO: Subir Evidencia de Pago (Para que el cliente suba su comprobante)
+  updateEvidence: async (id, filePath) => {
+    const query = `
+      UPDATE orders 
+      SET evidence_file = $1, status = 'payment_review' 
+      WHERE id = $2
+      RETURNING *
+    `;
+    try {
+      const result = await db.query(query, [filePath, id]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Actualizar información general de orden
   update: async (id, orderData) => {
     const {
       status,

@@ -8,7 +8,7 @@ import { Product } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   ChevronDown, ChevronUp, ShoppingCart, Package, Calendar, 
-  AlertTriangle, Lock, UserCircle, Heart, FileText, Check 
+  AlertTriangle, Lock, UserCircle, Heart, FileText 
 } from "lucide-react";
 import { formatCurrency, formatDate, getImageUrl, getLotStatusConfig } from "@/lib/formatters";
 import { useProductDetails } from "@/hooks/useProductDetails";
@@ -16,7 +16,7 @@ import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 import { ProductQuickView } from "./ProductQuickView";
 import QuoteModal from "./QuoteModal";
-import { QuantitySelector } from "@/components/ui/QuantitySelector"; // ✅ Importamos el nuevo componente
+import { QuantitySelector } from "@/components/ui/QuantitySelector";
 
 // --- SUB-COMPONENTE: FILA DE LOTE ---
 // Maneja su propio estado de cantidad para no afectar a otros lotes
@@ -98,8 +98,7 @@ const LotRow = ({ lot, onAddToCart, isAdding }: LotRowProps) => {
           </>
         ) : (
           <div className="w-full">
-             {/* Si no hay precio, lógica de cotización se maneja en el padre, 
-                 pero aquí mostramos indicativo visual */}
+             {/* Si no hay precio, lógica de cotización se maneja en el padre */}
              <div className="text-right text-xs font-bold text-gray-400 italic py-2">
                Precio bajo cotización
              </div>
@@ -147,11 +146,12 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
     setIsExpanded(!isExpanded);
   };
 
+  // ✅ AQUÍ ESTÁ EL CAMBIO IMPORTANTE: Redirección a /checkout
   const handleAddToCart = async (lotId: string, quantity: number, redirect: boolean = false) => {
     try {
       await addToCart({ lotId, quantity });
       if (redirect) {
-        router.push('/cart');
+        router.push('/checkout'); // <-- Redirige directo al pago
       }
     } catch (error) {
       console.error("Error agregando al carrito", error);

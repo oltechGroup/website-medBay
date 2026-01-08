@@ -11,7 +11,7 @@ import { getImageUrl, formatCurrency, formatDate, getLotStatusConfig } from "@/l
 import { useProductDetails } from "@/hooks/useProductDetails"; 
 import { useCart } from "@/hooks/useCart";
 import { QuantitySelector } from "@/components/ui/QuantitySelector";
-import QuoteModal from "./QuoteModal"; // ✅ Importamos el Modal de Cotización
+import QuoteModal from "./QuoteModal"; 
 
 // --- SUB-COMPONENTE: ÍTEM DE LOTE EN MODAL ---
 interface LotItemProps {
@@ -96,7 +96,7 @@ interface ProductQuickViewProps {
 export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
-  const [isQuoteOpen, setIsQuoteOpen] = useState(false); // Estado para modal cotización
+  const [isQuoteOpen, setIsQuoteOpen] = useState(false); 
   
   const { isAuthenticated } = useAuth();
   const router = useRouter();
@@ -130,15 +130,14 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
     setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
   };
 
-  // ✅ Handler para añadir al carrito
+  // ✅ HANDLER ACTUALIZADO: Redirección directa al Checkout
   const handleAddToCart = async (lotId: string, quantity: number, redirect: boolean = false) => {
     try {
       await addToCart({ lotId, quantity });
       if (redirect) {
-        router.push('/cart');
+        router.push('/checkout'); // <-- Ahora redirige al pago
       } else {
-        // Opcional: Mostrar feedback visual (toast) aquí si quisieras
-        onClose(); // Cerramos el modal tras agregar para que siga navegando
+        onClose(); // Si solo agrega, cierra el modal
       }
     } catch (error) {
       console.error("Error agregando al carrito", error);
@@ -246,10 +245,10 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
                         onClick={() => router.push('/login')} 
                         className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/10 mb-4"
                       >
-                         Iniciar Sesión
+                          Iniciar Sesión
                       </button>
                       <p className="text-xs text-slate-400 font-bold">
-                         ¿No tienes cuenta? <button onClick={() => router.push('/register')} className="text-blue-600 hover:underline">Regístrate gratis</button>
+                          ¿No tienes cuenta? <button onClick={() => router.push('/register')} className="text-blue-600 hover:underline">Regístrate gratis</button>
                       </p>
                    </div>
                 ) : (
@@ -304,7 +303,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
         </div>
       </div>
 
-      {/* ✅ Modal Cotización dentro del portal para que se superponga correctamente */}
+      {/* ✅ Modal Cotización dentro del portal */}
       {isQuoteOpen && (
         <QuoteModal 
           isOpen={isQuoteOpen}

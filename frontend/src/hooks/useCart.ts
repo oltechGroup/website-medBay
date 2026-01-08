@@ -8,6 +8,7 @@ export interface CartItem {
   cart_item_id: string;
   cart_quantity: number;
   product_lot_id: string;
+  product_supplier_id: string;
   // Detalles del Lote
   lot_number: string;
   expiry_date: string;

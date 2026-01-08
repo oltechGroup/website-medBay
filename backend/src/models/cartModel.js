@@ -28,6 +28,7 @@ const Cart = {
         ci.product_lot_id,
         
         -- Datos del Lote
+        pl.product_supplier_id,
         pl.lot_number,
         pl.expiry_date,
         pl.price as unit_price,
