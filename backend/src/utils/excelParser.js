@@ -1,5 +1,5 @@
+//backend/src/utils/excelParser.js
 // Utilidades para parsear diferentes formatos de Excel
-
 const excelParser = {
   // Parsear precios en diferentes formatos
   parsePrice: (priceString) => {

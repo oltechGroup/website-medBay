@@ -1,0 +1,252 @@
+//frontend/src/app/dashboard/quotes/QuoteResponseModal.tsx
+"use client";
+
+import { useState, useEffect } from "react";
+import { 
+  X, Package, User, Calendar, DollarSign, 
+  FileText, CheckCircle2, AlertTriangle, Send 
+} from "lucide-react";
+import { useAdminQuotes, Quote } from "@/hooks/useAdminQuotes";
+import { formatCurrency } from "@/lib/formatters";
+
+interface QuoteResponseModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  quote: Quote | null;
+}
+
+export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResponseModalProps) {
+  const { sendProposal, isSending } = useAdminQuotes();
+
+  // Estado del Formulario
+  const [formData, setFormData] = useState({
+    quantity_found: 0,
+    unit_price: "",
+    expiry_date: "",
+    lot_type: "in_date", // 'in_date' | 'short_date' | 'expired'
+    admin_notes: ""
+  });
+
+  // Cargar datos iniciales cuando se abre el modal
+  useEffect(() => {
+    if (quote) {
+      setFormData({
+        quantity_found: quote.product_request.quantity_asked, // Pre-llenamos con lo que pidió
+        unit_price: "",
+        expiry_date: "",
+        lot_type: "in_date",
+        admin_notes: ""
+      });
+    }
+  }, [quote, isOpen]);
+
+  if (!isOpen || !quote) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.unit_price || !formData.expiry_date) {
+      alert("Por favor completa el precio y la fecha de caducidad.");
+      return;
+    }
+
+    try {
+      await sendProposal({
+        id: quote.id,
+        data: {
+          ...formData,
+          unit_price: parseFloat(formData.unit_price),
+          lot_type: formData.lot_type as any
+        }
+      });
+      onClose(); // Cerrar al terminar
+    } catch (error) {
+      console.error("Error al enviar propuesta:", error);
+      alert("Hubo un error al enviar la propuesta.");
+    }
+  };
+
+  // Helper para mostrar info del cliente
+  const clientName = quote.user_name || quote.guest_info?.name || "Cliente Invitado";
+  const clientEmail = quote.user_email || quote.guest_info?.email || "Sin email";
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity" 
+        onClick={onClose}
+      ></div>
+
+      {/* Modal Content */}
+      <div className="relative bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-200">
+        
+        {/* === COLUMNA IZQUIERDA: RESUMEN DE SOLICITUD === */}
+        <div className="w-full md:w-2/5 bg-slate-50 p-8 border-r border-slate-100 flex flex-col">
+          <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+            <FileText size={16}/> Solicitud Original
+          </h3>
+
+          <div className="flex-1 space-y-6">
+            {/* Producto */}
+            <div>
+              <p className="text-xs font-bold text-slate-500 mb-1">Producto Requerido</p>
+              <p className="text-lg font-black text-slate-800 leading-tight">
+                {quote.product_request.product_name}
+              </p>
+              <p className="text-xs font-mono text-slate-400 mt-1 bg-white inline-block px-2 py-1 rounded border border-slate-200">
+                SKU: {quote.product_request.sku}
+              </p>
+            </div>
+
+            {/* Cantidad */}
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-sm">
+                <Package size={24} className="text-blue-500"/>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-500">Cantidad Solicitada</p>
+                <p className="text-2xl font-black text-slate-800">{quote.product_request.quantity_asked}</p>
+              </div>
+            </div>
+
+            {/* Cliente */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2 mb-2">
+                <User size={16} className="text-slate-400"/>
+                <span className="font-bold text-slate-700 text-sm">{clientName}</span>
+              </div>
+              <p className="text-xs text-slate-500 truncate">{clientEmail}</p>
+            </div>
+
+            {/* Notas del Cliente */}
+            {quote.product_request.notes && (
+              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                <p className="text-xs font-bold text-amber-700 mb-1 flex items-center gap-1">
+                  <AlertTriangle size={12}/> Notas del Cliente:
+                </p>
+                <p className="text-xs text-amber-800 italic">"{quote.product_request.notes}"</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* === COLUMNA DERECHA: FORMULARIO DE PROPUESTA === */}
+        <div className="w-full md:w-3/5 p-8 bg-white flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-black text-slate-800">Generar Propuesta</h2>
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+              <X size={24} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-5">
+            
+            <div className="grid grid-cols-2 gap-5">
+              {/* Cantidad Encontrada */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-600 uppercase">Stock Real</label>
+                <div className="relative">
+                  <Package className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="number"
+                    min="1"
+                    required
+                    value={formData.quantity_found}
+                    onChange={(e) => setFormData({...formData, quantity_found: parseInt(e.target.value) || 0})}
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-bold text-slate-800 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Precio Unitario */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-600 uppercase">Precio Unitario (USD)</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    placeholder="0.00"
+                    value={formData.unit_price}
+                    onChange={(e) => setFormData({...formData, unit_price: e.target.value})}
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-bold text-slate-800 transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-5">
+              {/* Tipo de Lote */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-600 uppercase">Condición del Lote</label>
+                <select 
+                  value={formData.lot_type}
+                  onChange={(e) => setFormData({...formData, lot_type: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-blue-500 font-medium text-slate-700 bg-white"
+                >
+                  <option value="in_date">🟢 Vigente (In Date)</option>
+                  <option value="short_date">🟡 Corta Caducidad</option>
+                  <option value="expired">🔴 Caducado (Educativo)</option>
+                </select>
+              </div>
+
+              {/* Fecha de Caducidad */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-600 uppercase">Vencimiento</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="date"
+                    required
+                    value={formData.expiry_date}
+                    onChange={(e) => setFormData({...formData, expiry_date: e.target.value})}
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-blue-500 font-medium text-slate-700"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Notas del Admin */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-600 uppercase">Notas Adicionales</label>
+              <textarea 
+                rows={3}
+                placeholder="Ej: El empaque tiene un ligero detalle estético..."
+                value={formData.admin_notes}
+                onChange={(e) => setFormData({...formData, admin_notes: e.target.value})}
+                className="w-full p-4 rounded-xl border border-slate-200 outline-none focus:border-blue-500 text-sm resize-none"
+              ></textarea>
+            </div>
+
+            {/* Total Estimado (Visual) */}
+            <div className="bg-slate-50 p-4 rounded-xl flex justify-between items-center border border-slate-100 mt-auto">
+              <span className="text-xs font-bold text-slate-500 uppercase">Total Propuesta</span>
+              <span className="text-2xl font-black text-slate-900">
+                {formData.unit_price 
+                  ? formatCurrency(parseFloat(formData.unit_price) * formData.quantity_found) 
+                  : '$0.00'}
+              </span>
+            </div>
+
+            {/* Botón de Acción */}
+            <button 
+              type="submit"
+              disabled={isSending}
+              className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSending ? (
+                "Enviando..."
+              ) : (
+                <>Enviar Propuesta <Send size={18}/></>
+              )}
+            </button>
+
+          </form>
+        </div>
+
+      </div>
+    </div>
+  );
+}

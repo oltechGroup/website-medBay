@@ -5,9 +5,11 @@ const OrderItem = require('../models/orderItemModel');
 const Payment = require('../models/paymentModel');
 const Inventory = require('../models/productLotModel');
 const Cart = require('../models/cartModel');
+// ✅ IMPORTANTE: Importamos el servicio de notificaciones
+const NotificationService = require('../services/notificationService');
 
 const orderController = {
-  // --- CREAR ORDEN (Checkout B2B) ---
+  // --- CREAR ORDEN (Solicitud de Stock) ---
   create: async (req, res) => {
     try {
       const customer_id = req.user.id;
@@ -15,9 +17,9 @@ const orderController = {
         items, 
         shipping_address_id, 
         billing_address_id, 
-        shipping_method, // 'standard' (6 días) o 'express' (3 días)
-        payment_method,  // 'wire', 'zelle', 'paypal', 'card', 'mx_transfer'
-        referral_code,   // Código de vendedor opcional
+        shipping_method, 
+        payment_method, 
+        referral_code, 
         notes 
       } = req.body;
 
@@ -29,48 +31,38 @@ const orderController = {
         return res.status(400).json({ error: 'La dirección de envío es obligatoria' });
       }
 
-      // 2. Calcular Subtotal de Productos
+      // 2. Calcular Subtotal
       const itemsSubtotal = items.reduce((sum, item) => sum + (parseFloat(item.unit_price) * item.quantity), 0);
 
-      // 3. Calcular Costo de Envío
+      // 3. Calcular Envío
       let shippingCost = 0;
-      if (shipping_method === 'express') {
-        shippingCost = 100.00; // Urgente (3 días)
-      } else if (shipping_method === 'standard') {
-        shippingCost = 50.00;  // Normal (6 días)
-      }
-      // 'pickup' sería 0
+      if (shipping_method === 'express') shippingCost = 100.00;
+      else if (shipping_method === 'standard') shippingCost = 50.00;
 
-      // 4. Calcular Fees de Método de Pago
-      // Nota: Calculamos el fee sobre (Subtotal + Envío)
+      // 4. Calcular Fees
       const baseAmount = itemsSubtotal + shippingCost;
       let paymentFee = 0;
 
       switch (payment_method) {
         case 'paypal':
         case 'card':
-          paymentFee = baseAmount * 0.04; // +4% Comisión
+          paymentFee = baseAmount * 0.04;
           break;
         case 'mx_transfer':
-          paymentFee = baseAmount * 0.16; // +16% IVA/Factura
+          paymentFee = baseAmount * 0.16;
           break;
-        case 'wire':
-        case 'zelle':
         default:
-          paymentFee = 0; // Sin costo adicional
+          paymentFee = 0;
           break;
       }
 
-      // 5. Totales Finales
-      // Por ahora tax es 0 (hasta integrar Avalara), el IVA de MX se maneja como fee o se puede mover a tax si prefieres.
-      // Aquí lo dejamos en fee para visualizarlo desglosado como pediste.
       const tax = 0; 
       const total = baseAmount + paymentFee + tax;
 
-      // 6. Crear la Orden en BD
+      // 5. Crear la Orden en BD (Estado Inicial: pending_review)
       const newOrder = await Order.create({
         customer_id,
-        status: 'pending_review', // IMPORTANTE: Siempre nace en revisión por ser Dropshipping
+        status: 'pending_review', // Siempre nace en revisión
         subtotal: itemsSubtotal,
         shipping_cost: shippingCost,
         payment_fee: paymentFee,
@@ -78,52 +70,46 @@ const orderController = {
         total,
         currency: 'USD',
         shipping_address_id,
-        billing_address_id: billing_address_id || shipping_address_id, // Fallback si es la misma
+        billing_address_id: billing_address_id || shipping_address_id,
         shipping_method,
         payment_method,
         referral_code,
         notes,
-        review_deadline: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24h para que Admin revise stock
+        review_deadline: new Date(Date.now() + 24 * 60 * 60 * 1000)
       });
 
-      // 7. Insertar Ítems de la Orden
+      // 6. Insertar Ítems
       const orderItemsData = items.map(item => ({
         order_id: newOrder.id,
         product_lot_id: item.product_lot_id,
-        product_supplier_id: item.product_supplier_id, // Asegúrate de enviar esto desde el frontend
+        product_supplier_id: item.product_supplier_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
         line_total: item.unit_price * item.quantity,
-        // Datos extra opcionales
         expiry_category_name: item.lot_status 
       }));
 
       await OrderItem.create(orderItemsData);
 
-      // 8. Gestión de Inventario (Reserva)
-      // Iteramos para descontar/reservar el stock de los lotes
-      // Nota: Si Inventory.reserveLotQuantity falla, deberíamos hacer rollback, 
-      // pero por simplicidad ahora asumimos éxito.
+      // 7. Reservar Inventario
       for (const item of items) {
-        if (item.product_lot_id) {
-          // Asegúrate de tener esta función en tu productLotModel o update directo
-          // Si no la tienes, podemos crear una consulta simple de UPDATE aquí:
-          /* await db.query('UPDATE product_lots SET quantity = quantity - $1, status = CASE WHEN quantity - $1 <= 0 THEN \'sold_out\' ELSE status END WHERE id = $2', [item.quantity, item.product_lot_id]);
-          */
-          // Por ahora mantenemos la llamada a la función del modelo si existe:
-           if (Inventory.reserveLotQuantity) {
-             await Inventory.reserveLotQuantity(item.product_lot_id, item.quantity);
-           }
+        if (item.product_lot_id && Inventory.reserveLotQuantity) {
+           await Inventory.reserveLotQuantity(item.product_lot_id, item.quantity);
         }
       }
 
-      // 9. Vaciar el Carrito del Usuario
+      // 8. Vaciar Carrito
       await Cart.clearCart(customer_id);
 
-      // 10. Respuesta Exitosa
+      // ✅ 9. NOTIFICAR POR CORREO (Async para no bloquear respuesta)
+      NotificationService.notifyOrderCreated(newOrder.id).catch(err => {
+        console.error('Error enviando correo de creación:', err);
+      });
+
+      // 10. Respuesta
       res.status(201).json({
         success: true,
-        message: 'Orden creada exitosamente. Pendiente de validación de inventario.',
+        message: 'Solicitud recibida. Pendiente de revisión.',
         order_id: newOrder.id,
         total: total
       });
@@ -152,7 +138,7 @@ const orderController = {
       const orders = await Order.findByCustomer(customer_id);
       res.json(orders);
     } catch (error) {
-      console.error('Error al obtener órdenes:', error);
+      console.error('Error al obtener mis órdenes:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
@@ -163,26 +149,20 @@ const orderController = {
       const { id } = req.params;
       const order = await Order.findById(id);
       
-      if (!order) {
-        return res.status(404).json({ error: 'Orden no encontrada' });
-      }
+      if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
 
-      // Seguridad: Solo dueño o Admin
+      // Seguridad
       if (order.customer_id !== req.user.id && req.user.verification_level !== 'admin') {
         return res.status(403).json({ error: 'No autorizado' });
       }
 
       const items = await OrderItem.findByOrder(id);
-      const payments = await Payment.findByOrder(id);
+      const payments = await Payment.findByOrder(id); // Si existe tu modelo Payment
 
-      res.json({
-        order,
-        items,
-        payments
-      });
+      res.json({ order, items, payments });
 
     } catch (error) {
-      console.error('Error al obtener orden:', error);
+      console.error('Error al obtener detalle de orden:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
@@ -191,25 +171,46 @@ const orderController = {
   updateStatus: async (req, res) => {
     try {
       const { id } = req.params;
-      const { status } = req.body; // Ej: 'payment_pending', 'processing', 'shipped'
+      const { status, tracking_number } = req.body; // Recibimos tracking opcional
 
       if (req.user.verification_level !== 'admin') {
         return res.status(403).json({ error: 'Acceso denegado' });
       }
 
+      // Actualizar en BD
       const updatedOrder = await Order.updateStatus(id, status, req.user.id);
       
-      // Lógica de liberación de stock si se rechaza
-      if (status === 'rejected' || status === 'cancelled') {
-        const items = await OrderItem.findByOrder(id);
-        for (const item of items) {
-           // Aquí deberías llamar a una función para devolver el stock
-           // Inventory.releaseStock(item.product_lot_id, item.quantity);
-        }
+      // Si se envió tracking, actualizarlo (asumiendo que Order tiene método para esto)
+      if (status === 'shipped' && tracking_number) {
+         // Si tienes una columna tracking_number en orders, actualízala aquí
+         // await Order.updateTracking(id, tracking_number); 
       }
 
-      res.json({ message: 'Estado actualizado', order: updatedOrder });
+      // Lógica de devolución de stock si se cancela
+      if (status === 'rejected' || status === 'cancelled') {
+        const items = await OrderItem.findByOrder(id);
+        // Aquí deberías liberar el stock si tienes la función implementada
+        // for (const item of items) { Inventory.releaseStock(...) }
+      }
+
+      // ✅ NOTIFICAR AL CLIENTE SEGÚN EL ESTADO
+      try {
+        if (status === 'payment_pending') {
+          await NotificationService.notifyOrderApproved(id);
+        } else if (status === 'rejected') {
+          await NotificationService.notifyOrderRejected(id);
+        } else if (status === 'shipped') {
+          await NotificationService.notifyOrderShipped(id, tracking_number);
+        }
+      } catch (notifyError) {
+        console.error('Error enviando notificación de estado:', notifyError);
+        // No fallamos la petición HTTP si falla el correo, solo logueamos
+      }
+
+      res.json({ message: 'Estado actualizado y cliente notificado', order: updatedOrder });
+
     } catch (error) {
+      console.error('Error actualizando estado:', error);
       res.status(500).json({ error: 'Error actualizando estado' });
     }
   },
@@ -218,17 +219,19 @@ const orderController = {
   uploadEvidence: async (req, res) => {
     try {
       const { id } = req.params;
-      const file = req.file; // Usando Multer
+      const file = req.file; 
 
-      if (!file) {
-        return res.status(400).json({ error: 'No se subió ningún archivo' });
-      }
+      if (!file) return res.status(400).json({ error: 'No se subió ningún archivo' });
 
-      // Ruta relativa para guardar en BD
       const filePath = `/uploads/evidence/${file.filename}`;
 
-      // Actualizar orden a estado 'payment_review'
+      // Actualizar orden a 'payment_review'
       await Order.updateEvidence(id, filePath);
+
+      // ✅ NOTIFICAR AL ADMIN (Hay dinero esperando revisión)
+      NotificationService.notifyPaymentUploaded(id).catch(err => {
+        console.error('Error notificando pago:', err);
+      });
 
       res.json({ success: true, message: 'Evidencia subida. Validando pago.' });
 

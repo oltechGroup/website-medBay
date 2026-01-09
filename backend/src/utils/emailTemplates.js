@@ -2,8 +2,7 @@
 
 const path = require('path');
 
-// Ajusta la ruta relativa a donde tengas tus iconos en el backend o frontend
-// Nota: Asegúrate de que esta ruta apunte correctamente a tu carpeta public/icons
+// Ajusta la ruta relativa a donde tengas tus iconos en el backend
 const ICONS_PATH = path.join(__dirname, '../../../frontend/public/icons');
 
 const theme = {
@@ -12,6 +11,7 @@ const theme = {
     secondary: '#0f172a', // Slate 900
     success: '#10b981', // Emerald
     danger: '#ef4444', // Red
+    warning: '#f59e0b', // Amber
     bg: '#f8fafc',
     text: '#334155',
     accent: '#f1f5f9',
@@ -19,7 +19,7 @@ const theme = {
   }
 };
 
-// --- BASE HTML WRAPPER (Estructura General) ---
+// --- BASE HTML WRAPPER ---
 const wrapHtml = (title, content, actionButton = null) => `
   <!DOCTYPE html>
   <html>
@@ -35,16 +35,17 @@ const wrapHtml = (title, content, actionButton = null) => `
       .title { color: ${theme.colors.secondary}; font-size: 22px; font-weight: 800; margin-top: 0; margin-bottom: 10px; text-align: center; }
       .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 30px; margin-top: 0; }
       
-      /* Tablas de Datos */
+      /* Tablas */
       .info-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
       .info-table td { padding: 12px 10px; border-bottom: 1px solid ${theme.colors.accent}; vertical-align: top; }
       .label { font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase; width: 35%; letter-spacing: 0.5px; }
       .value { font-size: 14px; font-weight: 600; color: ${theme.colors.secondary}; }
       
-      /* Cajas de Mensaje */
+      /* Cajas */
       .message-box { background-color: ${theme.colors.accent}; border-left: 4px solid ${theme.colors.primary}; padding: 20px; border-radius: 4px; margin: 20px 0; font-style: italic; color: #475569; }
       .success-box { background-color: #ecfdf5; border-left: 4px solid ${theme.colors.success}; color: #065f46; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
       .danger-box { background-color: #fef2f2; border-left: 4px solid ${theme.colors.danger}; color: #991b1b; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+      .warning-box { background-color: #fffbeb; border-left: 4px solid ${theme.colors.warning}; color: #92400e; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
 
       /* Botones */
       .btn-container { text-align: center; margin-top: 35px; }
@@ -72,83 +73,177 @@ const wrapHtml = (title, content, actionButton = null) => `
 `;
 
 // ==========================================
-// 📥 TEMPLATES ENTRANTES (CLIENTE -> ADMIN)
+// 📦 TEMPLATES DE ÓRDENES (CLIENTE)
 // ==========================================
 
-// 1. SOLICITUD DE COTIZACIÓN
-const generateQuoteTemplate = (data) => {
+// 1. CLIENTE: CONFIRMACIÓN DE SOLICITUD
+const generateOrderReceivedTemplate = (data) => {
   const content = `
-    <p class="subtitle">Un usuario ha solicitado precio e inventario para un producto.</p>
+    <p class="subtitle">Hemos recibido tu solicitud de orden <strong>#${data.orderId.slice(0,8)}</strong>.</p>
+    
+    <div class="warning-box">
+      <strong>Estado: Revisión de Stock</strong><br>
+      Estamos verificando la disponibilidad inmediata de los lotes solicitados con nuestros proveedores.
+    </div>
 
-    <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 25px;">
-      <div style="font-size: 10px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">Producto de Interés</div>
-      <div style="font-size: 16px; font-weight: 800; color: ${theme.colors.secondary}; margin-bottom: 10px;">${data.productName}</div>
-      
+    <p style="font-size: 13px; color: #64748b; text-align: center;">
+      No realices ningún pago aún. Te notificaremos en menos de 24 horas cuando tu orden sea aprobada para proceder.
+    </p>
+
+    <div style="margin-top: 20px;">
+      <div style="font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Resumen de Solicitud</div>
+      ${data.items.map(item => `
+        <div style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 13px; font-weight: 600; color: ${theme.colors.secondary};">
+            ${item.quantity}x ${item.product_name}
+            <div style="font-size: 11px; color: #94a3b8; font-weight: normal;">Lote: ${item.lot_number || 'N/A'}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  return wrapHtml(`Solicitud Recibida`, content, { text: 'Ver Mis Pedidos', url: 'http://localhost:3000/orders' });
+};
+
+// 2. CLIENTE: APROBACIÓN DE STOCK
+const generateOrderApprovedTemplate = (data) => {
+  const content = `
+    <div class="success-box">
+      <strong>¡Buenas noticias!</strong><br>
+      Hemos confirmado el stock para tu orden <strong>#${data.orderId.slice(0,8)}</strong>.
+    </div>
+
+    <p style="text-align: center; color: ${theme.colors.text};">
+      El inventario ha sido reservado por 24 horas. Por favor, procede con el pago para iniciar el envío.
+    </p>
+
+    <table class="info-table">
+      <tr><td class="label">Total a Pagar</td><td class="value" style="color: ${theme.colors.primary}; font-size: 18px;">$${data.total} USD</td></tr>
+      <tr><td class="label">Método</td><td class="value" style="text-transform: capitalize;">${data.paymentMethod.replace('_', ' ')}</td></tr>
+    </table>
+  `;
+  return wrapHtml(`Stock Confirmado: Acción Requerida`, content, { text: 'Subir Comprobante de Pago', url: 'http://localhost:3000/orders' });
+};
+
+// 3. CLIENTE: RECHAZO DE STOCK
+const generateOrderRejectedTemplate = (data) => {
+  const content = `
+    <div class="danger-box">
+      <strong>Solicitud Cancelada</strong><br>
+      Lamentablemente, uno o más lotes de tu orden <strong>#${data.orderId.slice(0,8)}</strong> ya no están disponibles con el proveedor.
+    </div>
+    <p>
+      Tu orden ha sido cancelada y no se ha generado ningún cobro. Te invitamos a revisar lotes alternativos en nuestra plataforma o solicitar una cotización personalizada.
+    </p>
+  `;
+  return wrapHtml(`Actualización de Orden`, content, { text: 'Ver Catálogo', url: 'http://localhost:3000/products' });
+};
+
+// 4. CLIENTE: CONFIRMACIÓN DE ENVÍO
+const generateOrderShippedTemplate = (data) => {
+  const content = `
+    <div class="success-box">
+      <strong>¡Tu pedido está en camino!</strong>
+    </div>
+    
+    <p>Tu orden <strong>#${data.orderId.slice(0,8)}</strong> ha sido recolectada por la paquetería.</p>
+
+    <div style="background: #f8fafc; padding: 20px; border-radius: 8px; text-align: center; border: 2px dashed #cbd5e1; margin: 20px 0;">
+      <div style="font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">Número de Rastreo</div>
+      <div style="font-size: 24px; font-weight: 800; color: ${theme.colors.secondary}; letter-spacing: 2px; margin-top: 5px;">
+        ${data.trackingNumber || 'PENDIENTE'}
+      </div>
+    </div>
+  `;
+  return wrapHtml(`Orden Enviada`, content, { text: 'Rastrear Paquete', url: 'http://localhost:3000/orders' });
+};
+
+// ==========================================
+// 👔 TEMPLATES PARA EL ADMIN
+// ==========================================
+
+// ✅ NUEVO: NOTIFICACIÓN DE NUEVA ORDEN (ADMIN)
+const generateNewOrderAdminTemplate = (data) => {
+  const content = `
+    <p class="subtitle">Se ha generado una nueva solicitud de compra.</p>
+    
+    <div style="background: #f1f5f9; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
       <table class="info-table" style="margin-top: 0;">
-        <tr><td class="label">SKU Global</td><td class="value" style="font-family: monospace;">${data.sku}</td></tr>
-        <tr><td class="label">Fabricante</td><td class="value">${data.manufacturer}</td></tr>
-        <tr><td class="label">Cantidad</td><td class="value" style="color: ${theme.colors.primary}; font-size: 16px;">${data.quantity} Unidades</td></tr>
-        <tr><td class="label">Tipo</td><td class="value">${data.type}</td></tr>
+        <tr><td class="label">Orden ID</td><td class="value">#${data.orderId.slice(0,8)}</td></tr>
+        <tr><td class="label">Cliente</td><td class="value">${data.userName}</td></tr>
+        <tr><td class="label">Monto Total</td><td class="value" style="color: ${theme.colors.primary};">$${data.total} USD</td></tr>
+        <tr><td class="label">Items</td><td class="value">${data.itemCount} productos</td></tr>
       </table>
     </div>
 
+    <div class="warning-box" style="text-align: center;">
+      <strong>Acción Requerida:</strong><br>
+      Verificar disponibilidad de stock y aprobar/rechazar la orden.
+    </div>
+  `;
+  return wrapHtml(`🔔 Nueva Orden Pendiente`, content, { text: 'Gestionar Orden en Dashboard', url: 'http://localhost:3000/dashboard/orders' });
+};
+
+// ==========================================
+// 📥 TEMPLATES GENERALES
+// ==========================================
+
+const generateQuoteTemplate = (data) => {
+  const content = `
+    <p class="subtitle">Un usuario ha solicitado precio e inventario para un producto.</p>
+    <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 25px;">
+      <div style="font-size: 10px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">Producto de Interés</div>
+      <div style="font-size: 16px; font-weight: 800; color: ${theme.colors.secondary}; margin-bottom: 10px;">${data.productName}</div>
+      <table class="info-table" style="margin-top: 0;">
+        <tr><td class="label">SKU Global</td><td class="value" style="font-family: monospace;">${data.sku}</td></tr>
+        <tr><td class="label">Cantidad</td><td class="value" style="color: ${theme.colors.primary}; font-size: 16px;">${data.quantity} Unidades</td></tr>
+      </table>
+    </div>
     <div class="label" style="margin-top: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Datos del Solicitante</div>
     <table class="info-table">
       <tr><td class="label">Nombre</td><td class="value">${data.userName}</td></tr>
       <tr><td class="label">Email</td><td class="value"><a href="mailto:${data.userEmail}" style="color:${theme.colors.primary}">${data.userEmail}</a></td></tr>
       ${data.phone ? `<tr><td class="label">Teléfono</td><td class="value">${data.phone}</td></tr>` : ''}
     </table>
-
     ${data.message ? `<div class="label" style="margin-top: 25px;">Notas Adicionales:</div><div class="message-box">"${data.message}"</div>` : ''}
   `;
-  return wrapHtml(`Nueva Cotización Requerida`, content, { text: 'Gestionar en Dashboard', url: 'https://medbay.com/dashboard' });
+  return wrapHtml(`Nueva Cotización Requerida`, content, { text: 'Gestionar en Dashboard', url: 'https://medbay.com/dashboard/quotes' });
 };
 
-// 2. CONTACTO GENERAL
 const generateContactTemplate = (data) => {
   const content = `
     <p class="subtitle">Has recibido un nuevo mensaje desde el formulario de contacto.</p>
-    
     <table class="info-table">
       <tr><td class="label">Remitente</td><td class="value">${data.userName}</td></tr>
       <tr><td class="label">Email</td><td class="value">${data.userEmail}</td></tr>
       ${data.phone ? `<tr><td class="label">Teléfono</td><td class="value">${data.phone}</td></tr>` : ''}
       <tr><td class="label">Asunto</td><td class="value">${data.subject}</td></tr>
     </table>
-    
     <div class="label" style="margin-top: 25px;">Mensaje:</div>
     <div class="message-box">${data.message}</div>
   `;
   return wrapHtml(`Nuevo Mensaje de Contacto`, content, { text: 'Responder en Dashboard', url: 'https://medbay.com/dashboard' });
 };
 
-// 3. REGISTRO DE USUARIO (NUEVO DISEÑO BONITO) ✅
 const generateRegisterTemplate = (data) => {
   const content = `
     <p class="subtitle">Nueva solicitud de acceso a la plataforma B2B.</p>
-
     <div style="text-align: center; margin-bottom: 25px;">
       <span style="background: ${theme.colors.secondary}; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
         Perfil: ${data.roleName}
       </span>
     </div>
-
     <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 5px;">
       <table class="info-table" style="margin: 0;">
         <tr style="background: #f8fafc;"><td colspan="2" style="font-weight: bold; color: ${theme.colors.primary}; padding: 10px;">Información Personal</td></tr>
         <tr><td class="label">Nombre</td><td class="value">${data.fullName}</td></tr>
         <tr><td class="label">Email</td><td class="value">${data.email}</td></tr>
         <tr><td class="label">Teléfono</td><td class="value">${data.phone || 'N/A'}</td></tr>
-        
         <tr style="background: #f8fafc;"><td colspan="2" style="font-weight: bold; color: ${theme.colors.primary}; padding: 10px; border-top: 1px solid #e2e8f0;">Datos Fiscales</td></tr>
         <tr><td class="label">Empresa</td><td class="value">${data.company || 'Persona Física'}</td></tr>
         <tr><td class="label">RFC / Tax ID</td><td class="value" style="font-family: monospace;">${data.taxId || 'N/A'}</td></tr>
-        
-        <tr style="background: #f8fafc;"><td colspan="2" style="font-weight: bold; color: ${theme.colors.primary}; padding: 10px; border-top: 1px solid #e2e8f0;">Domicilio Fiscal</td></tr>
-        <tr><td colspan="2" class="value" style="font-weight: 500; line-height: 1.5;">${data.fullAddress}</td></tr>
       </table>
     </div>
-    
     <p style="text-align: center; font-size: 12px; color: #64748b; margin-top: 20px;">
       El usuario ha adjuntado documentación que requiere revisión manual.
     </p>
@@ -156,37 +251,25 @@ const generateRegisterTemplate = (data) => {
   return wrapHtml(`Validación de Cuenta Requerida`, content, { text: 'Validar Documentos en Dashboard', url: 'https://medbay.com/dashboard' });
 };
 
-
-// ==========================================
-// 📤 TEMPLATES SALIENTES (ADMIN -> CLIENTE)
-// ==========================================
-
-// 4. RESPUESTA A COTIZACIÓN (NUEVO) ✅
 const generateQuoteResponseTemplate = (data) => {
   const content = `
     <p>Estimado/a <strong>${data.userName}</strong>,</p>
     <p>Hemos procesado tu solicitud de cotización para el siguiente producto:</p>
-
     <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${theme.colors.secondary};">
       <div style="font-size: 14px; font-weight: bold; color: ${theme.colors.secondary};">${data.productName}</div>
       <div style="font-size: 12px; color: #64748b;">Cantidad Solicitada: ${data.quantity} | SKU: ${data.sku}</div>
     </div>
-
     <p style="font-weight: bold; color: ${theme.colors.primary};">Respuesta de nuestro equipo:</p>
     <div class="message-box" style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid ${theme.colors.success};">
       ${data.message.replace(/\n/g, '<br>')}
     </div>
-
-    <p>Si deseas proceder con la compra o tienes más dudas, puedes responder directamente a este correo.</p>
+    <p>Ingresa a tu panel de usuario para aceptar esta oferta.</p>
   `;
-  return wrapHtml(`Respuesta a tu Cotización #${data.sku}`, content, { text: 'Ver Catálogo Completo', url: 'https://medbay.com/products' });
+  return wrapHtml(`Respuesta a tu Cotización #${data.sku}`, content, { text: 'Ver Mis Cotizaciones', url: 'https://medbay.com/quotes' });
 };
 
-// 5. RESPUESTA GENERAL / APROBACIÓN / RECHAZO
 const generateResponseTemplate = (title, message, isSuccess = true) => {
-  // Detectamos si es un mensaje de éxito o alerta para cambiar el color
   const boxClass = isSuccess ? 'success-box' : 'danger-box';
-  
   const content = `
     <div class="${boxClass}">
       ${message.replace(/\n/g, '<br>')}
@@ -195,7 +278,7 @@ const generateResponseTemplate = (title, message, isSuccess = true) => {
       Si tienes alguna pregunta adicional, nuestro equipo de soporte está disponible para ayudarte.
     </p>
   `;
-  return wrapHtml(title, content, null); // Sin botón de acción por defecto
+  return wrapHtml(title, content, null);
 };
 
 const getBrandingAttachments = () => {
@@ -214,5 +297,10 @@ module.exports = {
   generateRegisterTemplate, 
   generateQuoteResponseTemplate,
   generateResponseTemplate,
+  generateOrderReceivedTemplate,
+  generateOrderApprovedTemplate,
+  generateOrderRejectedTemplate,
+  generateOrderShippedTemplate,
+  generateNewOrderAdminTemplate, 
   getBrandingAttachments 
 };

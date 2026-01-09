@@ -14,21 +14,17 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// ✅ CORRECCIÓN CRÍTICA: Usamos process.cwd() para apuntar a la raíz del proyecto.
-// Esto alinea la carpeta de lectura con la carpeta donde Multer guarda los archivos.
+// Configuración de carpetas de subida
 const uploadsPath = path.join(process.cwd(), 'uploads');
 const imagesPath = path.join(uploadsPath, 'images');
+const evidencePath = path.join(uploadsPath, 'evidence'); // Aseguramos que exista evidence
 
 // Crear directorios si no existen
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
-}
-if (!fs.existsSync(imagesPath)) {
-  fs.mkdirSync(imagesPath, { recursive: true });
-}
+if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
+if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
+if (!fs.existsSync(evidencePath)) fs.mkdirSync(evidencePath, { recursive: true });
 
-// ✅ Servir archivos estáticos desde la ruta absoluta correcta
-// Esto hace que http://localhost:3001/uploads/... funcione siempre
+// Servir archivos estáticos
 app.use('/uploads', express.static(uploadsPath));
 
 // ==================== RUTAS ====================
@@ -52,6 +48,8 @@ app.use('/api/notifications', require('./src/routes/notificationRoutes'));
 app.use('/api/admin', require('./src/routes/adminRoutes'));
 app.use('/api/cart', require('./src/routes/cartRoutes'));
 app.use('/api/wishlist', require('./src/routes/wishlistRoutes'));
+app.use('/api/quotes', require('./src/routes/quoteRoutes'));
+app.use('/api/dashboard', require('./src/routes/dashboardRoutes'));
 
 // Health Check
 app.get('/api/health', (req, res) => {

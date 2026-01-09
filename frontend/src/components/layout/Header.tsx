@@ -7,18 +7,20 @@ import { usePathname } from "next/navigation";
 import { 
   ShoppingCart, Heart, LogOut, User, 
   LayoutDashboard, ChevronDown, Package, 
-  Settings, Menu, X, Bell, Stethoscope, Building2, ShieldCheck, Store
+  Settings, Menu, X, Bell, Stethoscope, 
+  Building2, ShieldCheck, Store, Briefcase, 
+  MessageSquareQuote // Icono para cotizaciones
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
 import { useAdminNotifications } from "@/hooks/useAdminNotifications"; 
+import { useClientNotifications } from "@/hooks/useClientNotifications"; // ✅ Hook Cliente Conectado
 import { ClientSearch } from "@/components/features/products/client/ClientSearch"; 
 import NotificationModal from "@/components/features/contact/NotificationModal";
 
 interface HeaderProps {
   variant?: 'default' | 'catalog' | 'dashboard';
   onMenuToggle?: () => void;
-  // Prop para controlar el margen dinámico en dashboard
   isDesktopCollapsed?: boolean; 
 }
 
@@ -30,9 +32,24 @@ export default function Header({
   // --- HOOKS ---
   const { user, isAuthenticated, logout } = useAuth();
   const { summary } = useCart(); 
-  const { notifications, unreadCount } = useAdminNotifications(); 
   const pathname = usePathname();
   
+  // Lógica de roles
+  const isAdmin = user?.verification_level === 'admin';
+  const isSalesAgent = user?.verification_level === 'sales_agent';
+  // "Staff" incluye a Admin y Vendedor (tienen acceso al Dashboard)
+  const isStaff = isAdmin || isSalesAgent;
+
+  // Notificaciones de Admin (Solo las cargamos si es Staff)
+  const { notifications: adminNotifs, unreadCount: adminUnread } = useAdminNotifications();
+  
+  // Notificaciones de Cliente (Solo las cargamos si NO es Staff y está autenticado)
+  const { notifications: clientNotifs, unreadCount: clientUnread } = useClientNotifications();
+
+  // Determinar qué notificaciones mostrar según el rol
+  const activeNotifications = isStaff ? adminNotifs : clientNotifs;
+  const activeUnreadCount = isStaff ? adminUnread : clientUnread;
+
   // --- ESTADOS ---
   const [isScrolled, setIsScrolled] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -74,6 +91,12 @@ export default function Header({
             <ShieldCheck size={10} /> ADMIN
           </span>
         );
+      case 'sales_agent': // ✅ NUEVO ROL VENDEDOR
+        return (
+          <span className="flex items-center gap-1 bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-indigo-200 tracking-wider">
+            <Briefcase size={10} /> VENDEDOR
+          </span>
+        );
       case 'medical_professional':
         return (
           <span className="flex items-center gap-1 bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-blue-200 tracking-wider">
@@ -98,15 +121,13 @@ export default function Header({
   const getPageTitle = () => {
     if (pathname.includes('/products')) return 'Gestión de Productos';
     if (pathname.includes('/orders')) return 'Órdenes de Compra';
+    if (pathname.includes('/quotes')) return 'Gestión de Cotizaciones'; // ✅ Nuevo título
     if (pathname.includes('/inventory')) return 'Inventario';
     if (pathname.includes('/customers')) return 'Clientes';
     if (pathname.includes('/settings')) return 'Configuración';
     return 'Panel Principal';
   };
 
-  const isAdmin = user?.verification_level === 'admin';
-
-  // Lógica de Margen Dinámico
   const dashboardPaddingClass = isDesktopCollapsed ? 'lg:pl-20' : 'lg:pl-64';
 
   return (
@@ -122,7 +143,6 @@ export default function Header({
           {/* === IZQUIERDA: LOGO O TÍTULO === */}
           <div className="flex items-center gap-4">
             
-            {/* Botón Menú (Solo Dashboard Móvil o Menú Público Móvil) */}
             {(variant === 'dashboard' || isMobileMenuOpen) && (
               <button 
                 onClick={onMenuToggle} 
@@ -132,7 +152,6 @@ export default function Header({
               </button>
             )}
 
-            {/* Logo (Solo visible en modo Público) */}
             {variant !== 'dashboard' && (
               <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
                 <img src="/icons/logomed.png" alt="Logo" className="w-10 h-10 rounded-lg transition-transform group-hover:scale-105" />
@@ -142,7 +161,6 @@ export default function Header({
               </Link>
             )}
 
-            {/* Título de Sección (Solo visible en Dashboard) */}
             {variant === 'dashboard' && (
               <div className="flex items-center gap-2 animate-in fade-in duration-300">
                 <span className="text-sm font-medium text-slate-400 hidden sm:inline">Dashboard</span>
@@ -184,16 +202,15 @@ export default function Header({
           {/* === DERECHA: ACCIONES Y USUARIO === */}
           <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
             
-            {/* 🔔 NOTIFICACIONES (Solo Admin, VISIBLE EN TODO EL SITIO) */}
-            {/* ✅ CORRECCIÓN: Se eliminó "&& variant === 'dashboard'" */}
-            {mounted && isAdmin && (
+            {/* 🔔 CAMPANITA DE NOTIFICACIONES (Visible para TODOS los logueados) */}
+            {mounted && isAuthenticated && (
               <div className="relative" ref={notifRef}>
                 <button 
                   onClick={() => setIsNotifOpen(!isNotifOpen)}
                   className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-blue-600 transition-colors relative"
                 >
                   <Bell size={20} />
-                  {unreadCount > 0 && (
+                  {activeUnreadCount > 0 && (
                     <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
                   )}
                 </button>
@@ -201,23 +218,27 @@ export default function Header({
                 {isNotifOpen && (
                   <div className="absolute right-0 top-full mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
                     <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                      <h4 className="text-xs font-bold uppercase text-slate-500 tracking-wider">Notificaciones</h4>
-                      {unreadCount > 0 && <span className="text-xs font-bold text-blue-600">{unreadCount} nuevas</span>}
+                      <h4 className="text-xs font-bold uppercase text-slate-500 tracking-wider">
+                        {isStaff ? 'Centro de Actividad' : 'Mis Notificaciones'}
+                      </h4>
+                      {activeUnreadCount > 0 && <span className="text-xs font-bold text-blue-600">{activeUnreadCount} nuevas</span>}
                     </div>
                     
                     <div className="max-h-80 overflow-y-auto custom-scrollbar">
-                      {notifications.length === 0 ? (
+                      {activeNotifications.length === 0 ? (
                         <div className="p-8 text-center text-slate-400 text-sm">Sin notificaciones pendientes</div>
                       ) : (
-                        notifications.slice(0, 5).map((n: any) => (
+                        activeNotifications.slice(0, 5).map((n: any) => (
                           <div 
                             key={n.id}
                             onClick={() => { setSelectedNotif(n); setIsNotifOpen(false); }}
                             className="p-4 border-b border-slate-50 hover:bg-blue-50/50 cursor-pointer transition-colors group"
                           >
-                            <p className="text-sm font-bold text-slate-800 group-hover:text-blue-700 truncate">{n.subject}</p>
+                            <p className="text-sm font-bold text-slate-800 group-hover:text-blue-700 truncate">
+                              {n.subject || n.title}
+                            </p>
                             <div className="flex justify-between mt-1">
-                              <span className="text-xs text-slate-500">{n.sender_name}</span>
+                              <span className="text-xs text-slate-500">{n.sender_name || 'Sistema'}</span>
                               <span className="text-[10px] text-slate-400">{new Date(n.created_at).toLocaleDateString()}</span>
                             </div>
                           </div>
@@ -225,15 +246,19 @@ export default function Header({
                       )}
                     </div>
                     
-                    <Link href="/dashboard" className="block p-3 text-center text-xs font-bold text-blue-600 hover:bg-slate-50 transition-colors border-t border-slate-100">
-                      Ir a Bandeja de Entrada
+                    {/* Link al ver todo según el rol */}
+                    <Link 
+                      href={isStaff ? "/dashboard" : "/notifications"} 
+                      className="block p-3 text-center text-xs font-bold text-blue-600 hover:bg-slate-50 transition-colors border-t border-slate-100"
+                    >
+                      Ver todas
                     </Link>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Iconos Públicos (Wishlist/Cart) - Solo en modo Default/Catalog */}
+            {/* Iconos Públicos */}
             {variant !== 'dashboard' && (
               <>
                 <Link href="/wishlist" className="p-2 hover:bg-slate-100 rounded-full text-slate-600 hover:text-red-500 transition-colors"><Heart size={22} strokeWidth={2}/></Link>
@@ -277,25 +302,23 @@ export default function Header({
 
                     <div className="p-2 space-y-1">
                       
-                      {/* ✅ LÓGICA DE MENÚ ESTRICTA */}
+                      {/* ✅ LÓGICA DE MENÚ ADAPTATIVA (Staff vs Cliente) */}
                       
-                      {isAdmin ? (
-                        /* === OPCIONES SOLO PARA ADMINISTRADOR === */
+                      {isStaff ? (
+                        /* === OPCIONES PARA STAFF (ADMIN / VENDEDOR) === */
                         <>
                           {variant !== 'dashboard' ? (
-                            // Admin en Sitio Público -> Ir al Dashboard
                             <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-blue-600 transition-colors shadow-md mb-2">
                               <LayoutDashboard size={16} /> Panel Administrativo
                             </Link>
                           ) : (
-                            // Admin en Dashboard -> Ir al Sitio Público
                             <Link href="/" className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors mb-2">
                               <Store size={16} /> Ir al Sitio Principal
                             </Link>
                           )}
                         </>
                       ) : (
-                        /* === OPCIONES PARA USUARIOS (MÉDICOS, EMPRESAS, ETC) === */
+                        /* === OPCIONES PARA CLIENTES === */
                         <>
                           <Link href="/profile" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
                             <Settings size={16} className="text-slate-400" />
@@ -305,6 +328,12 @@ export default function Header({
                           <Link href="/orders" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
                             <Package size={16} className="text-slate-400" />
                             Mis Pedidos
+                          </Link>
+
+                          {/* ✅ NUEVO LINK: MIS COTIZACIONES */}
+                          <Link href="/quotes" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
+                            <MessageSquareQuote size={16} className="text-slate-400" />
+                            Mis Cotizaciones
                           </Link>
                         </>
                       )}
@@ -334,7 +363,6 @@ export default function Header({
               </div>
             )}
 
-            {/* Menú Móvil */}
             {variant !== 'dashboard' && (
               <button className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                 {isMobileMenuOpen ? <X size={24}/> : <Menu size={24}/>}
@@ -346,9 +374,7 @@ export default function Header({
         {/* Menú Móvil Expandido */}
         {isMobileMenuOpen && variant !== 'dashboard' && (
           <div className="lg:hidden absolute top-full left-0 w-full bg-white border-b border-slate-100 shadow-xl p-4 flex flex-col gap-4 animate-in slide-in-from-top-5">
-              {variant === 'catalog' && (
-               <div className="mb-2"><ClientSearch /></div>
-              )}
+              {variant === 'catalog' && <div className="mb-2"><ClientSearch /></div>}
               {[
                 { label: 'Catálogo', path: '/products' },
                 { label: 'Características', path: '/Characteristics' },
@@ -368,13 +394,15 @@ export default function Header({
         )}
       </header>
 
-      {/* Modal de Notificaciones */}
-      <NotificationModal 
-        isOpen={!!selectedNotif}
-        data={selectedNotif}
-        onClose={() => setSelectedNotif(null)}
-        onConfirmRead={() => {}}
-      />
+      {/* Modal de Notificaciones (Solo Admin por ahora, o Staff) */}
+      {selectedNotif && isStaff && (
+        <NotificationModal 
+          isOpen={!!selectedNotif}
+          data={selectedNotif}
+          onClose={() => setSelectedNotif(null)}
+          onConfirmRead={() => {}}
+        />
+      )}
     </>
   );
 }

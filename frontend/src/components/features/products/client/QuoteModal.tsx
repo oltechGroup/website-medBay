@@ -1,13 +1,11 @@
 //frontend/src/components/features/products/client/QuoteModal.tsx
-//frontend/src/components/features/products/client/QuoteModal.tsx
-
 "use client";
 
 import { useState } from "react";
-import { X, FileText, CheckCircle2, AlertCircle, Calendar, Package, ArrowRight, Loader2 } from "lucide-react";
+import { X, FileText, CheckCircle2, AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import { Product } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
-import { api } from "@/lib/api";
+import { api } from "@/lib/api"; // Usamos tu instancia de axios configurada
 import { getImageUrl } from "@/lib/formatters";
 
 interface QuoteModalProps {
@@ -19,7 +17,7 @@ interface QuoteModalProps {
 type QuoteType = "En Fecha (Estándar)" | "Fecha Corta (Descuento)" | "Caducado (Prácticas/Merma)";
 
 export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -36,27 +34,41 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
     setError("");
 
     try {
-      // Reutilizamos tu endpoint de contacto existente
-      await api.post('/contact', {
-        nombre: user?.full_name || "Usuario Registrado",
-        email: user?.email,
-        asunto: `Cotización: ${product.description.substring(0, 30)}...`,
-        mensaje: notes || "Solicitud generada desde el catálogo.",
-        tipo: 'Solicitud de Cotización', // Esto define cómo se ve en el Dashboard
-        
-        // Datos Extra para el Admin (se guardan en el JSONB)
-        product_id: product.id,
-        product_sku: product.global_sku,
+      // ✅ CAMBIO CLAVE: Usamos el nuevo endpoint de Cotizaciones
+      // Combinamos la nota del usuario con el tipo de producto seleccionado para que el admin lo vea claro
+      const fullNotes = `[Preferencia: ${type}] - ${notes}`;
+
+      const payload = {
         product_name: product.description,
-        requested_quantity: quantity,
-        requested_type: type,
-        manufacturer: product.manufacturer_name
-      });
+        sku: product.global_sku || 'S/N', // Fallback si no hay SKU
+        quantity_asked: quantity,
+        notes: fullNotes,
+        // Si el usuario no está logueado, mandamos info de invitado (si tu backend lo permite)
+        // Ojo: Tu quoteController actual espera token para guardar user_id.
+        // Si no está logueado, el backend debería manejar guest_info. 
+        // Por ahora asumiremos que si no hay user, enviamos guest_info genérico o requerimos login.
+        guest_info: !isAuthenticated ? {
+            name: "Invitado Web",
+            email: "invitado@pendiente.com", // Esto deberíamos pedirlo en un input si no está logueado
+            phone: ""
+        } : undefined
+      };
+
+      // Nota: Si requieres login forzoso, el backend rechazará esto si no hay token.
+      // Si permitimos invitados, asegúrate de pedir nombre/email en el paso 1 del formulario.
+      // Por ahora, enviaremos la petición tal cual:
+      
+      await api.post('/quotes', payload);
 
       setStep(3); // Ir a éxito
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Hubo un error al enviar la solicitud. Intenta nuevamente.");
+      // Mensaje de error amigable
+      if (err.response?.status === 401) {
+        setError("Por favor inicia sesión para cotizar.");
+      } else {
+        setError("Hubo un error al enviar la solicitud. Intenta nuevamente.");
+      }
     } finally {
       setLoading(false);
     }
@@ -95,6 +107,7 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
                   <img 
                     src={getImageUrl(product.primary_image)} 
                     className="w-full h-full object-contain mix-blend-multiply" 
+                    alt={product.description}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -110,7 +123,6 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
                 <select 
                   value={type}
                   onChange={(e) => setType(e.target.value as QuoteType)}
-                  // ✅ CAMBIO: Agregado 'text-slate-900' para forzar color oscuro
                   className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-900"
                 >
                   <option value="En Fecha (Estándar)">En Fecha (Estándar)</option>
@@ -126,7 +138,6 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
                   min={1}
                   value={quantity}
                   onChange={(e) => setQuantity(parseInt(e.target.value))}
-                  // ✅ CAMBIO: Agregado 'text-slate-900' para forzar color oscuro
                   className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-900"
                 />
               </div>
@@ -138,10 +149,17 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Ej: Necesito que tengan al menos 6 meses de vigencia..."
-                  // ✅ CAMBIO: Agregado 'text-slate-900' para forzar color oscuro
                   className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm resize-none text-slate-900"
                 />
               </div>
+
+              {/* Advertencia si no está logueado */}
+              {!isAuthenticated && (
+                <div className="text-xs text-amber-600 bg-amber-50 p-3 rounded-lg flex gap-2 items-center">
+                  <AlertCircle size={14} />
+                  <span>Para dar seguimiento a tu cotización, te recomendamos iniciar sesión o registrarte.</span>
+                </div>
+              )}
 
               <button 
                 onClick={() => setStep(2)}
@@ -211,7 +229,7 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
               </div>
               <h4 className="text-2xl font-black text-slate-800 mb-2">¡Solicitud Enviada!</h4>
               <p className="text-slate-500 mb-8 max-w-xs mx-auto">
-                Hemos recibido tu cotización. Te responderemos en un plazo máximo de <strong>48 horas hábiles</strong>.
+                Hemos recibido tu cotización. Podrás ver el estado en tu panel de "Mis Cotizaciones".
               </p>
               <button 
                 onClick={onClose}

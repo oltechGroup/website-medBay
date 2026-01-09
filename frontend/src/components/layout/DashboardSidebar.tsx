@@ -1,4 +1,3 @@
-//frontend/src/components/layout/DashboardSidebar.tsx
 'use client';
 
 import React from 'react';
@@ -23,7 +22,8 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  X
+  X,
+  MessageSquareQuote // ✅ NUEVO ÍCONO
 } from 'lucide-react';
 
 interface DashboardSidebarProps {
@@ -35,13 +35,15 @@ interface DashboardSidebarProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  // ✅ NUEVO ITEM: COTIZACIONES (Justo debajo de Dashboard para visibilidad)
+  { name: 'Cotizaciones', href: '/dashboard/quotes', icon: MessageSquareQuote },
+  { name: 'Órdenes', href: '/dashboard/orders', icon: ShoppingCart },
   { name: 'Productos', href: '/dashboard/products', icon: Package },
   { name: 'Categorías', href: '/dashboard/categories', icon: FolderTree },
   { name: 'Fabricantes', href: '/dashboard/manufacturers', icon: Factory },
   { name: 'Inventario', href: '/dashboard/inventory', icon: Warehouse },
   { name: 'Proveedores', href: '/dashboard/suppliers', icon: Building },
   { name: 'Países', href: '/dashboard/countries', icon: Globe },
-  { name: 'Órdenes', href: '/dashboard/orders', icon: ShoppingCart },
   { name: 'Clientes', href: '/dashboard/customers', icon: Users },
   { name: 'Importar', href: '/dashboard/import', icon: Upload },
   { name: 'Reportes', href: '/dashboard/reports', icon: BarChart3 },
@@ -209,17 +211,15 @@ export default function DashboardSidebar({
             // Tarjeta de Usuario completa
             <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2">
                <div className="flex items-center gap-3 px-2 py-1">
-                  <div className="w-10 h-10 rounded-full bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-600 font-bold text-sm overflow-hidden">
-                    {user?.full_name?.charAt(0).toUpperCase() || 'A'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-800 truncate">{user?.full_name || 'Admin'}</p>
-                    
-                    {/* ✅ CORRECCIÓN VISUAL: Eliminada clase 'uppercase' */}
-                    <p className="text-[10px] font-bold text-slate-400 truncate tracking-wide">
-                      {user?.email}
-                    </p>
-                  </div>
+                 <div className="w-10 h-10 rounded-full bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-600 font-bold text-sm overflow-hidden">
+                   {user?.full_name?.charAt(0).toUpperCase() || 'A'}
+                 </div>
+                 <div className="flex-1 min-w-0">
+                   <p className="text-sm font-bold text-slate-800 truncate">{user?.full_name || 'Admin'}</p>
+                   <p className="text-[10px] font-bold text-slate-400 truncate tracking-wide">
+                     {user?.email}
+                   </p>
+                 </div>
                </div>
 
                <div className="flex gap-2">
