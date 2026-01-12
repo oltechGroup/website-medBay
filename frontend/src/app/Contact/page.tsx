@@ -76,7 +76,7 @@ export default function Contacto() {
       <section className="relative pt-24 pb-32 bg-slate-900 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="public/images/10.jpg" 
+            src="/Images/10.jpg" 
             alt="Medical Support" 
             className="w-full h-full object-cover opacity-30 mix-blend-overlay scale-105"
           />
