@@ -2,6 +2,7 @@
 
 "use client";
 
+import { Suspense } from "react"; // <--- 1. Importación necesaria
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { 
@@ -21,7 +22,8 @@ import { ClientSearch } from "@/components/features/products/client/ClientSearch
 import { ActiveFilters } from "@/components/features/products/client/catalog/ActiveFilters";
 import { CatalogNavigation } from "@/components/features/products/client/catalog/CatalogNavigation";
 
-export default function ProductsPage() {
+// 2. Renombramos tu componente original a "ProductsContent" y quitamos el export default
+function ProductsContent() {
   const searchParams = useSearchParams();
 
   // 1. Extraer filtros (Lógica Intacta)
@@ -92,7 +94,7 @@ export default function ProductsPage() {
         
         <div className="w-[90%] max-w-[1400px] mx-auto relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-white/20 mb-4">
-             {config.tag}
+              {config.tag}
           </div>
           <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-3">
             {config.title}
@@ -194,5 +196,18 @@ export default function ProductsPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+// 3. Nuevo componente contenedor con Suspense
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
+      </div>
+    }>
+      <ProductsContent />
+    </Suspense>
   );
 }
