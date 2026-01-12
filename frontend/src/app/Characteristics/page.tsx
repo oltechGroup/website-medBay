@@ -99,7 +99,7 @@ export default function Caracteristicas() {
           
           <div className="absolute inset-0 z-0">
             <img 
-              src="/images/2.jpg" 
+              src="/Images/2.jpg" 
               alt="Surgery Background" 
               className="w-full h-full object-cover opacity-40"
             />
