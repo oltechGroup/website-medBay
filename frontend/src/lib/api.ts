@@ -2,7 +2,7 @@
 import axios from 'axios';
 import Cookies from 'js-cookie'; // ✅ Asegúrate de tener esto importado si lo usas, o usa localStorage como tenías antes para limpieza.
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = 'https://api.medbaysupply.com';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
