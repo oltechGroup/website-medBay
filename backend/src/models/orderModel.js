@@ -3,7 +3,7 @@
 const db = require('../config/database');
 
 const Order = {
-  // Crear una nueva orden (Actualizado Fase 2)
+  // Crear una nueva orden
   create: async (orderData) => {
     const {
       customer_id,
@@ -16,7 +16,6 @@ const Order = {
       billing_address_id,
       notes,
       review_deadline,
-      // ✅ Nuevos campos Fase 2
       shipping_method,
       shipping_cost,
       payment_method,
@@ -62,13 +61,14 @@ const Order = {
     }
   },
 
-  // Obtener todas las órdenes con información relacionada
+  // Obtener todas las órdenes (Admin)
   findAll: async () => {
     const query = `
       SELECT 
         o.*,
         u.email as customer_email,
         u.full_name as customer_name,
+        u.phone as customer_phone,
         u.company_name as customer_company
       FROM orders o
       LEFT JOIN users u ON o.customer_id = u.id
@@ -104,19 +104,37 @@ const Order = {
     }
   },
 
-  // Obtener orden por ID (Incluye los nuevos campos automáticamente por el SELECT *)
+  // ✅ CORREGIDO: Obtener orden por ID
   findById: async (id) => {
     const query = `
       SELECT 
         o.*,
         u.email as customer_email,
         u.full_name as customer_name,
+        u.phone as customer_phone, 
         u.company_name as customer_company,
         u.tax_id as customer_tax_id,
         u.country as customer_country,
-        -- Traer también info de direcciones para mostrar en el detalle
-        sa.street as shipping_street, sa.city as shipping_city, sa.postal_code as shipping_zip,
-        ba.street as billing_street, ba.city as billing_city, ba.postal_code as billing_zip
+        
+        -- Construcción de objetos JSON para las direcciones
+        json_build_object(
+          'street', sa.street,
+          'city', sa.city,
+          'state', sa.state,
+          'postal_code', sa.postal_code,
+          'country', sa.country,
+          'phone', u.phone 
+        ) as shipping_address_json,
+        
+        json_build_object(
+          'street', ba.street,
+          'city', ba.city,
+          'state', ba.state,
+          'postal_code', ba.postal_code,
+          'country', ba.country,
+          'tax_id', u.tax_id  -- ✅ CORREGIDO: Usamos u.tax_id en vez de ba.tax_id
+        ) as billing_address_json
+
       FROM orders o
       LEFT JOIN users u ON o.customer_id = u.id
       LEFT JOIN addresses sa ON o.shipping_address_id = sa.id
@@ -132,7 +150,7 @@ const Order = {
     }
   },
 
-  // Actualizar estado de orden (Mantenido igual, útil para flujo de aprobación)
+  // Actualizar estado de orden
   updateStatus: async (id, status, approved_by = null) => {
     const query = `
       UPDATE orders 
@@ -149,7 +167,23 @@ const Order = {
     }
   },
 
-  // ✅ NUEVO: Subir Evidencia de Pago (Para que el cliente suba su comprobante)
+  // Actualizar Número de Rastreo
+  updateTracking: async (id, trackingNumber) => {
+    const query = `
+      UPDATE orders 
+      SET tracking_number = $1, status = 'shipped'
+      WHERE id = $2
+      RETURNING *
+    `;
+    try {
+      const result = await db.query(query, [trackingNumber, id]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Subir Evidencia de Pago
   updateEvidence: async (id, filePath) => {
     const query = `
       UPDATE orders 
@@ -159,34 +193,6 @@ const Order = {
     `;
     try {
       const result = await db.query(query, [filePath, id]);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // Actualizar información general de orden
-  update: async (id, orderData) => {
-    const {
-      status,
-      subtotal,
-      tax,
-      total,
-      notes,
-      review_deadline
-    } = orderData;
-    
-    const query = `
-      UPDATE orders 
-      SET status = $1, subtotal = $2, tax = $3, total = $4, notes = $5, review_deadline = $6
-      WHERE id = $7
-      RETURNING *
-    `;
-    
-    const values = [status, subtotal, tax, total, notes, review_deadline, id];
-    
-    try {
-      const result = await db.query(query, values);
       return result.rows[0];
     } catch (error) {
       throw error;

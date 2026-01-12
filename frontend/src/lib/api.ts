@@ -1,6 +1,6 @@
 //frontend/src/lib/api.ts
-
 import axios from 'axios';
+import Cookies from 'js-cookie'; // ✅ Asegúrate de tener esto importado si lo usas, o usa localStorage como tenías antes para limpieza.
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -15,7 +15,8 @@ export const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('medbay_token');
+      // Intentamos leer de cookie primero (lo ideal), o fallback a localStorage
+      const token = Cookies.get('medbay_token') || localStorage.getItem('medbay_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -31,11 +32,24 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Si el error es 401 (No autorizado) o 403 (Prohibido/Suspendido)
+    if (error.response?.status === 401 || error.response?.status === 403) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('medbay_token');
-        localStorage.removeItem('medbay_user');
-        window.location.href = '/login';
+        
+        // 🛑 CORRECCIÓN DEL BUCLE INFINITO 🛑
+        // Solo redirigimos si NO estamos ya en la página de login o registro
+        const currentPath = window.location.pathname;
+        if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
+          
+          // Limpieza total
+          localStorage.removeItem('medbay_token');
+          localStorage.removeItem('medbay_user');
+          Cookies.remove('medbay_token');
+          Cookies.remove('medbay_role');
+          
+          // Redirigir
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

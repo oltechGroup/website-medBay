@@ -1,17 +1,24 @@
-//frontend/src/app/(shop)/orders/page.tsx
+// frontend/src/app/(shop)/orders/page.tsx
 "use client";
 
 import { useState } from "react";
-import { useMyOrders } from "@/hooks/useMyOrders";
+import { useMyOrders, Order } from "@/hooks/useMyOrders"; // ✅ Importamos Order actualizado
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { 
   Package, UploadCloud, FileText, CheckCircle2, 
   Clock, AlertCircle, Loader2, X, ChevronRight, Truck
 } from "lucide-react";
 
+// ✅ Importamos el Modal
+import CustomerOrderModal from "./components/CustomerOrderModal"; 
+
 export default function MyOrdersPage() {
-  const { orders, isLoading, uploadEvidence, getStatusInfo } = useMyOrders();
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const { orders, isLoading, uploadEvidence, getStatusInfo, isUploading } = useMyOrders();
+  
+  // Estado para el Modal de Detalles
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  
+  // Estado para subida rápida (desde la tarjeta)
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, orderId: string) => {
@@ -19,17 +26,17 @@ export default function MyOrdersPage() {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("El archivo no debe superar los 5MB"); // Idealmente usar un toast
+      alert("El archivo no debe superar los 5MB"); 
       return;
     }
 
     setUploadingId(orderId);
     try {
       await uploadEvidence({ orderId, file });
-      // El hook useMyOrders debería refrescar la lista, si no, aquí podrías forzar un refresh
-      setSelectedOrderId(null);
+      // Si el modal está abierto, podríamos cerrarlo o dejarlo abierto para ver el cambio
     } catch (error) {
       console.error(error);
+      alert("Error al subir el archivo.");
     } finally {
       setUploadingId(null);
     }
@@ -57,8 +64,8 @@ export default function MyOrdersPage() {
             <p className="text-slate-500 font-medium text-lg">Historial de compras y seguimiento de envíos.</p>
           </div>
           <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-2">
-             <Package className="text-blue-600" size={20} />
-             <span className="font-bold text-slate-700 text-sm">Total: {orders.length}</span>
+              <Package className="text-blue-600" size={20} />
+              <span className="font-bold text-slate-700 text-sm">Total: {orders.length}</span>
           </div>
         </div>
 
@@ -120,55 +127,30 @@ export default function MyOrdersPage() {
                     {/* Acciones & Estado */}
                     <div className="w-full md:w-auto flex flex-col items-end gap-3 min-w-[200px]">
                       
-                      {/* --- CASO 1: PENDIENTE DE PAGO (SUBIR EVIDENCIA) --- */}
+                      {/* --- CASO 1: PENDIENTE DE PAGO (SUBIR EVIDENCIA RÁPIDA) --- */}
                       {showUpload && (
                         <div className="w-full">
-                          {selectedOrderId === order.id ? (
-                            <div className="bg-slate-50 p-4 rounded-xl border border-blue-200 animate-in fade-in zoom-in-95 duration-200 relative">
-                               <button 
-                                 onClick={() => setSelectedOrderId(null)} 
-                                 className="absolute -top-2 -right-2 p-1 bg-white border border-slate-200 rounded-full hover:bg-red-50 hover:border-red-200 text-slate-400 hover:text-red-500 transition-all shadow-sm"
-                               >
-                                 <X size={14} />
-                               </button>
-                               
-                               {isUploadingThis ? (
-                                 <div className="flex flex-col items-center justify-center py-2 text-blue-600">
-                                   <Loader2 size={24} className="animate-spin mb-2" />
-                                   <span className="text-xs font-bold">Subiendo...</span>
-                                 </div>
-                               ) : (
-                                 <>
-                                   <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-blue-300 border-dashed rounded-lg cursor-pointer bg-blue-50 hover:bg-blue-100 transition-colors">
-                                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                          <UploadCloud className="w-8 h-8 text-blue-500 mb-2" />
-                                          <p className="text-xs text-blue-600 font-bold">Clic para subir (PDF/IMG)</p>
-                                      </div>
-                                      <input 
-                                        type="file" 
-                                        className="hidden" 
-                                        accept="image/*,application/pdf"
-                                        onChange={(e) => handleFileChange(e, order.id)}
-                                      />
-                                  </label>
-                                  <p className="text-[10px] text-center text-slate-400 mt-2 font-medium">Máx. 5MB</p>
-                                 </>
-                               )}
-                            </div>
-                          ) : (
-                            <div className="text-center md:text-right">
-                              <button 
-                                onClick={() => setSelectedOrderId(order.id)}
-                                className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
-                              >
-                                <UploadCloud size={18} />
-                                Subir Comprobante
-                              </button>
-                              <p className="text-[10px] text-blue-600 mt-2 font-bold bg-blue-50 px-2 py-1 rounded inline-block">
-                                ¡Stock reservado por 24h!
-                              </p>
-                            </div>
-                          )}
+                           <div className="text-center md:text-right">
+                             {isUploadingThis ? (
+                               <div className="flex items-center justify-end gap-2 text-blue-600 font-bold text-xs py-3">
+                                 <Loader2 className="animate-spin" size={16}/> Subiendo...
+                               </div>
+                             ) : (
+                               <label className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer">
+                                 <UploadCloud size={18} />
+                                 Subir Comprobante
+                                 <input 
+                                   type="file" 
+                                   className="hidden" 
+                                   accept="image/*,application/pdf"
+                                   onChange={(e) => handleFileChange(e, order.id)}
+                                 />
+                               </label>
+                             )}
+                             <p className="text-[10px] text-blue-600 mt-2 font-bold bg-blue-50 px-2 py-1 rounded inline-block">
+                               ¡Stock reservado por 24h!
+                             </p>
+                           </div>
                         </div>
                       )}
 
@@ -178,20 +160,17 @@ export default function MyOrdersPage() {
                            <div className="flex items-center justify-center md:justify-end gap-2 text-purple-700 font-bold text-sm mb-1">
                              <FileText size={16} /> Validación en Proceso
                            </div>
-                           <p className="text-[10px] text-purple-600 font-medium">Tu comprobante está siendo revisado por finanzas.</p>
+                           <p className="text-[10px] text-purple-600 font-medium">Finanzas está revisando tu pago.</p>
                         </div>
                       )}
 
-                      {/* --- CASO 3: APROBADO / ENVIADO --- */}
-                      {(order.status === 'processing' || order.status === 'shipped') && (
-                        <div className="bg-emerald-50 px-5 py-3 rounded-xl border border-emerald-100 w-full text-center md:text-right">
-                           <div className="flex items-center justify-center md:justify-end gap-2 text-emerald-700 font-bold text-sm">
-                             {order.status === 'shipped' ? <Truck size={18}/> : <CheckCircle2 size={18} />}
-                             {order.status === 'shipped' ? 'Enviado' : 'Pago Aprobado'}
+                      {/* --- CASO 3: ENVIADO (TRACKING) --- */}
+                      {(order.status === 'shipped') && (
+                        <div className="bg-cyan-50 px-5 py-3 rounded-xl border border-cyan-100 w-full text-center md:text-right">
+                           <div className="flex items-center justify-center md:justify-end gap-2 text-cyan-700 font-bold text-sm">
+                             <Truck size={18}/> Pedido Enviado
                            </div>
-                           {order.status === 'processing' && (
-                             <p className="text-[10px] text-emerald-600 font-medium mt-1">Preparando envío...</p>
-                           )}
+                           <p className="text-[10px] text-cyan-600 font-medium mt-1">Ver detalles para rastreo.</p>
                         </div>
                       )}
 
@@ -200,16 +179,33 @@ export default function MyOrdersPage() {
                   
                   {/* Footer de la tarjeta (Detalle rápido) */}
                   <div className="bg-slate-50/50 px-8 py-3 border-t border-slate-100 flex justify-between items-center rounded-b-[2rem]">
-                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Detalles del pedido</span>
-                     <button className="text-blue-600 hover:text-blue-800 text-xs font-black uppercase tracking-wide flex items-center gap-1 transition-colors">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Detalles del pedido</span>
+                      
+                      {/* ✅ BOTÓN ACTIVO PARA ABRIR MODAL */}
+                      <button 
+                        onClick={() => setSelectedOrder(order)}
+                        className="text-blue-600 hover:text-blue-800 text-xs font-black uppercase tracking-wide flex items-center gap-1 transition-colors"
+                      >
                         Ver Productos <ChevronRight size={12} />
-                     </button>
+                      </button>
                   </div>
                 </div>
               );
             })}
           </div>
         )}
+
+        {/* ✅ MODAL DE DETALLE INTEGRADO */}
+        {selectedOrder && (
+          <CustomerOrderModal 
+            isOpen={!!selectedOrder}
+            onClose={() => setSelectedOrder(null)}
+            order={selectedOrder}
+            onUploadEvidence={handleFileChange}
+            isUploading={isUploading}
+          />
+        )}
+
       </div>
     </div>
   );

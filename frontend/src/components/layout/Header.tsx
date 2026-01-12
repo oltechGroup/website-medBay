@@ -1,4 +1,4 @@
-//frontend/src/components/layout/Header.tsx
+// frontend/src/components/layout/Header.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -9,12 +9,12 @@ import {
   LayoutDashboard, ChevronDown, Package, 
   Settings, Menu, X, Bell, Stethoscope, 
   Building2, ShieldCheck, Store, Briefcase, 
-  MessageSquareQuote // Icono para cotizaciones
+  MessageSquareQuote, Trash2, Circle // ✅ Trash2 agregado
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
 import { useAdminNotifications } from "@/hooks/useAdminNotifications"; 
-import { useClientNotifications } from "@/hooks/useClientNotifications"; // ✅ Hook Cliente Conectado
+import { useClientNotifications } from "@/hooks/useClientNotifications"; 
 import { ClientSearch } from "@/components/features/products/client/ClientSearch"; 
 import NotificationModal from "@/components/features/contact/NotificationModal";
 
@@ -37,16 +37,23 @@ export default function Header({
   // Lógica de roles
   const isAdmin = user?.verification_level === 'admin';
   const isSalesAgent = user?.verification_level === 'sales_agent';
-  // "Staff" incluye a Admin y Vendedor (tienen acceso al Dashboard)
   const isStaff = isAdmin || isSalesAgent;
 
-  // Notificaciones de Admin (Solo las cargamos si es Staff)
-  const { notifications: adminNotifs, unreadCount: adminUnread } = useAdminNotifications();
+  // Notificaciones de Admin
+  const { 
+    notifications: adminNotifs, 
+    unreadCount: adminUnread,
+    deleteNotification: deleteAdminNotif // Renombramos para evitar conflicto
+  } = useAdminNotifications();
   
-  // Notificaciones de Cliente (Solo las cargamos si NO es Staff y está autenticado)
-  const { notifications: clientNotifs, unreadCount: clientUnread } = useClientNotifications();
+  // Notificaciones de Cliente
+  const { 
+    notifications: clientNotifs, 
+    unreadCount: clientUnread,
+    deleteNotification: deleteClientNotif // Renombramos
+  } = useClientNotifications();
 
-  // Determinar qué notificaciones mostrar según el rol
+  // Determinar datos activos
   const activeNotifications = isStaff ? adminNotifs : clientNotifs;
   const activeUnreadCount = isStaff ? adminUnread : clientUnread;
 
@@ -82,6 +89,18 @@ export default function Header({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // --- MANEJADORES ---
+  
+  // ✅ Función unificada para borrar
+  const handleDeleteNotification = async (e: React.MouseEvent, id: any) => {
+    e.stopPropagation(); // Evita que se abra el modal al hacer click en borrar
+    if (isStaff) {
+      await deleteAdminNotif(Number(id)); // Admin usa number ID
+    } else {
+      await deleteClientNotif(String(id)); // Cliente usa uuid string
+    }
+  };
+
   // --- HELPERS VISUALES ---
   const getRoleBadge = (level?: string) => {
     switch (level) {
@@ -91,7 +110,7 @@ export default function Header({
             <ShieldCheck size={10} /> ADMIN
           </span>
         );
-      case 'sales_agent': // ✅ NUEVO ROL VENDEDOR
+      case 'sales_agent':
         return (
           <span className="flex items-center gap-1 bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-indigo-200 tracking-wider">
             <Briefcase size={10} /> VENDEDOR
@@ -121,7 +140,7 @@ export default function Header({
   const getPageTitle = () => {
     if (pathname.includes('/products')) return 'Gestión de Productos';
     if (pathname.includes('/orders')) return 'Órdenes de Compra';
-    if (pathname.includes('/quotes')) return 'Gestión de Cotizaciones'; // ✅ Nuevo título
+    if (pathname.includes('/quotes')) return 'Gestión de Cotizaciones';
     if (pathname.includes('/inventory')) return 'Inventario';
     if (pathname.includes('/customers')) return 'Clientes';
     if (pathname.includes('/settings')) return 'Configuración';
@@ -202,7 +221,7 @@ export default function Header({
           {/* === DERECHA: ACCIONES Y USUARIO === */}
           <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
             
-            {/* 🔔 CAMPANITA DE NOTIFICACIONES (Visible para TODOS los logueados) */}
+            {/* 🔔 CAMPANITA DE NOTIFICACIONES */}
             {mounted && isAuthenticated && (
               <div className="relative" ref={notifRef}>
                 <button 
@@ -232,21 +251,35 @@ export default function Header({
                           <div 
                             key={n.id}
                             onClick={() => { setSelectedNotif(n); setIsNotifOpen(false); }}
-                            className="p-4 border-b border-slate-50 hover:bg-blue-50/50 cursor-pointer transition-colors group"
+                            className="relative p-4 border-b border-slate-50 hover:bg-blue-50/50 cursor-pointer transition-colors group pr-10"
                           >
-                            <p className="text-sm font-bold text-slate-800 group-hover:text-blue-700 truncate">
+                            {/* Indicador de no leído */}
+                            {!n.is_read && (
+                              <div className="absolute left-2 top-5 w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                            )}
+
+                            <p className="text-sm font-bold text-slate-800 group-hover:text-blue-700 truncate pl-2">
                               {n.subject || n.title}
                             </p>
-                            <div className="flex justify-between mt-1">
-                              <span className="text-xs text-slate-500">{n.sender_name || 'Sistema'}</span>
+                            
+                            <div className="flex justify-between mt-1 pl-2">
+                              <span className="text-xs text-slate-500 truncate max-w-[140px]">{n.sender_name || 'Sistema MedBay'}</span>
                               <span className="text-[10px] text-slate-400">{new Date(n.created_at).toLocaleDateString()}</span>
                             </div>
+
+                            {/* ✅ BOTÓN BORRAR (VISIBLE AL HOVER) */}
+                            <button 
+                              onClick={(e) => handleDeleteNotification(e, n.id)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                              title="Borrar notificación"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </div>
                         ))
                       )}
                     </div>
                     
-                    {/* Link al ver todo según el rol */}
                     <Link 
                       href={isStaff ? "/dashboard" : "/notifications"} 
                       className="block p-3 text-center text-xs font-bold text-blue-600 hover:bg-slate-50 transition-colors border-t border-slate-100"
@@ -302,10 +335,7 @@ export default function Header({
 
                     <div className="p-2 space-y-1">
                       
-                      {/* ✅ LÓGICA DE MENÚ ADAPTATIVA (Staff vs Cliente) */}
-                      
                       {isStaff ? (
-                        /* === OPCIONES PARA STAFF (ADMIN / VENDEDOR) === */
                         <>
                           {variant !== 'dashboard' ? (
                             <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-blue-600 transition-colors shadow-md mb-2">
@@ -318,7 +348,6 @@ export default function Header({
                           )}
                         </>
                       ) : (
-                        /* === OPCIONES PARA CLIENTES === */
                         <>
                           <Link href="/profile" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
                             <Settings size={16} className="text-slate-400" />
@@ -330,7 +359,6 @@ export default function Header({
                             Mis Pedidos
                           </Link>
 
-                          {/* ✅ NUEVO LINK: MIS COTIZACIONES */}
                           <Link href="/quotes" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
                             <MessageSquareQuote size={16} className="text-slate-400" />
                             Mis Cotizaciones
@@ -371,7 +399,7 @@ export default function Header({
           </div>
         </div>
 
-        {/* Menú Móvil Expandido */}
+        {/* Menú Móvil */}
         {isMobileMenuOpen && variant !== 'dashboard' && (
           <div className="lg:hidden absolute top-full left-0 w-full bg-white border-b border-slate-100 shadow-xl p-4 flex flex-col gap-4 animate-in slide-in-from-top-5">
               {variant === 'catalog' && <div className="mb-2"><ClientSearch /></div>}
@@ -394,13 +422,16 @@ export default function Header({
         )}
       </header>
 
-      {/* Modal de Notificaciones (Solo Admin por ahora, o Staff) */}
-      {selectedNotif && isStaff && (
+      {/* Modal de Notificaciones (Reutilizable) */}
+      {selectedNotif && (
         <NotificationModal 
           isOpen={!!selectedNotif}
           data={selectedNotif}
           onClose={() => setSelectedNotif(null)}
-          onConfirmRead={() => {}}
+          onConfirmRead={() => {
+             // Si quieres que al cerrar se marque como leído automático:
+             // if (!isStaff) handleMarkRead(selectedNotif.id);
+          }}
         />
       )}
     </>

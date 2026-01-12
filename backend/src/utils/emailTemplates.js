@@ -46,6 +46,7 @@ const wrapHtml = (title, content, actionButton = null) => `
       .success-box { background-color: #ecfdf5; border-left: 4px solid ${theme.colors.success}; color: #065f46; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
       .danger-box { background-color: #fef2f2; border-left: 4px solid ${theme.colors.danger}; color: #991b1b; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
       .warning-box { background-color: #fffbeb; border-left: 4px solid ${theme.colors.warning}; color: #92400e; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+      .bank-box { background-color: #f0f9ff; border: 1px dashed ${theme.colors.primary}; padding: 15px; border-radius: 8px; margin: 20px 0; }
 
       /* Botones */
       .btn-container { text-align: center; margin-top: 35px; }
@@ -105,7 +106,7 @@ const generateOrderReceivedTemplate = (data) => {
   return wrapHtml(`Solicitud Recibida`, content, { text: 'Ver Mis Pedidos', url: 'http://localhost:3000/orders' });
 };
 
-// 2. CLIENTE: APROBACIÓN DE STOCK
+// 2. CLIENTE: APROBACIÓN DE STOCK + DATOS BANCARIOS
 const generateOrderApprovedTemplate = (data) => {
   const content = `
     <div class="success-box">
@@ -113,16 +114,25 @@ const generateOrderApprovedTemplate = (data) => {
       Hemos confirmado el stock para tu orden <strong>#${data.orderId.slice(0,8)}</strong>.
     </div>
 
-    <p style="text-align: center; color: ${theme.colors.text};">
-      El inventario ha sido reservado por 24 horas. Por favor, procede con el pago para iniciar el envío.
+    <p style="text-align: center; color: ${theme.colors.text}; margin-bottom: 5px;">
+      El inventario ha sido reservado por 24 horas.
     </p>
-
-    <table class="info-table">
-      <tr><td class="label">Total a Pagar</td><td class="value" style="color: ${theme.colors.primary}; font-size: 18px;">$${data.total} USD</td></tr>
-      <tr><td class="label">Método</td><td class="value" style="text-transform: capitalize;">${data.paymentMethod.replace('_', ' ')}</td></tr>
-    </table>
+    
+    <div class="bank-box">
+      <div style="text-align: center; font-weight: bold; color: ${theme.colors.primary}; margin-bottom: 10px; text-transform: uppercase; font-size: 12px;">Instrucciones de Pago</div>
+      <table class="info-table" style="margin: 0; background: transparent;">
+        <tr><td class="label">Monto Exacto</td><td class="value" style="font-size: 18px;">$${data.total} USD</td></tr>
+        <tr><td class="label">Banco</td><td class="value">BBVA México</td></tr>
+        <tr><td class="label">Beneficiario</td><td class="value">MedBay S.A. de C.V.</td></tr>
+        <tr><td class="label">CLABE</td><td class="value" style="font-family: monospace; letter-spacing: 1px;">012 180 01589634 7890</td></tr>
+        <tr><td class="label">Concepto</td><td class="value">ORD-${data.orderId.slice(0,8)}</td></tr>
+      </table>
+      <p style="font-size: 11px; color: #64748b; text-align: center; margin-top: 10px;">
+        *Si prefieres pagar con tarjeta, utiliza el botón de abajo para ir a la pasarela de pago segura.
+      </p>
+    </div>
   `;
-  return wrapHtml(`Stock Confirmado: Acción Requerida`, content, { text: 'Subir Comprobante de Pago', url: 'http://localhost:3000/orders' });
+  return wrapHtml(`Stock Confirmado: Acción Requerida`, content, { text: 'Subir Comprobante / Pagar', url: 'http://localhost:3000/orders' });
 };
 
 // 3. CLIENTE: RECHAZO DE STOCK
@@ -158,11 +168,32 @@ const generateOrderShippedTemplate = (data) => {
   return wrapHtml(`Orden Enviada`, content, { text: 'Rastrear Paquete', url: 'http://localhost:3000/orders' });
 };
 
+// 5. CLIENTE: CONFIRMACIÓN DE COTIZACIÓN CREADA (Nuevo)
+const generateQuoteCreatedClientTemplate = (data) => {
+  const content = `
+    <p class="subtitle">Hemos recibido tu solicitud de cotización.</p>
+    
+    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+      <div style="font-size: 14px; font-weight: bold; color: ${theme.colors.secondary};">${data.productName}</div>
+      <div style="font-size: 12px; color: #64748b; margin-top: 5px;">SKU: ${data.sku} | Cantidad: ${data.quantity}</div>
+    </div>
+
+    <div class="message-box">
+      "Gracias por tu interés. Nuestro equipo de ventas está contactando a los proveedores para conseguirte el mejor precio y fecha de caducidad disponible."
+    </div>
+
+    <p style="font-size: 13px; text-align: center; color: #64748b;">
+      Recibirás una propuesta formal en un plazo máximo de <strong>48 horas hábiles</strong>.
+    </p>
+  `;
+  return wrapHtml(`Solicitud de Cotización Recibida`, content, { text: 'Ver Mis Cotizaciones', url: 'http://localhost:3000/quotes' });
+};
+
 // ==========================================
 // 👔 TEMPLATES PARA EL ADMIN
 // ==========================================
 
-// ✅ NUEVO: NOTIFICACIÓN DE NUEVA ORDEN (ADMIN)
+// 1. ADMIN: NOTIFICACIÓN DE NUEVA ORDEN
 const generateNewOrderAdminTemplate = (data) => {
   const content = `
     <p class="subtitle">Se ha generado una nueva solicitud de compra.</p>
@@ -184,13 +215,81 @@ const generateNewOrderAdminTemplate = (data) => {
   return wrapHtml(`🔔 Nueva Orden Pendiente`, content, { text: 'Gestionar Orden en Dashboard', url: 'http://localhost:3000/dashboard/orders' });
 };
 
+// 2. ADMIN: PAGO SUBIDO (Nuevo)
+const generatePaymentUploadedTemplate = (data) => {
+  const content = `
+    <p class="subtitle">Un cliente ha subido un comprobante de pago.</p>
+    
+    <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; border: 1px solid #bbf7d0; margin-bottom: 20px;">
+      <table class="info-table" style="margin-top: 0;">
+        <tr><td class="label">Orden ID</td><td class="value">#${data.orderId.slice(0,8)}</td></tr>
+        <tr><td class="label">Cliente</td><td class="value">${data.userName}</td></tr>
+        <tr><td class="label">Total Orden</td><td class="value">$${data.total} USD</td></tr>
+      </table>
+    </div>
+
+    <div class="success-box" style="text-align: center;">
+      <strong>Nuevo Archivo Adjunto:</strong><br>
+      Revisa la evidencia de transferencia en el panel.
+    </div>
+  `;
+  return wrapHtml(`💸 Pago Recibido: #${data.orderId.slice(0,8)}`, content, { text: 'Validar Pago', url: 'http://localhost:3000/dashboard/orders' });
+};
+
+// 3. ADMIN: COTIZACIÓN ACEPTADA (Nuevo)
+const generateQuoteAcceptedAdminTemplate = (data) => {
+  const content = `
+    <div class="success-box" style="text-align: center; margin-bottom: 25px;">
+      <strong style="font-size: 18px;">¡Cotización Aceptada!</strong>
+    </div>
+
+    <p class="subtitle">El cliente ha aceptado la propuesta comercial.</p>
+    
+    <table class="info-table">
+        <tr><td class="label">Cotización ID</td><td class="value">#${data.quoteId.slice(0,8)}</td></tr>
+        <tr><td class="label">Cliente</td><td class="value">${data.userName}</td></tr>
+        <tr><td class="label">Producto</td><td class="value">${data.productName}</td></tr>
+        <tr><td class="label">Cantidad</td><td class="value">${data.quantity}</td></tr>
+        <tr><td class="label">Precio Acordado</td><td class="value" style="color: ${theme.colors.success};">$${data.total} USD</td></tr>
+    </table>
+
+    <p style="font-size: 13px; color: #64748b; margin-top: 20px;">
+      El siguiente paso es convertir esta cotización en una Orden de Compra o contactar al cliente para finalizar el pago.
+    </p>
+  `;
+  return wrapHtml(`✅ Cotización Cerrada`, content, { text: 'Procesar Venta', url: 'http://localhost:3000/dashboard/quotes' });
+};
+
+// 4. ADMIN: COTIZACIÓN RECHAZADA (Nuevo)
+const generateQuoteRejectedAdminTemplate = (data) => {
+  const content = `
+    <div class="warning-box" style="text-align: center; margin-bottom: 25px;">
+      <strong style="font-size: 16px;">Propuesta Rechazada</strong>
+    </div>
+
+    <p class="subtitle">El cliente no aceptó la propuesta actual.</p>
+    
+    <table class="info-table">
+        <tr><td class="label">Cotización ID</td><td class="value">#${data.quoteId.slice(0,8)}</td></tr>
+        <tr><td class="label">Cliente</td><td class="value">${data.userName}</td></tr>
+        <tr><td class="label">Producto</td><td class="value">${data.productName}</td></tr>
+    </table>
+
+    <div class="message-box">
+      <strong>Estrategia de Ventas:</strong><br>
+      Puedes intentar enviar una contra-propuesta con un mejor precio o buscar un lote diferente.
+    </div>
+  `;
+  return wrapHtml(`⚠️ Cotización Rechazada`, content, { text: 'Ver Detalles y Re-cotizar', url: 'http://localhost:3000/dashboard/quotes' });
+};
+
 // ==========================================
-// 📥 TEMPLATES GENERALES
+// 📥 TEMPLATES GENERALES (COTIZACIÓN INICIAL Y CONTACTO)
 // ==========================================
 
 const generateQuoteTemplate = (data) => {
   const content = `
-    <p class="subtitle">Un usuario ha solicitado precio e inventario para un producto.</p>
+    <p class="subtitle">Nueva solicitud de cotización (Entrante).</p>
     <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 25px;">
       <div style="font-size: 10px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">Producto de Interés</div>
       <div style="font-size: 16px; font-weight: 800; color: ${theme.colors.secondary}; margin-bottom: 10px;">${data.productName}</div>
@@ -292,15 +391,28 @@ const getBrandingAttachments = () => {
 };
 
 module.exports = { 
-  generateQuoteTemplate, 
-  generateContactTemplate, 
-  generateRegisterTemplate, 
+  // Cotizaciones (Admin)
+  generateQuoteTemplate,
+  generateQuoteAcceptedAdminTemplate,
+  generateQuoteRejectedAdminTemplate,
+  
+  // Cotizaciones (Cliente)
+  generateQuoteCreatedClientTemplate,
   generateQuoteResponseTemplate,
-  generateResponseTemplate,
+  
+  // Órdenes (Cliente)
   generateOrderReceivedTemplate,
   generateOrderApprovedTemplate,
   generateOrderRejectedTemplate,
   generateOrderShippedTemplate,
+  
+  // Órdenes (Admin)
   generateNewOrderAdminTemplate, 
+  generatePaymentUploadedTemplate,
+
+  // Otros
+  generateContactTemplate, 
+  generateRegisterTemplate, 
+  generateResponseTemplate,
   getBrandingAttachments 
 };

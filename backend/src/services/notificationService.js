@@ -7,11 +7,14 @@ const {
   generateOrderApprovedTemplate,
   generateOrderRejectedTemplate,
   generateOrderShippedTemplate,
+  generateNewOrderAdminTemplate,
+  generatePaymentUploadedTemplate, // ✅ Nuevo
   // Templates de cotización
   generateQuoteTemplate,
   generateQuoteResponseTemplate,
-  // ✅ NUEVO: Template Admin Orden
-  generateNewOrderAdminTemplate,
+  generateQuoteCreatedClientTemplate, // ✅ Nuevo
+  generateQuoteAcceptedAdminTemplate, // ✅ Nuevo
+  generateQuoteRejectedAdminTemplate, // ✅ Nuevo
   getBrandingAttachments
 } = require('../utils/emailTemplates');
 
@@ -101,7 +104,7 @@ const NotificationService = {
         attachments: getBrandingAttachments()
       });
 
-      // B) Correo al ADMIN (AVISO DE NUEVA ORDEN) -> ✅ AHORA CON DISEÑO
+      // B) Correo al ADMIN (AVISO DE NUEVA ORDEN)
       const htmlAdmin = generateNewOrderAdminTemplate({
         orderId: data.id,
         userName: data.user_name,
@@ -113,7 +116,7 @@ const NotificationService = {
         from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com", // Tu correo admin
         subject: `🔔 Nueva Orden Pendiente de Revisión: #${data.id.slice(0,8)}`,
-        html: htmlAdmin, // Usamos el HTML bonito
+        html: htmlAdmin,
         attachments: getBrandingAttachments()
       });
 
@@ -179,12 +182,19 @@ const NotificationService = {
     try {
       const data = await getFullOrderData(orderId);
 
-      // Solo al Admin (Texto simple está bien aquí o podemos hacer template después)
+      // ✅ CAMBIO: Usamos template visual en lugar de texto plano
+      const htmlAdmin = generatePaymentUploadedTemplate({
+        orderId: data.id,
+        userName: data.user_name,
+        total: data.total
+      });
+
       await transporter.sendMail({
         from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com",
         subject: `💸 Pago Recibido: Orden #${data.id.slice(0,8)}`,
-        text: `El cliente ${data.user_name} ha subido su comprobante de pago. Entra al Dashboard para validarlo y procesar el envío.`
+        html: htmlAdmin,
+        attachments: getBrandingAttachments()
       });
 
       console.log(`[Email] Pago subido notificado al Admin`);
@@ -229,7 +239,7 @@ const NotificationService = {
       const data = await getFullQuoteData(quoteId);
       const req = data.product_request; // JSONB
 
-      // A) Email al Admin (Usamos template existente)
+      // A) Email al Admin (Aviso)
       const htmlAdmin = generateQuoteTemplate({
         userName: data.user_name || 'Invitado',
         userEmail: data.user_email,
@@ -248,12 +258,19 @@ const NotificationService = {
         attachments: getBrandingAttachments()
       });
 
-      // B) Email Confirmación al Cliente
+      // B) Email Confirmación al Cliente (✅ AHORA CON DISEÑO)
+      const htmlClient = generateQuoteCreatedClientTemplate({
+        productName: req.product_name,
+        sku: req.sku,
+        quantity: req.quantity_asked
+      });
+
       await transporter.sendMail({
         from: `"Soporte MedBay" <${process.env.EMAIL_USER}>`,
         to: data.user_email,
         subject: `Hemos recibido tu solicitud de cotización`,
-        text: `Hola ${data.user_name || ''}, hemos recibido tu interés en el producto ${req.product_name}. Nuestro equipo comercial te enviará una propuesta formal a la brevedad.`
+        html: htmlClient,
+        attachments: getBrandingAttachments()
       });
 
       console.log(`[Email] Cotización creada notificada`);
@@ -307,12 +324,24 @@ const NotificationService = {
   notifyQuoteAccepted: async (quoteId) => {
     try {
       const data = await getFullQuoteData(quoteId);
+      const prop = data.admin_proposal || {};
+      const total = (prop.unit_price || 0) * (prop.quantity_found || 0);
       
+      // ✅ CAMBIO: Usamos template visual de éxito
+      const htmlAdmin = generateQuoteAcceptedAdminTemplate({
+        quoteId: data.id,
+        userName: data.user_name,
+        productName: data.product_request.product_name,
+        quantity: prop.quantity_found,
+        total: total
+      });
+
       await transporter.sendMail({
         from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com",
         subject: `✅ Cotización ACEPTADA por Cliente`,
-        text: `El cliente ${data.user_name} ha ACEPTADO la propuesta para ${data.product_request.product_name}. Procede a contactarlo para cerrar la venta o generar la orden manual.`
+        html: htmlAdmin,
+        attachments: getBrandingAttachments()
       });
 
     } catch (error) {
@@ -325,11 +354,19 @@ const NotificationService = {
     try {
       const data = await getFullQuoteData(quoteId);
       
+      // ✅ CAMBIO: Usamos template visual de alerta
+      const htmlAdmin = generateQuoteRejectedAdminTemplate({
+        quoteId: data.id,
+        userName: data.user_name,
+        productName: data.product_request.product_name
+      });
+
       await transporter.sendMail({
         from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com",
         subject: `❌ Cotización RECHAZADA por Cliente`,
-        text: `El cliente ${data.user_name} ha RECHAZADO la propuesta para ${data.product_request.product_name}.`
+        html: htmlAdmin,
+        attachments: getBrandingAttachments()
       });
 
     } catch (error) {
