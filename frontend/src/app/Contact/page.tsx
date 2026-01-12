@@ -44,7 +44,7 @@ export default function Contacto() {
 
     try {
       // Ajusta la URL si tu backend está en otro puerto o dominio
-      const response = await fetch("http://localhost:3001/api/contact", {
+      const response = await fetch("https://api.medbaysupply.com/api/contact", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -76,7 +76,7 @@ export default function Contacto() {
       <section className="relative pt-24 pb-32 bg-slate-900 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="/images/10.jpg" 
+            src="public/images/10.jpg" 
             alt="Medical Support" 
             className="w-full h-full object-cover opacity-30 mix-blend-overlay scale-105"
           />

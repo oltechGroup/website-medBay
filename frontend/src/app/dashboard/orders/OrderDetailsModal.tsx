@@ -197,18 +197,18 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                     <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 flex flex-col items-center">
                       {order.evidence_file.endsWith('.pdf') ? (
                         <iframe 
-                          src={`http://localhost:3001${order.evidence_file}`} 
+                          src={`https://api.medbaysupply.com${order.evidence_file}`} 
                           className="w-full h-96 rounded-xl border border-slate-200"
                         ></iframe>
                       ) : (
                         <img 
-                          src={`http://localhost:3001${order.evidence_file}`} 
+                          src={`https://api.medbaysupply.com${order.evidence_file}`} 
                           alt="Comprobante" 
                           className="max-h-96 object-contain rounded-lg shadow-sm"
                         />
                       )}
                       <a 
-                        href={`http://localhost:3001${order.evidence_file}`} 
+                        href={`https://api.medbaysupply.com${order.evidence_file}`} 
                         target="_blank" 
                         className="mt-4 flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline"
                       >

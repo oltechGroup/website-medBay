@@ -1,27 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 1. Ignorar errores estrictos en build
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
 
-  // 2. Configuración de imágenes
   images: {
     remotePatterns: [
       {
-        protocol: 'http',
-        hostname: '**',
+        protocol: 'https', // CAMBIADO a https
+        hostname: 'api.medbaysupply.com', // CAMBIADO al dominio real
       },
     ],
   },
 
-  // 3. Rewrites (Proxy)
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    // Quitamos la barra final si existe
+    // Usamos la URL de producción por defecto
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.medbaysupply.com';
     const cleanUrl = apiUrl.replace(/\/$/, '');
 
     return [

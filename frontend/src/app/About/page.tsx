@@ -19,7 +19,7 @@ export default function Nosotros() {
       <section className="relative pt-24 pb-32 overflow-hidden bg-slate-900">
          <div className="absolute inset-0 z-0">
             <img 
-                src="/images/3.jpg" 
+                src="public/images/3.jpg" 
                 alt="Medical Mission" 
                 className="w-full h-full object-cover opacity-30 mix-blend-overlay"
             />

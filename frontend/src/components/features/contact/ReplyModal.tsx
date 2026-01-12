@@ -35,7 +35,7 @@ export default function ReplyModal({
     setStatus('sending');
 
     try {
-      const response = await fetch('http://localhost:3001/api/contact/reply', {
+      const response = await fetch('https://api.medbaysupply.com/api/contact/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

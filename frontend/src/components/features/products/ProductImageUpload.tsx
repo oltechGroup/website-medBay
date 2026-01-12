@@ -7,7 +7,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Product, ProductImage, useProducts } from '@/hooks/useProducts';
 
 // 🌎 CONFIGURACIÓN URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.medbaysupply.com';
 
 interface ProductImageUploadProps {
   productsWithoutImages: Product[];
