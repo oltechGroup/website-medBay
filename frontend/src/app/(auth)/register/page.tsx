@@ -192,7 +192,7 @@ export default function RegisterPage() {
 
       {/* Sidebar Visual */}
       <div className="hidden lg:flex lg:w-1/3 relative overflow-hidden bg-slate-900">
-        <img src="/images/7.png" alt="Fondo" className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay scale-105" />
+        <img src="/Images/7.png" alt="Fondo" className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay scale-105" />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent"></div>
         <div className="relative z-10 p-12 flex flex-col justify-between h-full text-white">
            <button onClick={() => { setSelectedRole(null); setFiles([]); }} className="flex items-center gap-2 text-slate-300 hover:text-white font-bold transition-colors w-fit">

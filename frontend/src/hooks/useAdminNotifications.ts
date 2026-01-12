@@ -1,6 +1,8 @@
-//frontend/src/hooks/useAdminNotifications.ts
+// frontend/src/hooks/useAdminNotifications.ts
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useAuth } from './useAuth'; // ✅ Importamos Auth
 
 export interface Notification {
   id: number;
@@ -14,7 +16,11 @@ export interface Notification {
 }
 
 export const useAdminNotifications = () => {
+  const { isAuthenticated, user } = useAuth(); // ✅ Obtenemos estado del usuario
   const queryClient = useQueryClient();
+
+  // Verificamos si es staff para activar el hook
+  const isStaff = user?.verification_level === 'admin' || user?.verification_level === 'sales_agent';
 
   // 1. OBTENER NOTIFICACIONES
   const { data: notifications = [], isLoading, error } = useQuery({
@@ -23,8 +29,12 @@ export const useAdminNotifications = () => {
       const response = await api.get('/notifications');
       return response.data;
     },
-    // Refrescar cada 1 minuto automáticamente para ver si llegaron nuevos mensajes
+    // ✅ CANDADO DE SEGURIDAD: Solo ejecuta si está logueado Y es Staff
+    enabled: !!isAuthenticated && !!isStaff, 
+    // Refrescar cada 1 minuto automáticamente
     refetchInterval: 60000, 
+    // Si falla (ej. 401), no reintentes infinitamente
+    retry: false,
   });
 
   // 2. ELIMINAR NOTIFICACIÓN
@@ -33,13 +43,9 @@ export const useAdminNotifications = () => {
       await api.delete(`/notifications/${id}`);
     },
     onSuccess: () => {
-      // Al borrar, actualizamos la lista automáticamente en todos lados (Header y Page)
       queryClient.invalidateQueries({ queryKey: ['admin-notifications'] });
     },
   });
-
-  // 3. MARCAR COMO LEÍDA (Opcional, si tu backend lo soporta, si no, borrar es la acción principal)
-  // Por ahora lo simularemos invalidando la query si implementas el endpoint PUT después.
 
   return {
     notifications,
@@ -47,8 +53,7 @@ export const useAdminNotifications = () => {
     error,
     deleteNotification: deleteMutation.mutateAsync,
     isDeleting: deleteMutation.isPending,
-    // Helpers para UI
-    unreadCount: notifications.length, // O notifications.filter(n => !n.is_read).length si tuvieras esa flag
+    unreadCount: notifications.length,
     isEmpty: notifications.length === 0,
   };
 };

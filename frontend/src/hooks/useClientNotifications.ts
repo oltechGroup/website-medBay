@@ -6,7 +6,7 @@ import { useAuth } from './useAuth';
 
 export interface ClientNotification {
   id: string;
-  type: 'order' | 'quote' | 'system'; // Agregamos 'system' para mensajes generales
+  type: 'order' | 'quote' | 'system';
   subject: string;
   message: string;
   created_at: string;
@@ -24,22 +24,23 @@ export const useClientNotifications = () => {
       const response = await api.get('/notifications/client');
       return response.data;
     },
-    enabled: isAuthenticated,
-    refetchInterval: 30000, 
+    // ✅ CANDADO DE SEGURIDAD: Solo ejecuta si está autenticado
+    enabled: !!isAuthenticated,
+    refetchInterval: 30000,
+    retry: false,
   });
 
-  // 2. ✅ NUEVO: Borrar Notificación
+  // 2. Borrar Notificación
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`/notifications/${id}`);
     },
     onSuccess: () => {
-      // Recargar la lista automáticamente al borrar
       queryClient.invalidateQueries({ queryKey: ['client-notifications'] });
     },
   });
 
-  // 3. ✅ NUEVO: Marcar como leída (Opcional, pero útil)
+  // 3. Marcar como leída
   const markReadMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.put(`/notifications/${id}/read`);
@@ -53,7 +54,6 @@ export const useClientNotifications = () => {
     notifications,
     isLoading,
     unreadCount: notifications.length,
-    // Exportamos las funciones
     deleteNotification: deleteMutation.mutateAsync,
     isDeleting: deleteMutation.isPending,
     markAsRead: markReadMutation.mutateAsync

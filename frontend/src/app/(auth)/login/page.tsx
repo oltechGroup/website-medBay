@@ -55,7 +55,7 @@ export default function LoginPage() {
       {/* --- SECCIÓN IZQUIERDA: VISUAL PREMIUM --- */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-slate-900">
         <img 
-          src="/images/11.png" 
+          src="/Images/11.png" 
           alt="Medical Background" 
           className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-luminosity scale-105"
         />

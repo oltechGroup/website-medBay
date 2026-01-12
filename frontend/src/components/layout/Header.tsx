@@ -9,7 +9,7 @@ import {
   LayoutDashboard, ChevronDown, Package, 
   Settings, Menu, X, Bell, Stethoscope, 
   Building2, ShieldCheck, Store, Briefcase, 
-  MessageSquareQuote, Trash2, Circle // ✅ Trash2 agregado
+  MessageSquareQuote, Trash2
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
@@ -39,18 +39,18 @@ export default function Header({
   const isSalesAgent = user?.verification_level === 'sales_agent';
   const isStaff = isAdmin || isSalesAgent;
 
-  // Notificaciones de Admin
+  // Notificaciones de Admin (Los hooks ya están protegidos internamente con 'enabled')
   const { 
     notifications: adminNotifs, 
     unreadCount: adminUnread,
-    deleteNotification: deleteAdminNotif // Renombramos para evitar conflicto
+    deleteNotification: deleteAdminNotif 
   } = useAdminNotifications();
   
   // Notificaciones de Cliente
   const { 
     notifications: clientNotifs, 
     unreadCount: clientUnread,
-    deleteNotification: deleteClientNotif // Renombramos
+    deleteNotification: deleteClientNotif 
   } = useClientNotifications();
 
   // Determinar datos activos
@@ -91,13 +91,12 @@ export default function Header({
 
   // --- MANEJADORES ---
   
-  // ✅ Función unificada para borrar
   const handleDeleteNotification = async (e: React.MouseEvent, id: any) => {
-    e.stopPropagation(); // Evita que se abra el modal al hacer click en borrar
+    e.stopPropagation(); 
     if (isStaff) {
-      await deleteAdminNotif(Number(id)); // Admin usa number ID
+      await deleteAdminNotif(Number(id)); 
     } else {
-      await deleteClientNotif(String(id)); // Cliente usa uuid string
+      await deleteClientNotif(String(id)); 
     }
   };
 
@@ -221,8 +220,8 @@ export default function Header({
           {/* === DERECHA: ACCIONES Y USUARIO === */}
           <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
             
-            {/* 🔔 CAMPANITA DE NOTIFICACIONES */}
-            {mounted && isAuthenticated && (
+            {/* 🔔 CAMPANITA DE NOTIFICACIONES (Solo si hay usuario logueado) */}
+            {mounted && isAuthenticated && user && (
               <div className="relative" ref={notifRef}>
                 <button 
                   onClick={() => setIsNotifOpen(!isNotifOpen)}
@@ -291,7 +290,7 @@ export default function Header({
               </div>
             )}
 
-            {/* Iconos Públicos */}
+            {/* Iconos Públicos (Carrito y Favoritos) */}
             {variant !== 'dashboard' && (
               <>
                 <Link href="/wishlist" className="p-2 hover:bg-slate-100 rounded-full text-slate-600 hover:text-red-500 transition-colors"><Heart size={22} strokeWidth={2}/></Link>
@@ -429,8 +428,7 @@ export default function Header({
           data={selectedNotif}
           onClose={() => setSelectedNotif(null)}
           onConfirmRead={() => {
-             // Si quieres que al cerrar se marque como leído automático:
-             // if (!isStaff) handleMarkRead(selectedNotif.id);
+             // Acción al confirmar lectura
           }}
         />
       )}
