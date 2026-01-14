@@ -1,3 +1,4 @@
+//frontend/src/components/layout/Header.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -131,12 +132,13 @@ export default function Header({
 
   return (
     <>
-      {/* ⚡ CORRECCIÓN Z-INDEX: Usamos z-[999] para asegurar prioridad absoluta.
-         Si el contenido se ve "cortado" arriba, es necesario agregar padding-top 
-         en tu layout.tsx o page.tsx principal, ya que position:fixed saca el header del flujo.
+      {/* ⚡ ESTRATEGIA Z-INDEX INTELIGENTE:
+         - Si es 'dashboard': z-[40]. ¿Por qué? Para que el Sidebar (que tendrá z-[50]) pase POR ENCIMA.
+         - Si es público: z-[999]. ¿Por qué? Para que tape el Hero y el contenido al hacer scroll.
       */}
       <header 
-        className={`fixed top-0 left-0 right-0 z-[999] transition-all duration-300 ease-in-out border-b
+        className={`fixed top-0 left-0 right-0 transition-all duration-300 ease-in-out border-b
+          ${variant === 'dashboard' ? 'z-[40]' : 'z-[999]'} 
           ${isScrolled || isMobileMenuOpen || variant === 'dashboard' 
             ? 'bg-white/95 backdrop-blur-xl shadow-sm border-gray-200 py-3' 
             : 'bg-white/80 backdrop-blur-md border-transparent py-4'}
@@ -145,14 +147,17 @@ export default function Header({
       >
         <div className={`mx-auto flex items-center justify-between gap-3 ${variant === 'dashboard' ? 'px-4 sm:px-6 max-w-full' : 'w-[92%] max-w-[1400px]'}`}>
           
-          {/* === IZQUIERDA: LOGO === */}
+          {/* === IZQUIERDA: LOGO O HAMBURGUESA (DASHBOARD) === */}
           <div className="flex items-center gap-3 md:gap-4 flex-1 md:flex-none">
+            
+            {/* Botón Menú Dashboard (Solo Móvil) */}
             {(variant === 'dashboard') && (
               <button onClick={onMenuToggle} className="lg:hidden p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition-colors active:scale-95">
                 <Menu size={24} />
               </button>
             )}
 
+            {/* Logo en Modo Público */}
             {variant !== 'dashboard' && (
               <Link href="/" className="flex items-center gap-2 group flex-shrink-0 mr-auto md:mr-0 z-50">
                 <img src="/icons/logomed.png" alt="Logo" className="w-9 h-9 md:w-10 md:h-10 rounded-lg transition-transform group-hover:scale-105" />
@@ -162,6 +167,7 @@ export default function Header({
               </Link>
             )}
 
+            {/* Título en Modo Dashboard */}
             {variant === 'dashboard' && (
               <div className="flex flex-col md:flex-row md:items-center md:gap-2 animate-in fade-in duration-300">
                 <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider hidden sm:block">Dashboard</span>
@@ -171,7 +177,7 @@ export default function Header({
             )}
           </div>
 
-          {/* === CENTRO: NAVEGACIÓN DESKTOP (ESTILO ORIGINAL RESTAURADO) === */}
+          {/* === CENTRO: NAVEGACIÓN DESKTOP === */}
           {variant !== 'dashboard' && (
             <div className="hidden lg:flex flex-1 justify-center px-4">
               {variant === 'catalog' ? (
@@ -192,7 +198,6 @@ export default function Header({
                       `}
                     >
                       {link.label}
-                      {/* Línea animada inferior */}
                       <span className={`absolute bottom-0 left-0 h-[2px] bg-blue-600 transition-all duration-300 ${pathname === link.path ? 'w-full' : 'w-0 group-hover:w-full'}`}></span>
                     </Link>
                   ))}
@@ -246,7 +251,7 @@ export default function Header({
               </div>
             )}
 
-            {/* Iconos Públicos */}
+            {/* Iconos Públicos (Carrito y Favoritos Fuera del Menú) */}
             {variant !== 'dashboard' && (
               <>
                 <Link href="/wishlist" className="hidden sm:flex p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-red-500 transition-colors">
@@ -260,8 +265,11 @@ export default function Header({
               </>
             )}
 
-            {/* MENÚ DE USUARIO (Desktop) */}
-            <div className="hidden sm:block">
+            {/* MENÚ DE USUARIO 
+                - En Desktop: Visible siempre si logueado.
+                - En Dashboard Móvil: Ahora es VISIBLE (quitamos el 'hidden sm:block' restrictivo).
+            */}
+            <div className={variant === 'dashboard' ? 'block' : 'hidden sm:block'}>
               {mounted && isAuthenticated && user ? (
                 <div className="relative" ref={menuRef}>
                   <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className={`flex items-center gap-3 pl-1 pr-1 py-1 rounded-xl transition-all border ${isUserMenuOpen ? 'bg-slate-50 border-slate-200' : 'hover:bg-slate-50 border-transparent'}`}>
@@ -272,6 +280,7 @@ export default function Header({
                     </div>
                     <ChevronDown size={14} className={`text-slate-400 hidden md:block transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
+                  
                   {isUserMenuOpen && (
                     <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
                       <div className="p-4 bg-slate-50/80 border-b border-slate-100">
@@ -287,8 +296,12 @@ export default function Header({
                           <>
                             <Link href="/profile" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors"><Settings size={16} /> Mi Perfil</Link>
                             <Link href="/orders" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors"><Package size={16} /> Mis Pedidos</Link>
-                            {/* ✅ RESTAURADO: Mis Cotizaciones */}
                             <Link href="/quotes" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors"><MessageSquareQuote size={16} /> Mis Cotizaciones</Link>
+                            
+                            {/* ✅ NUEVO: FAVORITOS DENTRO DEL MENÚ DE USUARIO */}
+                            <Link href="/wishlist" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                              <Heart size={16} /> Mis Favoritos
+                            </Link>
                           </>
                         )}
                         <div className="h-px bg-slate-100 my-1"></div>
@@ -305,7 +318,7 @@ export default function Header({
               )}
             </div>
 
-            {/* BOTÓN MENÚ MÓVIL */}
+            {/* BOTÓN MENÚ MÓVIL PÚBLICO */}
             {variant !== 'dashboard' && (
               <button 
                 className="lg:hidden p-2.5 text-slate-800 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors active:scale-95 z-50" 
@@ -319,7 +332,8 @@ export default function Header({
       </header>
 
       {/* =========================================================================
-           📱 MENÚ MÓVIL (Z-INDEX 990 para estar justo debajo del header)
+           📱 MENÚ MÓVIL PÚBLICO (OFF-CANVAS)
+           Z-INDEX 990 para estar justo debajo del header público
          ========================================================================= */}
       {isMobileMenuOpen && variant !== 'dashboard' && (
         <div className="lg:hidden fixed inset-0 z-[990] bg-white animate-in slide-in-from-top-10 fade-in duration-200 flex flex-col pt-[72px]">
@@ -385,9 +399,12 @@ export default function Header({
                         <Link href="/orders" onClick={() => setIsMobileMenuOpen(false)} className="bg-white/10 border border-white/5 py-3 rounded-xl text-center font-medium hover:bg-white/20 transition-colors">
                           Pedidos
                         </Link>
-                        {/* ✅ RESTAURADO: Cotizaciones en Móvil */}
-                        <Link href="/quotes" onClick={() => setIsMobileMenuOpen(false)} className="col-span-2 bg-white/10 border border-white/5 py-3 rounded-xl text-center font-medium hover:bg-white/20 transition-colors">
+                        <Link href="/quotes" onClick={() => setIsMobileMenuOpen(false)} className="bg-white/10 border border-white/5 py-3 rounded-xl text-center font-medium hover:bg-white/20 transition-colors">
                           Mis Cotizaciones
+                        </Link>
+                        {/* ✅ FAVORITOS TAMBIÉN EN MÓVIL */}
+                        <Link href="/wishlist" onClick={() => setIsMobileMenuOpen(false)} className="bg-white/10 border border-white/5 py-3 rounded-xl text-center font-medium hover:bg-white/20 transition-colors">
+                          Favoritos
                         </Link>
                       </>
                     )}
