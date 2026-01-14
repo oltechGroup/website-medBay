@@ -145,9 +145,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
 
   return createPortal(
     <>
-      {/* ⚡ CORRECCIÓN Z-INDEX: z-[2000] para superar al Header (z-999) 
-         ⚡ ALINEACIÓN: items-end md:items-center para que en móvil nazca de abajo o centro seguro
-      */}
+      {/* ⚡ CORRECCIÓN Z-INDEX: z-[2000] para superar al Header */}
       <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
         
         {/* Backdrop */}
@@ -157,11 +155,11 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
         ></div>
 
         {/* ⚡ MODAL CONTAINER 
-           - h-[90vh] md:max-h-[90vh]: Altura fija para obligar al scroll interno.
-           - rounded-t-[2rem] md:rounded-[2rem]: Bordes redondeados solo arriba en móvil (estilo hoja inferior).
-           - flex flex-col md:flex-row: Layout responsivo.
+           - h-[90vh]: Fijo en móvil para scroll seguro.
+           - md:h-[85vh]: ✅ AHORA FIJO EN PC TAMBIÉN (Antes era auto). 
+             Esto obliga al contenedor a tener límite y activa el scroll interno.
         */}
-        <div className="relative bg-white w-full max-w-6xl h-[90vh] md:h-auto md:max-h-[90vh] rounded-t-[2rem] md:rounded-[2rem] overflow-hidden shadow-2xl flex flex-col md:flex-row animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-300 ring-1 ring-white/20">
+        <div className="relative bg-white w-full max-w-6xl h-[90vh] md:h-[85vh] rounded-t-[2rem] md:rounded-[2rem] overflow-hidden shadow-2xl flex flex-col md:flex-row animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-300 ring-1 ring-white/20">
           
           <button 
             onClick={onClose} 
@@ -171,7 +169,6 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
           </button>
 
           {/* === COLUMNA IZQ: IMÁGENES (Pública) === */}
-          {/* Ajuste: h-auto en móvil para que no ocupe toda la pantalla */}
           <div className="w-full md:w-1/2 bg-slate-50/50 p-4 md:p-8 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 flex-shrink-0">
             <div className="relative w-full h-[200px] md:h-[450px] mb-4 md:mb-8 bg-white rounded-2xl md:rounded-3xl shadow-sm p-4 flex items-center justify-center border border-white">
               <img 
@@ -193,7 +190,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
               )}
             </div>
             
-            {/* Miniaturas (Ocultas en móvil muy pequeño si quieres ahorrar espacio, aquí las dejo scrolleables) */}
+            {/* Miniaturas */}
             {allImages.length > 1 && (
               <div className="flex gap-2 md:gap-4 overflow-x-auto py-2 px-1 w-full justify-start md:justify-center no-scrollbar">
                 {allImages.map((img, idx) => (
@@ -213,10 +210,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
           </div>
 
           {/* === COLUMNA DER: INFO Y LOTES === */}
-          {/* ⚡ SCROLL FIX: 
-             - min-h-0: Permite que el flex container se encoja para activar scroll.
-             - flex-col h-full: Ocupa el espacio restante.
-          */}
+          {/* ⚡ SCROLL FIX: min-h-0 y flex-col permiten que este div se contraiga y active el overflow */}
           <div className="w-full md:w-1/2 flex flex-col h-full min-h-0 bg-white relative">
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10">
                 <div className="mb-6 md:mb-8">
