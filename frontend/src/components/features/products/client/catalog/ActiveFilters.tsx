@@ -1,5 +1,3 @@
-//frontend/src/components/features/products/client/catalog/ActiveFilters.tsx
-
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -56,24 +54,34 @@ export const ActiveFilters = () => {
   if (filters.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 mb-8 animate-in fade-in slide-in-from-left-2 duration-500">
-      <div className="flex items-center gap-2 text-slate-400 mr-2">
+    <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-6 md:mb-8 animate-in fade-in slide-in-from-left-2 duration-500">
+      
+      {/* Etiqueta "Filtros:" - Oculta texto en pantallas muy pequeñas */}
+      <div className="flex items-center gap-2 text-slate-400 mr-1 md:mr-2">
          <Tag size={14} />
-         <span className="text-[10px] font-black uppercase tracking-[0.2em]">Filtros:</span>
+         <span className="hidden sm:inline text-[10px] font-black uppercase tracking-[0.2em]">Filtros:</span>
       </div>
 
       {filters.map((filter) => (
         <span 
           key={filter.key} 
-          className="group inline-flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-full text-[11px] font-black text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+          // Ajuste: Padding reducido en móvil y texto text-xs (más legible)
+          className="group inline-flex items-center gap-1.5 md:gap-2 px-3 py-1.5 md:px-4 md:py-1.5 bg-white border border-slate-200 rounded-full text-xs md:text-[11px] font-black text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
         >
-          <span className="opacity-60 uppercase tracking-tighter">
+          {/* Ajuste: Ocultar prefijos (TXT, REF) en móvil para ahorrar espacio */}
+          <span className="opacity-60 uppercase tracking-tighter hidden sm:inline">
              {filter.key === 'search' ? 'TXT' : filter.key.includes('Price') ? 'PRC' : 'REF'}:
           </span>
-          {filter.label}
+          
+          {/* Truncar texto muy largo en móvil */}
+          <span className="truncate max-w-[150px] sm:max-w-none">
+            {filter.label}
+          </span>
+
           <button 
             onClick={() => removeFilter(filter.key, filter.isPrice)}
-            className="ml-1 p-0.5 bg-slate-100 rounded-full text-slate-400 group-hover:bg-red-50 group-hover:text-red-500 transition-all"
+            // Ajuste: Aumentar área de toque
+            className="ml-1 p-1 md:p-0.5 bg-slate-100 rounded-full text-slate-400 group-hover:bg-red-50 group-hover:text-red-500 transition-all"
           >
             <X size={12} />
           </button>
@@ -82,7 +90,8 @@ export const ActiveFilters = () => {
       
       <button 
         onClick={clearAll}
-        className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 border-b-2 border-transparent hover:border-blue-600 transition-all ml-4 py-1"
+        // Ajuste: ml-auto en móvil empuja este botón a la derecha si hay espacio
+        className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 border-b-2 border-transparent hover:border-blue-600 transition-all ml-auto md:ml-4 py-2 md:py-1"
       >
         Limpiar Todo
       </button>

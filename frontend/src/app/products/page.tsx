@@ -2,7 +2,7 @@
 
 "use client";
 
-import { Suspense } from "react"; // <--- 1. Importación necesaria
+import { Suspense } from "react"; 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { 
@@ -22,7 +22,6 @@ import { ClientSearch } from "@/components/features/products/client/ClientSearch
 import { ActiveFilters } from "@/components/features/products/client/catalog/ActiveFilters";
 import { CatalogNavigation } from "@/components/features/products/client/catalog/CatalogNavigation";
 
-// 2. Renombramos tu componente original a "ProductsContent" y quitamos el export default
 function ProductsContent() {
   const searchParams = useSearchParams();
 
@@ -49,7 +48,7 @@ function ProductsContent() {
     sortBy
   });
 
-  // 3. Configuración del Banner (Elevado a Diseño Premium)
+  // 3. Configuración del Banner
   const getSectionConfig = () => {
     switch (status) {
       case 'expired':
@@ -87,34 +86,40 @@ function ProductsContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
+      
       {/* ======= BANNER DE SECCIÓN ======= */}
-      <div className={`relative bg-gradient-to-r ${config.gradient} text-white py-12 overflow-hidden`}>
+      {/* Ajuste: pt-32 para compensar Header Fijo en móvil */}
+      <div className={`relative bg-gradient-to-r ${config.gradient} text-white pt-32 pb-12 md:py-20 overflow-hidden`}>
         <div className="absolute inset-0 opacity-10 bg-[url('/Images/pattern.png')] bg-repeat"></div>
-        <Package className="absolute -right-16 -bottom-16 w-80 h-80 text-white/5 pointer-events-none transform rotate-12" />
+        
+        {/* Ajuste: Icono decorativo más pequeño en móvil para no tapar texto */}
+        <Package className="absolute -right-8 -bottom-8 w-40 h-40 md:-right-16 md:-bottom-16 md:w-80 md:h-80 text-white/5 pointer-events-none transform rotate-12" />
         
         <div className="w-[90%] max-w-[1400px] mx-auto relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-white/20 mb-4">
               {config.tag}
           </div>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-3">
+          {/* Ajuste: Título responsive */}
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-3 leading-tight">
             {config.title}
           </h1>
-          <p className="text-white/70 text-lg max-w-2xl font-medium leading-relaxed">
+          <p className="text-white/70 text-base md:text-lg max-w-2xl font-medium leading-relaxed">
             {config.description}
           </p>
         </div>
       </div>
 
       {/* ======= CONTENIDO PRINCIPAL ======= */}
-      <main className="w-[90%] max-w-[1400px] mx-auto py-10">
+      <main className="w-[90%] max-w-[1400px] mx-auto py-6 md:py-10">
         
         <CatalogNavigation />
 
-        <div className="flex flex-col lg:flex-row gap-10 items-start mt-8">
+        <div className="flex flex-col lg:flex-row gap-6 md:gap-10 items-start mt-6 md:mt-8">
           
           {/* ASIDE: FILTROS */}
+          {/* En móvil se apila arriba. Mantiene w-full para ocupar el ancho disponible */}
           <aside className="w-full lg:w-80 flex-shrink-0 lg:sticky lg:top-28">
-            <div className="flex items-center gap-2 mb-6 px-1">
+            <div className="flex items-center gap-2 mb-4 md:mb-6 px-1">
                <Filter size={18} className="text-blue-600" />
                <span className="font-black text-sm uppercase tracking-widest text-slate-400">Filtros Avanzados</span>
             </div>
@@ -139,7 +144,7 @@ function ProductsContent() {
                 ))}
               </div>
             ) : products && products.length > 0 ? (
-              <div className="flex flex-col gap-6 mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex flex-col gap-4 md:gap-6 mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {products.map((product) => (
                   <ClientProductCard 
                     key={product.id} 
@@ -149,17 +154,17 @@ function ProductsContent() {
                 ))}
               </div>
             ) : (
-              <div className="bg-white rounded-[3rem] py-24 text-center border border-dashed border-slate-300 shadow-sm flex flex-col items-center mt-6">
-                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 text-slate-300">
-                  <Search size={48} />
+              <div className="bg-white rounded-[2rem] md:rounded-[3rem] py-12 md:py-24 text-center border border-dashed border-slate-300 shadow-sm flex flex-col items-center mt-6 px-4">
+                <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 text-slate-300">
+                  <Search size={40} className="md:w-12 md:h-12" />
                 </div>
-                <h3 className="text-2xl font-black text-slate-800 mb-2">Sin coincidencias</h3>
-                <p className="text-slate-500 max-w-sm mx-auto mb-10 font-medium">
+                <h3 className="text-xl md:text-2xl font-black text-slate-800 mb-2">Sin coincidencias</h3>
+                <p className="text-slate-500 max-w-sm mx-auto mb-8 font-medium text-sm md:text-base">
                   No encontramos productos en <span className="text-blue-600">{config.title}</span> que coincidan con tu búsqueda actual.
                 </p>
                 <button 
                   onClick={() => window.location.href = '/products'}
-                  className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/10"
+                  className="bg-slate-900 text-white px-6 md:px-8 py-3 rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/10 text-sm md:text-base"
                 >
                   Reiniciar búsqueda
                 </button>
@@ -168,27 +173,37 @@ function ProductsContent() {
 
             {/* PAGINACIÓN PREMIUM */}
             {pagination && pagination.totalPages > 1 && (
-              <div className="flex justify-center items-center mt-16 gap-4">
-                <Link 
-                  href={`/products?page=${Math.max(1, page - 1)}&status=${status}&search=${searchTerm}&minPrice=${minPrice || ''}&maxPrice=${maxPrice || ''}&sortBy=${sortBy}`}
-                  className={`flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-black transition-all ${page === 1 ? 'pointer-events-none opacity-30' : 'hover:border-blue-500 hover:text-blue-600 shadow-sm'}`}
-                >
-                  <ArrowLeft size={16} /> Anterior
-                </Link>
-                
-                <div className="flex items-center bg-white px-4 py-3 rounded-2xl border border-slate-100 shadow-inner">
+              <div className="flex flex-col sm:flex-row justify-center items-center mt-12 gap-4 w-full">
+                <div className="flex w-full sm:w-auto justify-between gap-4">
+                  <Link 
+                    href={`/products?page=${Math.max(1, page - 1)}&status=${status}&search=${searchTerm}&minPrice=${minPrice || ''}&maxPrice=${maxPrice || ''}&sortBy=${sortBy}`}
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-black transition-all ${page === 1 ? 'pointer-events-none opacity-30' : 'hover:border-blue-500 hover:text-blue-600 shadow-sm'}`}
+                  >
+                    <ArrowLeft size={16} /> Anterior
+                  </Link>
+                  
+                  {/* Indicador solo visible en móvil si falta espacio, o ajustado */}
+                  <div className="sm:hidden flex items-center bg-white px-4 py-3 rounded-2xl border border-slate-100 shadow-inner">
+                     <span className="text-sm font-black text-blue-600">{page}</span>
+                     <span className="mx-1 text-slate-300">/</span>
+                     <span className="text-sm font-black text-slate-400">{pagination.totalPages}</span>
+                  </div>
+
+                  <Link 
+                    href={`/products?page=${Math.min(pagination.totalPages, page + 1)}&status=${status}&search=${searchTerm}&minPrice=${minPrice || ''}&maxPrice=${maxPrice || ''}&sortBy=${sortBy}`}
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-black transition-all ${page === pagination.totalPages ? 'pointer-events-none opacity-30' : 'hover:border-blue-500 hover:text-blue-600 shadow-sm'}`}
+                  >
+                    Siguiente <ChevronRight size={16} />
+                  </Link>
+                </div>
+
+                {/* Indicador Desktop */}
+                <div className="hidden sm:flex items-center bg-white px-4 py-3 rounded-2xl border border-slate-100 shadow-inner">
                    <span className="text-xs font-black text-slate-400 mr-2 uppercase tracking-tighter transition-all">Página</span>
                    <span className="text-sm font-black text-blue-600">{page}</span>
                    <span className="mx-2 text-slate-300 font-light">/</span>
                    <span className="text-sm font-black text-slate-400">{pagination.totalPages}</span>
                 </div>
-
-                <Link 
-                  href={`/products?page=${Math.min(pagination.totalPages, page + 1)}&status=${status}&search=${searchTerm}&minPrice=${minPrice || ''}&maxPrice=${maxPrice || ''}&sortBy=${sortBy}`}
-                  className={`flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-black transition-all ${page === pagination.totalPages ? 'pointer-events-none opacity-30' : 'hover:border-blue-500 hover:text-blue-600 shadow-sm'}`}
-                >
-                  Siguiente <ChevronRight size={16} />
-                </Link>
               </div>
             )}
 
@@ -199,7 +214,6 @@ function ProductsContent() {
   );
 }
 
-// 3. Nuevo componente contenedor con Suspense
 export default function ProductsPage() {
   return (
     <Suspense fallback={

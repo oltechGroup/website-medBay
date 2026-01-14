@@ -1,5 +1,4 @@
-// frontend/src/components/features/products/client/ClientSearch.tsx
-
+//frontend/src/components/features/products/client/ClientSearch.tsx
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -7,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Search, X, ChevronRight, Package, Loader2 } from "lucide-react";
 import { useProducts, Product } from "@/hooks/useProducts"; 
 import { getImageUrl, formatCurrency } from "@/lib/formatters";
-import { ProductQuickView } from "./ProductQuickView"; // ✅ Importamos el Modal
+import { ProductQuickView } from "./ProductQuickView"; 
 
 export const ClientSearch = () => {
   const router = useRouter();
@@ -18,10 +17,10 @@ export const ClientSearch = () => {
   const [isActive, setIsActive] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Estado para controlar el Modal desde el buscador
+  // Estado para controlar el Modal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // DEBOUNCE: Espera 500ms
+  // DEBOUNCE
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedTerm(searchTerm);
@@ -59,10 +58,9 @@ export const ClientSearch = () => {
     if (e.key === 'Enter') handleSearch();
   };
 
-  // ✅ Función para abrir el modal en lugar de navegar
   const handleProductClick = (product: Product) => {
-    setSelectedProduct(product); // Guardamos el producto para el modal
-    setIsActive(false); // Cerramos el dropdown de búsqueda
+    setSelectedProduct(product); 
+    setIsActive(false); 
   };
 
   return (
@@ -74,18 +72,20 @@ export const ClientSearch = () => {
         relative flex items-center bg-white transition-all duration-300
         ${isActive ? 'rounded-t-2xl shadow-2xl ring-2 ring-blue-100' : 'rounded-2xl shadow-xl'}
       `}>
-        <div className="pl-6 text-gray-400">
+        {/* Ajuste: Padding responsivo para icono */}
+        <div className="pl-4 md:pl-6 text-gray-400">
           {isLoading && searchTerm !== debouncedTerm ? (
-             <Loader2 size={22} className="animate-spin text-blue-500" />
+             <Loader2 size={20} className="animate-spin text-blue-500 md:w-[22px] md:h-[22px]" />
           ) : (
-             <Search size={22} />
+             <Search size={20} className="md:w-[22px] md:h-[22px]" />
           )}
         </div>
         
         <input 
           type="text" 
-          placeholder="Buscar por nombre, SKU o categoría..." 
-          className="w-full p-5 text-gray-800 outline-none text-lg placeholder:text-gray-400 bg-transparent font-medium"
+          placeholder="Buscar producto, SKU..." 
+          // Ajuste: text-base en móvil evita zoom iOS. Padding reducido.
+          className="w-full p-3 md:p-5 text-gray-800 outline-none text-base md:text-lg placeholder:text-gray-400 bg-transparent font-medium"
           value={searchTerm}
           onChange={(e) => {
             setSearchTerm(e.target.value);
@@ -98,15 +98,16 @@ export const ClientSearch = () => {
         {searchTerm && (
           <button 
             onClick={() => { setSearchTerm(""); setDebouncedTerm(""); }}
-            className="p-2 mr-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-2 mr-1 md:mr-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
           >
-            <X size={18} />
+            <X size={16} className="md:w-[18px] md:h-[18px]" />
           </button>
         )}
 
+        {/* Ajuste: Botón más compacto en móvil */}
         <button 
           onClick={handleSearch} 
-          className="mr-2 bg-blue-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-blue-700 transition-all shadow-md hover:shadow-lg transform active:scale-95"
+          className="mr-2 bg-blue-600 text-white font-bold py-2 px-4 md:py-3 md:px-8 rounded-xl hover:bg-blue-700 transition-all shadow-md hover:shadow-lg transform active:scale-95 text-sm md:text-base whitespace-nowrap"
         >
           Buscar
         </button>
@@ -119,20 +120,20 @@ export const ClientSearch = () => {
           {isLoading ? (
             <div className="p-8 text-center text-gray-400 flex flex-col items-center gap-2">
               <Loader2 className="animate-spin" size={24} />
-              <p className="text-sm font-medium">Buscando en catálogo...</p>
+              <p className="text-sm font-medium">Buscando...</p>
             </div>
           ) : products && products.length > 0 ? (
             <>
-              {/* Contenedor con Scroll */}
-              <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
+              {/* Contenedor con Scroll - Ajuste: max-h vh en móvil para teclados */}
+              <div className="max-h-[50vh] md:max-h-[380px] overflow-y-auto custom-scrollbar">
                 {products.map((prod) => (
                   <div 
                     key={prod.id}
-                    onClick={() => handleProductClick(prod)} // ✅ AHORA ABRE MODAL
-                    className="flex items-center gap-4 p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors group"
+                    onClick={() => handleProductClick(prod)}
+                    className="flex items-center gap-3 md:gap-4 p-3 md:p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors group"
                   >
-                    {/* Imagen */}
-                    <div className="w-14 h-14 bg-white border border-gray-200 rounded-lg p-1 flex-shrink-0 shadow-sm group-hover:border-blue-200 transition-colors">
+                    {/* Imagen - Ajuste: más pequeña en móvil */}
+                    <div className="w-12 h-12 md:w-14 md:h-14 bg-white border border-gray-200 rounded-lg p-1 flex-shrink-0 shadow-sm group-hover:border-blue-200 transition-colors">
                        <img 
                          src={getImageUrl(prod.primary_image)} 
                          alt={prod.description}
@@ -143,29 +144,29 @@ export const ClientSearch = () => {
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-800 truncate group-hover:text-blue-700 leading-tight">
+                      <p className="text-xs md:text-sm font-bold text-gray-800 truncate group-hover:text-blue-700 leading-tight">
                         {prod.description}
                       </p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-xs text-gray-500 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                      <div className="flex items-center gap-2 md:gap-3 mt-1">
+                        <span className="text-[10px] md:text-xs text-gray-500 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
                           {prod.global_sku}
                         </span>
-                        <span className="text-xs text-gray-400 uppercase tracking-wide">
+                        <span className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide truncate max-w-[100px]">
                           {prod.manufacturer_name || 'Genérico'}
                         </span>
                       </div>
                     </div>
 
                     {/* Precio y Acción */}
-                    <div className="text-right min-w-[80px]">
+                    <div className="text-right min-w-[70px] md:min-w-[80px]">
                       {prod.min_price && prod.min_price > 0 ? (
-                        <p className="text-sm font-bold text-blue-600">
+                        <p className="text-xs md:text-sm font-bold text-blue-600">
                           {formatCurrency(prod.min_price)}
                         </p>
                       ) : (
-                        <p className="text-xs font-semibold text-gray-400">Cotizar</p>
+                        <p className="text-[10px] md:text-xs font-semibold text-gray-400">Cotizar</p>
                       )}
-                      <ChevronRight size={16} className="ml-auto mt-1 text-gray-300 group-hover:text-blue-500 transition-colors"/>
+                      <ChevronRight size={14} className="ml-auto mt-1 text-gray-300 group-hover:text-blue-50 transition-colors md:w-4 md:h-4"/>
                     </div>
                   </div>
                 ))}
@@ -175,25 +176,25 @@ export const ClientSearch = () => {
               {pagination && pagination.total > products.length && (
                 <div 
                   onClick={handleSearch}
-                  className="p-4 bg-gray-50 text-center cursor-pointer hover:bg-blue-50 transition-colors border-t border-gray-100 group"
+                  className="p-3 md:p-4 bg-gray-50 text-center cursor-pointer hover:bg-blue-50 transition-colors border-t border-gray-100 group"
                 >
-                  <span className="text-sm font-bold text-blue-600 group-hover:underline">
-                    Ver {pagination.total - products.length} resultados más en catálogo
+                  <span className="text-xs md:text-sm font-bold text-blue-600 group-hover:underline">
+                    Ver {pagination.total - products.length} más
                   </span>
                 </div>
               )}
             </>
           ) : (
-            <div className="p-8 text-center text-gray-500">
-              <Package size={32} className="mx-auto mb-2 text-gray-300" />
-              <p>No encontramos productos para "{searchTerm}"</p>
-              <p className="text-xs text-gray-400 mt-1">Intenta con otro nombre, código o categoría.</p>
+            <div className="p-6 md:p-8 text-center text-gray-500">
+              <Package size={28} className="mx-auto mb-2 text-gray-300 md:w-8 md:h-8" />
+              <p className="text-sm">Sin resultados</p>
+              <p className="text-xs text-gray-400 mt-1">Intenta con otro término.</p>
             </div>
           )}
         </div>
       )}
 
-      {/* ✅ RENDERIZADO DEL MODAL */}
+      {/* RENDERIZADO DEL MODAL */}
       {selectedProduct && (
         <ProductQuickView 
           product={selectedProduct} 

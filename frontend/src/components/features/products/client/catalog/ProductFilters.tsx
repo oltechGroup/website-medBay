@@ -1,5 +1,3 @@
-//frontend/src/components/features/products/client/catalog/ProductFilters.tsx
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,7 +18,7 @@ export const ProductFilters = () => {
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
   
-  // Buscadores locales (Lógica intacta)
+  // Buscadores locales
   const [mfgSearch, setMfgSearch] = useState(""); 
   const [catSearch, setCatSearch] = useState("");
 
@@ -51,12 +49,11 @@ export const ProductFilters = () => {
     router.push(`/products?${params.toString()}`);
   };
 
-  // Filtrado local de Fabricantes
+  // Filtrado local
   const filteredManufacturers = manufacturers.filter(m => 
     m.name.toLowerCase().includes(mfgSearch.toLowerCase())
   );
 
-  // Filtrado local de Categorías
   const filteredCategories = categories.filter(c => 
     c.name.toLowerCase().includes(catSearch.toLowerCase())
   );
@@ -64,14 +61,14 @@ export const ProductFilters = () => {
   const currentCategory = searchParams.get("categoryId");
   const currentManufacturer = searchParams.get("manufacturerId");
 
-  // Verificar si hay filtros activos para mostrar el botón de limpiar
+  // Verificar si hay filtros activos
   const hasActiveFilters = currentCategory || currentManufacturer || minPrice || maxPrice;
 
   return (
-    <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-white p-6 w-full lg:w-80 flex-shrink-0 h-fit sticky top-28 transition-all">
+    <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-white p-5 md:p-6 w-full lg:w-80 flex-shrink-0 h-auto lg:h-fit lg:sticky lg:top-28 transition-all">
       
       {/* Header del Panel */}
-      <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
+      <div className="flex items-center justify-between mb-6 md:mb-8 pb-4 border-b border-gray-100">
         <div className="flex items-center gap-2 text-slate-900">
           <div className="p-2 bg-slate-100 rounded-lg text-slate-500">
              <Filter size={16} />
@@ -92,7 +89,7 @@ export const ProductFilters = () => {
       </div>
 
       {/* 1. RANGO DE PRECIO */}
-      <div className="mb-10">
+      <div className="mb-8 md:mb-10">
         <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wider flex items-center gap-2">
             <DollarSign size={14} className="text-blue-500"/> Rango de Precio
         </h3>
@@ -128,7 +125,7 @@ export const ProductFilters = () => {
       </div>
 
       {/* 2. CATEGORÍAS */}
-      <div className="mb-10">
+      <div className="mb-8 md:mb-10">
         <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wider flex items-center gap-2">
             Categorías
             <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-mono">{filteredCategories.length}</span>
@@ -146,7 +143,7 @@ export const ProductFilters = () => {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
         </div>
 
-        <div className="space-y-1 max-h-[240px] overflow-y-auto custom-scrollbar pr-2">
+        <div className="space-y-1 max-h-[200px] md:max-h-[240px] overflow-y-auto custom-scrollbar pr-2">
           {filteredCategories.length > 0 ? (
             filteredCategories.map((cat) => {
               const isSelected = currentCategory === cat.id;
@@ -200,7 +197,7 @@ export const ProductFilters = () => {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
         </div>
 
-        <div className="space-y-1 max-h-[240px] overflow-y-auto custom-scrollbar pr-2">
+        <div className="space-y-1 max-h-[200px] md:max-h-[240px] overflow-y-auto custom-scrollbar pr-2">
           {filteredManufacturers.length > 0 ? (
             filteredManufacturers.map((mfg) => {
               const isSelected = currentManufacturer === mfg.id;

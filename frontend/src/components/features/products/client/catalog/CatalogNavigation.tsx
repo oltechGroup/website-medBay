@@ -1,5 +1,3 @@
-//frontend/src/components/features/products/client/catalog/CatalogNavigation.tsx
-
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -46,26 +44,26 @@ export const CatalogNavigation = () => {
 
   if (currentStatus === 'all') {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {sections.map((section) => (
           <button
             key={section.id}
             onClick={() => handleNavigate(section.id)}
-            className="group relative bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all duration-500 text-left flex items-center gap-5 overflow-hidden"
+            className="group relative bg-white rounded-2xl md:rounded-[2rem] border border-slate-100 p-5 md:p-6 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all duration-500 text-left flex items-center gap-4 md:gap-5 overflow-hidden active:scale-[0.98]"
           >
             {/* Círculo de fondo sutil al hover */}
-            <div className={`absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-0 group-hover:opacity-5 transition-opacity ${section.color}`}></div>
+            <div className={`absolute -right-4 -bottom-4 w-20 h-20 md:w-24 md:h-24 rounded-full opacity-0 group-hover:opacity-5 transition-opacity ${section.color}`}></div>
             
-            <div className={`p-4 rounded-2xl text-white shadow-lg shadow-current/10 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${section.color}`}>
-              <section.icon size={24} />
+            <div className={`p-3 md:p-4 rounded-xl md:rounded-2xl text-white shadow-lg shadow-current/10 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${section.color}`}>
+              <section.icon size={20} className="md:w-6 md:h-6" />
             </div>
-            <div className="flex-1">
-              <h3 className="font-black text-slate-800 text-lg leading-tight mb-1 group-hover:text-blue-600 transition-colors">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight mb-1 group-hover:text-blue-600 transition-colors truncate">
                 {section.label}
               </h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{section.desc}</p>
+              <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest truncate">{section.desc}</p>
             </div>
-            <ChevronRight size={18} className="text-slate-200 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
+            <ChevronRight size={16} className="text-slate-200 group-hover:text-blue-400 group-hover:translate-x-1 transition-all md:w-[18px] md:h-[18px]" />
           </button>
         ))}
       </div>
@@ -73,32 +71,37 @@ export const CatalogNavigation = () => {
   }
 
   return (
-    <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-10 bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm">
+    <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 mb-6 md:mb-10 bg-white p-2 md:p-3 rounded-2xl md:rounded-[2rem] border border-slate-100 shadow-sm">
+      
+      {/* Botón Volver - Ancho completo en móvil */}
       <button
         onClick={() => handleNavigate('all')}
-        className="group flex items-center gap-3 text-slate-500 hover:text-blue-600 font-black text-xs uppercase tracking-widest transition-all pl-2"
+        className="w-full md:w-auto group flex items-center justify-center md:justify-start gap-3 text-slate-500 hover:text-blue-600 font-black text-xs uppercase tracking-widest transition-all px-2 py-2 md:pl-2"
       >
         <div className="bg-slate-100 p-2 rounded-full group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
           <ArrowLeft size={16} />
         </div>
-        Volver al Catálogo General
+        Volver al Catálogo
       </button>
 
-      <div className="flex gap-2 bg-slate-100 p-1.5 rounded-2xl w-full md:w-auto">
+      {/* Tabs - Scroll horizontal en móviles muy pequeños o wrap */}
+      <div className="flex w-full md:w-auto gap-1 md:gap-2 bg-slate-100 p-1 md:p-1.5 rounded-xl md:rounded-2xl overflow-x-auto no-scrollbar">
         {sections.map((section) => {
           const isActive = currentStatus === section.id;
           return (
             <button
               key={section.id}
               onClick={() => handleNavigate(section.id)}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-tighter transition-all ${
+              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] md:text-xs font-black uppercase tracking-tighter transition-all whitespace-nowrap ${
                 isActive 
                   ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5 scale-[1.02]' 
                   : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
               }`}
             >
               <section.icon size={14} className={isActive ? 'text-blue-600' : 'text-slate-300'} />
-              <span>{section.label.split(' ')[0]}</span>
+              {/* En móvil solo mostramos la primera palabra para ahorrar espacio */}
+              <span className="hidden sm:inline">{section.label}</span>
+              <span className="sm:hidden">{section.label.split(' ')[0]}</span>
             </button>
           );
         })}
