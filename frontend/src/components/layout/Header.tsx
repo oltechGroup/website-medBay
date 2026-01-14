@@ -9,7 +9,8 @@ import {
   LayoutDashboard, ChevronDown, Package, 
   Settings, Menu, X, Bell, Stethoscope, 
   Building2, ShieldCheck, Store, Briefcase, 
-  MessageSquareQuote, Trash2, Search
+  MessageSquareQuote, Trash2, ChevronRight,
+  Search, ArrowRight
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
@@ -29,31 +30,28 @@ export default function Header({
   onMenuToggle,
   isDesktopCollapsed = false 
 }: HeaderProps) {
-  // --- HOOKS ---
+  // --- HOOKS DE LÓGICA (INTACTOS) ---
   const { user, isAuthenticated, logout } = useAuth();
   const { summary } = useCart(); 
   const pathname = usePathname();
   
-  // Lógica de roles
   const isAdmin = user?.verification_level === 'admin';
   const isSalesAgent = user?.verification_level === 'sales_agent';
   const isStaff = isAdmin || isSalesAgent;
 
-  // Notificaciones de Admin
+  // Notificaciones
   const { 
     notifications: adminNotifs, 
     unreadCount: adminUnread,
     deleteNotification: deleteAdminNotif 
   } = useAdminNotifications();
   
-  // Notificaciones de Cliente
   const { 
     notifications: clientNotifs, 
     unreadCount: clientUnread,
     deleteNotification: deleteClientNotif 
   } = useClientNotifications();
 
-  // Determinar datos activos
   const activeNotifications = isStaff ? adminNotifs : clientNotifs;
   const activeUnreadCount = isStaff ? adminUnread : clientUnread;
 
@@ -76,13 +74,14 @@ export default function Header({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Bloquear scroll del body cuando el menú móvil está abierto
+  // 🔒 BLOQUEO DE SCROLL CUANDO EL MENÚ MÓVIL ESTÁ ABIERTO
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
+    return () => { document.body.style.overflow = 'unset'; };
   }, [isMobileMenuOpen]);
 
   useEffect(() => {
@@ -111,16 +110,11 @@ export default function Header({
   // --- HELPERS VISUALES ---
   const getRoleBadge = (level?: string) => {
     switch (level) {
-      case 'admin':
-        return <span className="flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-purple-200 tracking-wider"><ShieldCheck size={10} /> ADMIN</span>;
-      case 'sales_agent':
-        return <span className="flex items-center gap-1 bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-indigo-200 tracking-wider"><Briefcase size={10} /> VENDEDOR</span>;
-      case 'medical_professional':
-        return <span className="flex items-center gap-1 bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-blue-200 tracking-wider"><Stethoscope size={10} /> MÉDICO</span>;
-      case 'business_verified':
-        return <span className="flex items-center gap-1 bg-green-100 text-green-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-green-200 tracking-wider"><Building2 size={10} /> EMPRESA</span>;
-      default:
-        return <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-200 tracking-wider">USUARIO</span>;
+      case 'admin': return <span className="flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-purple-200 tracking-wider"><ShieldCheck size={10} /> ADMIN</span>;
+      case 'sales_agent': return <span className="flex items-center gap-1 bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-indigo-200 tracking-wider"><Briefcase size={10} /> VENDEDOR</span>;
+      case 'medical_professional': return <span className="flex items-center gap-1 bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-blue-200 tracking-wider"><Stethoscope size={10} /> MÉDICO</span>;
+      case 'business_verified': return <span className="flex items-center gap-1 bg-green-100 text-green-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-green-200 tracking-wider"><Building2 size={10} /> EMPRESA</span>;
+      default: return <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-200 tracking-wider">USUARIO</span>;
     }
   };
 
@@ -130,75 +124,70 @@ export default function Header({
     if (pathname.includes('/quotes')) return 'Cotizaciones';
     if (pathname.includes('/inventory')) return 'Inventario';
     if (pathname.includes('/customers')) return 'Clientes';
-    if (pathname.includes('/settings')) return 'Ajustes';
-    return 'Dashboard';
+    if (pathname.includes('/settings')) return 'Configuración';
+    return 'Panel';
   };
 
   const dashboardPaddingClass = isDesktopCollapsed ? 'lg:pl-20' : 'lg:pl-64';
 
   return (
     <>
+      {/* =========================================================================
+        🚀 BARRA DE NAVEGACIÓN FIJA (Z-INDEX 50)
+        =========================================================================
+      */}
       <header 
-        className={`fixed top-0 z-[60] transition-all duration-300 ease-in-out border-b 
-          ${isScrolled || variant === 'dashboard' ? 'bg-white/95 backdrop-blur-md shadow-sm border-gray-200 py-2 sm:py-3' : 'bg-white/80 backdrop-blur-md border-gray-100 py-3 sm:py-4'}
-          ${variant === 'dashboard' ? `w-full pr-0 ${dashboardPaddingClass}` : 'inset-x-0'}
+        className={`fixed top-0 left-0 right-0 z-[50] transition-all duration-300 ease-in-out border-b
+          ${isScrolled || isMobileMenuOpen || variant === 'dashboard' 
+            ? 'bg-white/95 backdrop-blur-xl shadow-sm border-gray-200 py-3' 
+            : 'bg-white/80 backdrop-blur-md border-transparent py-4'}
+          ${variant === 'dashboard' ? `w-full pr-0 ${dashboardPaddingClass}` : 'w-full'}
         `}
       >
-        <div className={`mx-auto flex items-center justify-between gap-2 sm:gap-4 ${variant === 'dashboard' ? 'px-4 sm:px-6 max-w-full' : 'w-[92%] sm:w-[90%] max-w-[1400px]'}`}>
+        <div className={`mx-auto flex items-center justify-between gap-3 ${variant === 'dashboard' ? 'px-4 sm:px-6 max-w-full' : 'w-[92%] max-w-[1400px]'}`}>
           
           {/* === IZQUIERDA: LOGO O TÍTULO === */}
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-3 md:gap-4 flex-1 md:flex-none">
             
-            {/* Botón Menú Dashboard (Móvil) */}
             {(variant === 'dashboard') && (
-              <button 
-                onClick={onMenuToggle} 
-                className="lg:hidden p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition-colors"
-              >
+              <button onClick={onMenuToggle} className="lg:hidden p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition-colors active:scale-95">
                 <Menu size={24} />
               </button>
             )}
 
-            {/* Logo (Visible en web pública y en móvil si no es dashboard) */}
             {variant !== 'dashboard' && (
-              <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
-                <img src="/icons/logomed.png" alt="Logo" className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg transition-transform group-hover:scale-105" />
-                <div className="flex text-xl sm:text-2xl font-bold leading-none tracking-tight">
-                  <span className="text-blue-500">Med</span><span className="text-slate-700">Bay</span>
+              <Link href="/" className="flex items-center gap-2 group flex-shrink-0 mr-auto md:mr-0 z-50">
+                <img src="/icons/logomed.png" alt="Logo" className="w-9 h-9 md:w-10 md:h-10 rounded-lg transition-transform group-hover:scale-105" />
+                <div className="flex text-xl md:text-2xl font-bold leading-none tracking-tight">
+                  <span className="text-blue-600">Med</span><span className="text-slate-800">Bay</span>
                 </div>
               </Link>
             )}
 
-            {/* Título Dinámico (Dashboard) */}
             {variant === 'dashboard' && (
-              <div className="flex items-center gap-2 animate-in fade-in duration-300">
-                <h1 className="text-lg sm:text-xl font-bold text-slate-800">{getPageTitle()}</h1>
+              <div className="flex flex-col md:flex-row md:items-center md:gap-2 animate-in fade-in duration-300">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider hidden sm:block">Dashboard</span>
+                <span className="text-slate-300 hidden sm:block">/</span>
+                <h1 className="text-lg font-bold text-slate-800 leading-none">{getPageTitle()}</h1>
               </div>
             )}
           </div>
 
-          {/* === CENTRO: NAVEGACIÓN PÚBLICA (Desktop) === */}
+          {/* === CENTRO: NAVEGACIÓN DESKTOP (SOLO PC) === */}
           {variant !== 'dashboard' && (
-            <div className="hidden lg:flex flex-1 justify-center px-8">
+            <div className="hidden lg:flex flex-1 justify-center px-4">
               {variant === 'catalog' ? (
-                <div className="w-full max-w-xl animate-in fade-in zoom-in-95 duration-300"><ClientSearch /></div>
+                <div className="w-full max-w-lg animate-in fade-in zoom-in-95 duration-300"><ClientSearch /></div>
               ) : (
-                <nav className="flex items-center gap-8">
+                <nav className="flex items-center gap-1 bg-slate-50/80 p-1.5 rounded-full border border-slate-100/50 backdrop-blur-sm">
                   {[
                     { label: 'Catálogo', path: '/products' },
                     { label: 'Características', path: '/Characteristics' },
                     { label: 'Nosotros', path: '/About' },
                     { label: 'Contacto', path: '/Contact' }
                   ].map((link) => (
-                    <Link 
-                      key={link.label} 
-                      href={link.path} 
-                      className={`text-sm font-bold transition-all relative group py-1
-                        ${pathname === link.path ? 'text-blue-600' : 'text-slate-500 hover:text-blue-600'}
-                      `}
-                    >
+                    <Link key={link.label} href={link.path} className={`text-sm font-bold px-5 py-2 rounded-full transition-all duration-300 ${pathname === link.path ? 'bg-white text-blue-600 shadow-sm shadow-slate-200' : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'}`}>
                       {link.label}
-                      <span className={`absolute bottom-0 left-0 w-0 h-[2px] bg-blue-600 transition-all duration-300 group-hover:w-full ${pathname === link.path ? 'w-full' : ''}`}></span>
                     </Link>
                   ))}
                 </nav>
@@ -207,75 +196,46 @@ export default function Header({
           )}
 
           {/* === DERECHA: ACCIONES Y USUARIO === */}
-          <div className="flex items-center gap-1 sm:gap-3 md:gap-4 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 z-50">
             
-            {/* Lupa en móvil (Solo si es catálogo) */}
-            {variant === 'catalog' && (
-               <Link href="/products" className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-full">
-                  <Search size={22} />
-               </Link>
-            )}
-
-            {/* 🔔 NOTIFICACIONES (Protegido: Solo si hay usuario) */}
+            {/* 🔔 NOTIFICACIONES */}
             {mounted && isAuthenticated && user && (
               <div className="relative" ref={notifRef}>
-                <button 
-                  onClick={() => setIsNotifOpen(!isNotifOpen)}
-                  className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-blue-600 transition-colors relative"
-                >
-                  <Bell size={22} />
-                  {activeUnreadCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
-                  )}
+                <button onClick={() => setIsNotifOpen(!isNotifOpen)} className={`p-2.5 rounded-xl transition-all relative active:scale-95 ${isNotifOpen ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-100 text-slate-500 hover:text-blue-600'}`}>
+                  <Bell size={20} strokeWidth={2.5} />
+                  {activeUnreadCount > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                 </button>
 
                 {isNotifOpen && (
-                  <div className="absolute right-[-60px] sm:right-0 top-full mt-3 w-[85vw] sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
-                    <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                      <h4 className="text-xs font-bold uppercase text-slate-500 tracking-wider">
-                        {isStaff ? 'Centro de Actividad' : 'Mis Notificaciones'}
-                      </h4>
-                      {activeUnreadCount > 0 && <span className="text-xs font-bold text-blue-600">{activeUnreadCount} nuevas</span>}
+                  <div className="absolute right-[-60px] md:right-0 top-full mt-4 w-[90vw] md:w-96 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                    {/* ... (Contenido de notificaciones igual al anterior) ... */}
+                    <div className="p-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                      <h4 className="text-xs font-black uppercase text-slate-500 tracking-wider">{isStaff ? 'Centro de Actividad' : 'Mis Notificaciones'}</h4>
+                      {activeUnreadCount > 0 && <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{activeUnreadCount} nuevas</span>}
                     </div>
-                    
-                    <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                    <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
                       {activeNotifications.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400 text-sm">Sin notificaciones pendientes</div>
+                        <div className="p-10 text-center flex flex-col items-center">
+                          <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3"><Bell className="text-slate-300" size={20}/></div>
+                          <p className="text-slate-400 text-sm font-medium">Estás al día</p>
+                        </div>
                       ) : (
                         activeNotifications.slice(0, 5).map((n: any) => (
-                          <div 
-                            key={n.id}
-                            onClick={() => { setSelectedNotif(n); setIsNotifOpen(false); }}
-                            className="relative p-4 border-b border-slate-50 hover:bg-blue-50/50 cursor-pointer transition-colors group pr-10"
-                          >
-                            {!n.is_read && (
-                              <div className="absolute left-2 top-5 w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                            )}
-                            <p className="text-sm font-bold text-slate-800 group-hover:text-blue-700 truncate pl-2">
-                              {n.subject || n.title}
-                            </p>
-                            <div className="flex justify-between mt-1 pl-2">
-                              <span className="text-xs text-slate-500 truncate max-w-[140px]">{n.sender_name || 'Sistema MedBay'}</span>
-                              <span className="text-[10px] text-slate-400">{new Date(n.created_at).toLocaleDateString()}</span>
+                          <div key={n.id} onClick={() => { setSelectedNotif(n); setIsNotifOpen(false); }} className="relative p-4 border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors group">
+                            <div className="flex gap-3">
+                              <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${!n.is_read ? 'bg-blue-500' : 'bg-slate-200'}`}></div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-slate-800 group-hover:text-blue-700 truncate">{n.subject || n.title}</p>
+                                <p className="text-xs text-slate-500 mt-0.5 truncate">{n.sender_name || 'Sistema MedBay'}</p>
+                                <p className="text-[10px] text-slate-400 mt-2">{new Date(n.created_at).toLocaleDateString()}</p>
+                              </div>
+                              <button onClick={(e) => handleDeleteNotification(e, n.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all self-center"><Trash2 size={16} /></button>
                             </div>
-                            <button 
-                              onClick={(e) => handleDeleteNotification(e, n.id)}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
-                              title="Borrar notificación"
-                            >
-                              <Trash2 size={16} />
-                            </button>
                           </div>
                         ))
                       )}
                     </div>
-                    
-                    <Link 
-                      href={isStaff ? "/dashboard" : "/notifications"} 
-                      className="block p-3 text-center text-xs font-bold text-blue-600 hover:bg-slate-50 transition-colors border-t border-slate-100"
-                    >
-                      Ver todas
-                    </Link>
+                    <Link href={isStaff ? "/dashboard" : "/notifications"} className="block p-3 text-center text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors border-t border-slate-100">Ver Historial Completo</Link>
                   </div>
                 )}
               </div>
@@ -284,172 +244,174 @@ export default function Header({
             {/* Iconos Públicos (Carrito y Favoritos) */}
             {variant !== 'dashboard' && (
               <>
-                <Link href="/wishlist" className="hidden sm:block p-2 hover:bg-slate-100 rounded-full text-slate-600 hover:text-red-500 transition-colors"><Heart size={22} strokeWidth={2}/></Link>
-                <Link href="/cart" className="p-2 hover:bg-slate-100 rounded-full text-slate-600 hover:text-blue-600 transition-colors relative">
-                  <ShoppingCart size={22} strokeWidth={2}/>
-                  {mounted && summary?.totalItems > 0 && <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full font-bold shadow-sm">{summary.totalItems}</span>}
+                <Link href="/wishlist" className="hidden sm:flex p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-red-500 transition-colors">
+                  <Heart size={20} strokeWidth={2.5}/>
                 </Link>
-                <div className="h-6 w-px bg-gray-200 hidden sm:block"></div>
+                <Link href="/cart" className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-blue-600 transition-colors relative mr-1">
+                  <ShoppingCart size={20} strokeWidth={2.5}/>
+                  {mounted && summary?.totalItems > 0 && <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] flex items-center justify-center rounded-full font-bold shadow-sm ring-2 ring-white">{summary.totalItems}</span>}
+                </Link>
+                <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
               </>
             )}
 
-            {/* MENÚ DE USUARIO (Dropdown Desktop / Avatar Móvil) */}
-            {mounted && isAuthenticated && user ? (
-              <div className="relative" ref={menuRef}>
-                <button 
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className={`flex items-center gap-2 sm:gap-3 pl-1 sm:pl-2 pr-1 py-1 rounded-xl transition-all border
-                    ${isUserMenuOpen ? 'bg-slate-50 border-blue-200 ring-2 ring-blue-100' : 'hover:bg-slate-50 border-transparent hover:border-slate-100'}
-                  `}
-                >
-                  <div className="hidden text-right md:flex flex-col items-end">
-                    <p className="text-xs font-bold text-slate-700 leading-tight">
-                      {user.full_name?.split(' ')[0] || 'Usuario'}
-                    </p>
-                    {getRoleBadge(user.verification_level)}
-                  </div>
-                  {/* Avatar más pequeño en móvil */}
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-lg shadow-slate-200">
-                    <User size={18} className="sm:w-5 sm:h-5" />
-                  </div>
-                  <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 hidden sm:block ${isUserMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {/* Dropdown Menu (Usuario) */}
-                {isUserMenuOpen && (
-                  <div className="absolute right-0 top-full mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="p-4 bg-slate-50 border-b border-slate-100">
-                      <p className="text-sm font-bold text-slate-800 truncate">{user.full_name}</p>
-                      <p className="text-xs text-slate-500 truncate">{user.email}</p>
-                      {/* Mostrar Badge en móvil aquí adentro */}
-                      <div className="md:hidden mt-2">{getRoleBadge(user.verification_level)}</div>
+            {/* MENÚ DE USUARIO (Desktop) */}
+            <div className="hidden sm:block">
+              {mounted && isAuthenticated && user ? (
+                <div className="relative" ref={menuRef}>
+                  <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className={`flex items-center gap-3 pl-1 pr-1 py-1 rounded-xl transition-all border ${isUserMenuOpen ? 'bg-slate-50 border-slate-200' : 'hover:bg-slate-50 border-transparent'}`}>
+                    <div className="w-9 h-9 bg-slate-900 text-white rounded-lg flex items-center justify-center shadow-md"><User size={18} /></div>
+                    <div className="hidden md:block text-left mr-2">
+                      <p className="text-xs font-bold text-slate-700 leading-tight">{user.full_name?.split(' ')[0]}</p>
+                      <div className="scale-90 origin-left">{getRoleBadge(user.verification_level)}</div>
                     </div>
-
-                    <div className="p-2 space-y-1">
-                      {isStaff ? (
-                        <>
-                          {variant !== 'dashboard' ? (
-                            <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-blue-600 transition-colors shadow-md mb-2">
-                              <LayoutDashboard size={16} /> Panel Administrativo
-                            </Link>
-                          ) : (
-                            <Link href="/" className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors mb-2">
-                              <Store size={16} /> Ir al Sitio Principal
-                            </Link>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <Link href="/profile" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
-                            <Settings size={16} className="text-slate-400" /> Mi Perfil
-                          </Link>
-                          <Link href="/orders" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
-                            <Package size={16} className="text-slate-400" /> Mis Pedidos
-                          </Link>
-                          <Link href="/quotes" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
-                            <MessageSquareQuote size={16} className="text-slate-400" /> Mis Cotizaciones
-                          </Link>
-                        </>
-                      )}
+                    <ChevronDown size={14} className={`text-slate-400 hidden md:block transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-60 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                      <div className="p-4 bg-slate-50/80 border-b border-slate-100">
+                        <p className="text-sm font-bold text-slate-800 truncate">{user.full_name}</p>
+                        <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                      </div>
+                      <div className="p-2 space-y-1">
+                        {isStaff ? (
+                          <>
+                            {variant !== 'dashboard' ? <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-blue-600 transition-colors shadow-sm"><LayoutDashboard size={16} /> Panel Admin</Link> : <Link href="/" className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"><Store size={16} /> Ir a Tienda</Link>}
+                          </>
+                        ) : (
+                          <>
+                            <Link href="/profile" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors"><Settings size={16} /> Mi Perfil</Link>
+                            <Link href="/orders" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors"><Package size={16} /> Mis Pedidos</Link>
+                          </>
+                        )}
+                        <div className="h-px bg-slate-100 my-1"></div>
+                        <button onClick={() => logout()} className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors"><LogOut size={16} /> Cerrar Sesión</button>
+                      </div>
                     </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-blue-600 px-3 py-2 transition-colors">Ingresar</Link>
+                  <Link href="/register" className="bg-slate-900 text-white text-sm font-bold px-4 py-2 rounded-xl hover:bg-blue-600 transition-all shadow-md">Registro</Link>
+                </div>
+              )}
+            </div>
 
-                    <div className="p-2 border-t border-slate-100">
-                      <button onClick={() => logout()} className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors">
-                        <LogOut size={16} /> Cerrar Sesión
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Link href="/login" className="hidden sm:block text-sm font-bold text-slate-600 hover:text-blue-600 px-2 transition-colors">
-                  Ingresar
-                </Link>
-                <Link href="/register" className="bg-slate-900 text-white text-xs sm:text-sm font-bold px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl hover:bg-blue-600 transition-all shadow-lg hover:shadow-blue-500/25 whitespace-nowrap">
-                  Registro
-                </Link>
-              </div>
-            )}
-
-            {/* Botón Hamburguesa (Móvil - Solo si NO es dashboard, el dashboard tiene su propio trigger) */}
+            {/* BOTÓN MENÚ MÓVIL (Público) */}
             {variant !== 'dashboard' && (
               <button 
-                className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg ml-1" 
-                onClick={() => setIsMobileMenuOpen(true)}
+                className="lg:hidden p-2.5 text-slate-800 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors active:scale-95 z-50" 
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
-                <Menu size={24}/>
+                {isMobileMenuOpen ? <X size={20} strokeWidth={2.5}/> : <Menu size={20} strokeWidth={2.5}/>}
               </button>
             )}
           </div>
         </div>
-
-        {/* =========================================================
-            📱 MENÚ MÓVIL FULL SCREEN (OVERLAY MEJORADO)
-           ========================================================= */}
-        {isMobileMenuOpen && variant !== 'dashboard' && (
-          <div className="fixed inset-0 z-[100] bg-white/95 backdrop-blur-xl lg:hidden flex flex-col animate-in slide-in-from-top-10 duration-300">
-             
-             {/* Header del Menú Móvil */}
-             <div className="flex items-center justify-between p-6 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <img src="/icons/logomed.png" alt="Logo" className="w-8 h-8 rounded-lg" />
-                  <span className="text-xl font-bold text-slate-800">Menú</span>
-                </div>
-                <button 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"
-                >
-                  <X size={24} />
-                </button>
-             </div>
-
-             {/* Cuerpo del Menú */}
-             <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-2">
-                {variant === 'catalog' && (
-                  <div className="mb-6">
-                    <p className="text-xs font-bold text-slate-400 uppercase mb-2">Búsqueda</p>
-                    <ClientSearch />
-                  </div>
-                )}
-
-                <p className="text-xs font-bold text-slate-400 uppercase mb-2 mt-2">Navegación</p>
-                {[
-                  { label: 'Catálogo de Productos', path: '/products', icon: <Package size={20}/> },
-                  { label: 'Características', path: '/Characteristics', icon: <Settings size={20}/> },
-                  { label: 'Nosotros', path: '/About', icon: <User size={20}/> },
-                  { label: 'Contacto', path: '/Contact', icon: <MessageSquareQuote size={20}/> }
-                ].map((link) => (
-                  <Link 
-                    key={link.label} 
-                    href={link.path}
-                    className="flex items-center gap-4 p-4 text-lg font-bold text-slate-700 bg-slate-50 rounded-2xl hover:bg-blue-50 hover:text-blue-600 transition-all active:scale-95"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-slate-400">
-                      {link.icon}
-                    </div>
-                    {link.label}
-                  </Link>
-                ))}
-
-                {/* Enlaces extra si no hay usuario */}
-                {!user && (
-                  <div className="mt-6 pt-6 border-t border-slate-100 flex flex-col gap-3">
-                     <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-4 text-center font-bold text-slate-600 border border-slate-200 rounded-xl">
-                        Iniciar Sesión
-                     </Link>
-                     <Link href="/register" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-4 text-center font-bold text-white bg-slate-900 rounded-xl shadow-lg">
-                        Crear Cuenta
-                     </Link>
-                  </div>
-                )}
-             </div>
-          </div>
-        )}
       </header>
 
-      {/* Modal de Notificaciones (Reutilizable) */}
+      {/* =========================================================================
+        📱 MENÚ MÓVIL "EMERGENTE" PREMIUM (FULL OVERLAY)
+        =========================================================================
+        Fix: Usamos 'fixed inset-0' con un z-index alto (40) para que esté 
+        justo debajo del header (50) pero tape todo el contenido de la página.
+        Añadimos padding-top para que no choque con la barra.
+      */}
+      {isMobileMenuOpen && variant !== 'dashboard' && (
+        <div className="lg:hidden fixed inset-0 z-[40] bg-white animate-in slide-in-from-top-10 fade-in duration-200 flex flex-col pt-[72px]">
+          
+          <div className="flex-1 overflow-y-auto px-6 pb-20 custom-scrollbar">
+            
+            {/* Buscador Integrado (Siempre visible en menú móvil) */}
+            <div className="mb-8 mt-4">
+              <ClientSearch />
+            </div>
+
+            {/* Enlaces Principales */}
+            <nav className="flex flex-col gap-3 mb-8">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 pl-1">Menú Principal</p>
+              {[
+                { label: 'Catálogo de Productos', path: '/products', icon: <Package size={20}/>, color: 'text-blue-500' },
+                { label: 'Características', path: '/Characteristics', icon: <ShieldCheck size={20}/>, color: 'text-emerald-500' },
+                { label: 'Sobre Nosotros', path: '/About', icon: <Building2 size={20}/>, color: 'text-indigo-500' },
+                { label: 'Contacto y Soporte', path: '/Contact', icon: <MessageSquareQuote size={20}/>, color: 'text-amber-500' }
+              ].map(link => (
+                <Link 
+                  key={link.label} 
+                  href={link.path}
+                  className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-blue-200 hover:bg-blue-50/50 active:scale-[0.98] transition-all group"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <div className="flex items-center gap-4 font-bold text-base text-slate-700 group-hover:text-blue-700">
+                    <span className={`${link.color} bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform`}>{link.icon}</span>
+                    {link.label}
+                  </div>
+                  <div className="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all">
+                    <ChevronRight size={18} strokeWidth={2.5} />
+                  </div>
+                </Link>
+              ))}
+            </nav>
+
+            {/* Acciones de Usuario (Móvil) */}
+            <div className="border-t border-slate-100 pt-8">
+              {mounted && isAuthenticated && user ? (
+                <div className="bg-slate-900 rounded-[1.5rem] p-6 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden">
+                  {/* Decoración de fondo */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 blur-3xl rounded-full pointer-events-none"></div>
+
+                  <div className="flex items-center gap-4 mb-6 relative z-10">
+                    <div className="w-14 h-14 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center text-2xl font-bold border border-white/10">
+                      {user.full_name?.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-bold text-lg leading-tight">{user.full_name}</p>
+                      <p className="text-slate-400 text-sm truncate max-w-[200px]">{user.email}</p>
+                      <div className="mt-2 inline-block scale-90 origin-left">{getRoleBadge(user.verification_level)}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-4 relative z-10">
+                    {isStaff ? (
+                      <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="col-span-2 bg-blue-600 py-3.5 rounded-xl text-center font-bold hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/20">
+                        Ir al Dashboard
+                      </Link>
+                    ) : (
+                      <>
+                        <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)} className="bg-white/10 border border-white/5 py-3 rounded-xl text-center font-medium hover:bg-white/20 transition-colors">
+                          Mi Perfil
+                        </Link>
+                        <Link href="/orders" onClick={() => setIsMobileMenuOpen(false)} className="bg-white/10 border border-white/5 py-3 rounded-xl text-center font-medium hover:bg-white/20 transition-colors">
+                          Pedidos
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                  
+                  <button 
+                    onClick={() => { logout(); setIsMobileMenuOpen(false); }}
+                    className="w-full flex items-center justify-center gap-2 py-3 text-red-300 hover:text-white font-medium transition-colors relative z-10"
+                  >
+                    <LogOut size={18} /> Cerrar Sesión
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-4 text-center font-bold text-slate-700 bg-white border-2 border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all">
+                    Iniciar Sesión
+                  </Link>
+                  <Link href="/register" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-4 text-center font-bold text-white bg-blue-600 rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+                    Crear Cuenta Gratis <ArrowRight size={18} />
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Notificaciones */}
       {selectedNotif && (
         <NotificationModal 
           isOpen={!!selectedNotif}
