@@ -1,4 +1,3 @@
-// frontend/src/components/layout/Header.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -10,7 +9,7 @@ import {
   Settings, Menu, X, Bell, Stethoscope, 
   Building2, ShieldCheck, Store, Briefcase, 
   MessageSquareQuote, Trash2, ChevronRight,
-  Search, ArrowRight
+  ArrowRight
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
@@ -30,7 +29,7 @@ export default function Header({
   onMenuToggle,
   isDesktopCollapsed = false 
 }: HeaderProps) {
-  // --- HOOKS DE LÓGICA (INTACTOS) ---
+  // --- HOOKS ---
   const { user, isAuthenticated, logout } = useAuth();
   const { summary } = useCart(); 
   const pathname = usePathname();
@@ -74,7 +73,7 @@ export default function Header({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 🔒 BLOQUEO DE SCROLL CUANDO EL MENÚ MÓVIL ESTÁ ABIERTO
+  // Bloqueo de scroll en móvil
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -132,12 +131,12 @@ export default function Header({
 
   return (
     <>
-      {/* =========================================================================
-        🚀 BARRA DE NAVEGACIÓN FIJA (Z-INDEX 50)
-        =========================================================================
+      {/* ⚡ CORRECCIÓN Z-INDEX: Usamos z-[999] para asegurar prioridad absoluta.
+         Si el contenido se ve "cortado" arriba, es necesario agregar padding-top 
+         en tu layout.tsx o page.tsx principal, ya que position:fixed saca el header del flujo.
       */}
       <header 
-        className={`fixed top-0 left-0 right-0 z-[50] transition-all duration-300 ease-in-out border-b
+        className={`fixed top-0 left-0 right-0 z-[999] transition-all duration-300 ease-in-out border-b
           ${isScrolled || isMobileMenuOpen || variant === 'dashboard' 
             ? 'bg-white/95 backdrop-blur-xl shadow-sm border-gray-200 py-3' 
             : 'bg-white/80 backdrop-blur-md border-transparent py-4'}
@@ -146,9 +145,8 @@ export default function Header({
       >
         <div className={`mx-auto flex items-center justify-between gap-3 ${variant === 'dashboard' ? 'px-4 sm:px-6 max-w-full' : 'w-[92%] max-w-[1400px]'}`}>
           
-          {/* === IZQUIERDA: LOGO O TÍTULO === */}
+          {/* === IZQUIERDA: LOGO === */}
           <div className="flex items-center gap-3 md:gap-4 flex-1 md:flex-none">
-            
             {(variant === 'dashboard') && (
               <button onClick={onMenuToggle} className="lg:hidden p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition-colors active:scale-95">
                 <Menu size={24} />
@@ -173,21 +171,29 @@ export default function Header({
             )}
           </div>
 
-          {/* === CENTRO: NAVEGACIÓN DESKTOP (SOLO PC) === */}
+          {/* === CENTRO: NAVEGACIÓN DESKTOP (ESTILO ORIGINAL RESTAURADO) === */}
           {variant !== 'dashboard' && (
             <div className="hidden lg:flex flex-1 justify-center px-4">
               {variant === 'catalog' ? (
                 <div className="w-full max-w-lg animate-in fade-in zoom-in-95 duration-300"><ClientSearch /></div>
               ) : (
-                <nav className="flex items-center gap-1 bg-slate-50/80 p-1.5 rounded-full border border-slate-100/50 backdrop-blur-sm">
+                <nav className="flex items-center gap-8">
                   {[
                     { label: 'Catálogo', path: '/products' },
                     { label: 'Características', path: '/Characteristics' },
                     { label: 'Nosotros', path: '/About' },
                     { label: 'Contacto', path: '/Contact' }
                   ].map((link) => (
-                    <Link key={link.label} href={link.path} className={`text-sm font-bold px-5 py-2 rounded-full transition-all duration-300 ${pathname === link.path ? 'bg-white text-blue-600 shadow-sm shadow-slate-200' : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'}`}>
+                    <Link 
+                      key={link.label} 
+                      href={link.path} 
+                      className={`text-sm font-bold transition-all relative group py-1
+                        ${pathname === link.path ? 'text-blue-600' : 'text-slate-500 hover:text-blue-600'}
+                      `}
+                    >
                       {link.label}
+                      {/* Línea animada inferior */}
+                      <span className={`absolute bottom-0 left-0 h-[2px] bg-blue-600 transition-all duration-300 ${pathname === link.path ? 'w-full' : 'w-0 group-hover:w-full'}`}></span>
                     </Link>
                   ))}
                 </nav>
@@ -208,7 +214,6 @@ export default function Header({
 
                 {isNotifOpen && (
                   <div className="absolute right-[-60px] md:right-0 top-full mt-4 w-[90vw] md:w-96 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
-                    {/* ... (Contenido de notificaciones igual al anterior) ... */}
                     <div className="p-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
                       <h4 className="text-xs font-black uppercase text-slate-500 tracking-wider">{isStaff ? 'Centro de Actividad' : 'Mis Notificaciones'}</h4>
                       {activeUnreadCount > 0 && <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{activeUnreadCount} nuevas</span>}
@@ -241,7 +246,7 @@ export default function Header({
               </div>
             )}
 
-            {/* Iconos Públicos (Carrito y Favoritos) */}
+            {/* Iconos Públicos */}
             {variant !== 'dashboard' && (
               <>
                 <Link href="/wishlist" className="hidden sm:flex p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-red-500 transition-colors">
@@ -268,7 +273,7 @@ export default function Header({
                     <ChevronDown size={14} className={`text-slate-400 hidden md:block transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {isUserMenuOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-60 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
                       <div className="p-4 bg-slate-50/80 border-b border-slate-100">
                         <p className="text-sm font-bold text-slate-800 truncate">{user.full_name}</p>
                         <p className="text-xs text-slate-500 truncate">{user.email}</p>
@@ -282,6 +287,8 @@ export default function Header({
                           <>
                             <Link href="/profile" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors"><Settings size={16} /> Mi Perfil</Link>
                             <Link href="/orders" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors"><Package size={16} /> Mis Pedidos</Link>
+                            {/* ✅ RESTAURADO: Mis Cotizaciones */}
+                            <Link href="/quotes" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors"><MessageSquareQuote size={16} /> Mis Cotizaciones</Link>
                           </>
                         )}
                         <div className="h-px bg-slate-100 my-1"></div>
@@ -298,7 +305,7 @@ export default function Header({
               )}
             </div>
 
-            {/* BOTÓN MENÚ MÓVIL (Público) */}
+            {/* BOTÓN MENÚ MÓVIL */}
             {variant !== 'dashboard' && (
               <button 
                 className="lg:hidden p-2.5 text-slate-800 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors active:scale-95 z-50" 
@@ -312,23 +319,17 @@ export default function Header({
       </header>
 
       {/* =========================================================================
-        📱 MENÚ MÓVIL "EMERGENTE" PREMIUM (FULL OVERLAY)
-        =========================================================================
-        Fix: Usamos 'fixed inset-0' con un z-index alto (40) para que esté 
-        justo debajo del header (50) pero tape todo el contenido de la página.
-        Añadimos padding-top para que no choque con la barra.
-      */}
+           📱 MENÚ MÓVIL (Z-INDEX 990 para estar justo debajo del header)
+         ========================================================================= */}
       {isMobileMenuOpen && variant !== 'dashboard' && (
-        <div className="lg:hidden fixed inset-0 z-[40] bg-white animate-in slide-in-from-top-10 fade-in duration-200 flex flex-col pt-[72px]">
+        <div className="lg:hidden fixed inset-0 z-[990] bg-white animate-in slide-in-from-top-10 fade-in duration-200 flex flex-col pt-[72px]">
           
           <div className="flex-1 overflow-y-auto px-6 pb-20 custom-scrollbar">
             
-            {/* Buscador Integrado (Siempre visible en menú móvil) */}
             <div className="mb-8 mt-4">
               <ClientSearch />
             </div>
 
-            {/* Enlaces Principales */}
             <nav className="flex flex-col gap-3 mb-8">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 pl-1">Menú Principal</p>
               {[
@@ -358,16 +359,15 @@ export default function Header({
             <div className="border-t border-slate-100 pt-8">
               {mounted && isAuthenticated && user ? (
                 <div className="bg-slate-900 rounded-[1.5rem] p-6 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden">
-                  {/* Decoración de fondo */}
                   <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 blur-3xl rounded-full pointer-events-none"></div>
 
                   <div className="flex items-center gap-4 mb-6 relative z-10">
                     <div className="w-14 h-14 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center text-2xl font-bold border border-white/10">
                       {user.full_name?.charAt(0)}
                     </div>
-                    <div>
-                      <p className="font-bold text-lg leading-tight">{user.full_name}</p>
-                      <p className="text-slate-400 text-sm truncate max-w-[200px]">{user.email}</p>
+                    <div className="min-w-0">
+                      <p className="font-bold text-lg leading-tight truncate">{user.full_name}</p>
+                      <p className="text-slate-400 text-sm truncate">{user.email}</p>
                       <div className="mt-2 inline-block scale-90 origin-left">{getRoleBadge(user.verification_level)}</div>
                     </div>
                   </div>
@@ -384,6 +384,10 @@ export default function Header({
                         </Link>
                         <Link href="/orders" onClick={() => setIsMobileMenuOpen(false)} className="bg-white/10 border border-white/5 py-3 rounded-xl text-center font-medium hover:bg-white/20 transition-colors">
                           Pedidos
+                        </Link>
+                        {/* ✅ RESTAURADO: Cotizaciones en Móvil */}
+                        <Link href="/quotes" onClick={() => setIsMobileMenuOpen(false)} className="col-span-2 bg-white/10 border border-white/5 py-3 rounded-xl text-center font-medium hover:bg-white/20 transition-colors">
+                          Mis Cotizaciones
                         </Link>
                       </>
                     )}
