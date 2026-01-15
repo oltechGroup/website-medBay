@@ -106,7 +106,6 @@ export default function CheckoutPage() {
       const response = await api.post('/orders', payload);
 
       if (response.data.success) {
-        // ✅ CORRECCIÓN: Redirigir a "Mis Pedidos" (Cliente), NO al Dashboard (Admin)
         router.push('/orders?newOrder=true'); 
       } else {
         throw new Error("La orden no se pudo procesar.");
@@ -130,28 +129,33 @@ export default function CheckoutPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="animate-spin text-blue-600" size={40} />
+        <div className="flex flex-col items-center gap-3">
+           <Loader2 className="animate-spin text-blue-600" size={40} />
+           <p className="text-slate-400 font-medium text-sm">Cargando checkout...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+    // Ajuste: pt-[72px] para empujar todo el contenido debajo del Header Global Fijo
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pt-[72px]">
       
-      {/* HEADER SIMPLE */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
+      {/* HEADER SIMPLE (Sub-header) */}
+      {/* Ajuste: Sticky top-[72px] para que se pegue justo debajo del Header Global al scrollear */}
+      <header className="bg-white border-b border-slate-200 sticky top-[72px] z-30 shadow-sm transition-all">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-600/20">
-              <ShieldCheck size={20} />
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-600/20">
+              <ShieldCheck size={18} className="md:w-5 md:h-5" />
             </div>
             <div>
-              <h1 className="text-lg font-black text-slate-900 leading-none">Checkout Seguro</h1>
-              <p className="text-xs text-slate-500 font-medium mt-1">MedBay Transaction</p>
+              <h1 className="text-base md:text-lg font-black text-slate-900 leading-none">Checkout Seguro</h1>
+              <p className="text-[10px] md:text-xs text-slate-500 font-medium mt-0.5 md:mt-1">MedBay Transaction</p>
             </div>
           </div>
           
-          {/* STEPPER VISUAL */}
+          {/* STEPPER VISUAL (Oculto en móvil para ahorrar espacio, visible en tablet/desktop) */}
           <div className="hidden md:flex items-center gap-4">
             {STEPS.map((step, index) => {
               const isActive = step.id === currentStep;
@@ -173,15 +177,26 @@ export default function CheckoutPage() {
               );
             })}
           </div>
+          
+          {/* Indicador de paso en Móvil (Simple) */}
+          <div className="md:hidden flex items-center gap-2">
+             <span className="text-xs font-bold text-slate-500">Paso {currentStep} de 3</span>
+             <div className="flex gap-1">
+                {[1,2,3].map(i => (
+                   <div key={i} className={`h-1.5 w-1.5 rounded-full ${i === currentStep ? 'bg-blue-600' : 'bg-slate-200'}`}></div>
+                ))}
+             </div>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-[1400px] mx-auto px-6 py-10 grid lg:grid-cols-12 gap-10">
+      <main className="max-w-[1400px] mx-auto px-4 md:px-6 py-6 md:py-10 grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
         
         {/* === COLUMNA IZQUIERDA (PASOS) === */}
         <div className="lg:col-span-8 space-y-6">
           
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 min-h-[500px]">
+          {/* Ajuste: Padding reducido en móvil (p-5) */}
+          <div className="bg-white p-5 md:p-8 rounded-3xl md:rounded-[2.5rem] shadow-sm border border-slate-100 min-h-[400px] md:min-h-[500px]">
             
             {currentStep === 1 && (
               <AddressSelection 
@@ -215,10 +230,11 @@ export default function CheckoutPage() {
 
         </div>
 
-        {/* === COLUMNA DERECHA (RESUMEN STICKY) === */}
+        {/* === COLUMNA DERECHA (RESUMEN) === */}
+        {/* Ajuste: En móvil se apila abajo naturalmente */}
         <div className="lg:col-span-4">
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 sticky top-28">
-            <h2 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
+          <div className="bg-white p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 lg:sticky lg:top-[160px]">
+            <h2 className="text-base md:text-lg font-black text-slate-900 mb-4 md:mb-6 flex items-center gap-2">
               <ShoppingCart size={18} className="text-blue-600"/> Resumen de Orden
             </h2>
 
@@ -226,7 +242,7 @@ export default function CheckoutPage() {
             <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-4 mb-6 pr-2">
               {cartItems.map((item) => (
                 <div key={item.cart_item_id} className="flex gap-3 items-center">
-                  <div className="w-12 h-12 bg-slate-50 rounded-lg border border-slate-100 p-1 flex-shrink-0">
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-slate-50 rounded-lg border border-slate-100 p-1 flex-shrink-0">
                     <img 
                       src={getImageUrl(item.product_image)} 
                       className="w-full h-full object-contain mix-blend-multiply" 
@@ -248,7 +264,7 @@ export default function CheckoutPage() {
             <div className="h-px bg-slate-100 mb-6"></div>
 
             {/* Desglose de Costos */}
-            <div className="space-y-3 mb-6 text-sm">
+            <div className="space-y-3 mb-6 text-xs md:text-sm">
               <div className="flex justify-between text-slate-500">
                 <span>Subtotal</span>
                 <span className="font-bold text-slate-800">{formatCurrency(totals.subtotal)}</span>
@@ -273,8 +289,8 @@ export default function CheckoutPage() {
 
             {/* Total Final */}
             <div className="flex justify-between items-end pt-6 border-t border-dashed border-slate-200 mb-2">
-              <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total a Pagar</span>
-              <span className="text-3xl font-black text-slate-900 leading-none">
+              <span className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest">Total a Pagar</span>
+              <span className="text-2xl md:text-3xl font-black text-slate-900 leading-none">
                 {formatCurrency(totals.total)}
               </span>
             </div>

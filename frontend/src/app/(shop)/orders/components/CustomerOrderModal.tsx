@@ -8,7 +8,6 @@ import {
   Loader2, UploadCloud
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/formatters";
-// Usamos interfaces locales o importadas de tus hooks
 import { Order, OrderItem } from "@/hooks/useMyOrders"; 
 import { api } from "@/lib/api";
 
@@ -16,7 +15,6 @@ interface CustomerOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   order: Order;
-  // Pasamos la función de subir evidencia desde el padre para reutilizar lógica
   onUploadEvidence: (e: React.ChangeEvent<HTMLInputElement>, orderId: string) => Promise<void>;
   isUploading: boolean;
 }
@@ -36,7 +34,6 @@ export default function CustomerOrderModal({
   useEffect(() => {
     if (isOpen && order.id) {
       setLoading(true);
-      // Usamos el endpoint público/protegido de cliente
       api.get(`/orders/${order.id}`)
         .then(res => setItems(res.data.items || []))
         .catch(err => console.error(err))
@@ -62,66 +59,80 @@ export default function CustomerOrderModal({
   const statusInfo = getStatusBadge(order.status);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    // ⚡ AJUSTE Z-INDEX: 2000
+    <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+      <div 
+        className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-300" 
+        onClick={onClose}
+      ></div>
 
-      {/* Modal */}
-      <div className="relative bg-white w-full max-w-4xl h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+      {/* Modal - Ajuste Móvil: h-[90vh] + rounded-t */}
+      <div className="relative bg-white w-full max-w-4xl h-[90vh] md:h-[85vh] rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-300 border border-white/20">
         
-        {/* HEADER */}
-        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white z-10">
+        {/* HEADER (Sticky) */}
+        <div className="px-6 py-5 md:px-8 md:py-6 border-b border-slate-100 flex items-center justify-between bg-white z-10 flex-shrink-0">
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight">Orden #{order.id.slice(0,8)}</h2>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase flex items-center gap-1.5 ${statusInfo.color}`}>
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-1">
+              <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Orden #{order.id.slice(0,8)}</h2>
+              <span className={`px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-bold uppercase flex items-center gap-1.5 ${statusInfo.color}`}>
                 {statusInfo.icon} {statusInfo.label}
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{formatDate(order.placed_at)}</p>
+            <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-widest">{formatDate(order.placed_at)}</p>
           </div>
-          <button onClick={onClose} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors">
-            <X size={24} className="text-slate-400" />
+          <button 
+            onClick={onClose} 
+            className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors"
+          >
+            <X size={20} className="text-slate-400 md:w-6 md:h-6" />
           </button>
         </div>
 
-        {/* BODY */}
-        <div className="flex-1 overflow-y-auto bg-slate-50/50 p-8">
+        {/* BODY (Scrollable) */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50 p-6 md:p-8">
           {loading ? (
              <div className="flex h-full items-center justify-center">
                <Loader2 className="animate-spin text-blue-500" size={32}/>
              </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
               
               {/* IZQUIERDA: PRODUCTOS */}
               <div className="lg:col-span-2 space-y-6">
                 
                 {/* 1. Lista de Productos */}
                 <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                  <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 font-bold text-slate-700 text-sm uppercase tracking-wide">
+                  <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 font-bold text-slate-700 text-xs md:text-sm uppercase tracking-wide">
                     Resumen de Compra
                   </div>
                   <div className="divide-y divide-slate-100">
                     {items.map(item => (
-                      <div key={item.id} className="p-5 flex items-start gap-4 hover:bg-slate-50 transition-colors">
-                        <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                          <Package size={20} />
+                      <div key={item.id} className="p-4 md:p-5 flex flex-col sm:flex-row items-start gap-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-start gap-4 w-full sm:w-auto">
+                            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl flex-shrink-0">
+                              <Package size={20} />
+                            </div>
+                            <div className="flex-1 sm:hidden">
+                                <p className="font-bold text-slate-800 text-sm">{item.product_name}</p>
+                            </div>
                         </div>
-                        <div className="flex-1">
-                          <p className="font-bold text-slate-800">{item.product_name}</p>
+                        
+                        <div className="flex-1 w-full sm:w-auto pl-[3.25rem] sm:pl-0 -mt-2 sm:mt-0">
+                          <p className="font-bold text-slate-800 hidden sm:block">{item.product_name}</p>
                           <div className="flex flex-wrap gap-2 mt-2">
-                             <span className="text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500">
+                             <span className="text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500 border border-slate-200">
                                Lote: {item.lot_number}
                              </span>
-                             <span className="text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500">
+                             <span className="text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500 border border-slate-200">
                                Cad: {formatDate(item.expiry_date)}
                              </span>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold text-slate-600">{item.quantity} x {formatCurrency(item.unit_price)}</p>
-                          <p className="text-base font-black text-slate-900 mt-1">{formatCurrency(item.line_total)}</p>
+
+                        <div className="text-right w-full sm:w-auto pl-[3.25rem] sm:pl-0">
+                          <p className="text-xs md:text-sm font-bold text-slate-600">{item.quantity} x {formatCurrency(item.unit_price)}</p>
+                          <p className="text-sm md:text-base font-black text-slate-900 mt-1">{formatCurrency(item.line_total)}</p>
                         </div>
                       </div>
                     ))}
@@ -130,12 +141,12 @@ export default function CustomerOrderModal({
 
                 {/* 2. Sección de Tracking (Si existe) */}
                 {order.status === 'shipped' && order.tracking_number && (
-                   <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
+                   <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Número de Rastreo</p>
-                        <p className="text-2xl font-black text-slate-800 font-mono tracking-wider">{order.tracking_number}</p>
+                        <p className="text-xl md:text-2xl font-black text-slate-800 font-mono tracking-wider break-all">{order.tracking_number}</p>
                       </div>
-                      <div className="h-12 w-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center animate-pulse">
+                      <div className="h-12 w-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center animate-pulse flex-shrink-0">
                         <Truck size={24}/>
                       </div>
                    </div>
@@ -146,7 +157,8 @@ export default function CustomerOrderModal({
               {/* DERECHA: INFO Y ACCIONES */}
               <div className="space-y-6">
                 
-                {/* 1. Subir Evidencia (Si aplica) */}
+                {/* 1. Subir Evidencia */}
+                {/* ✅ Se muestra solo si el padre lo permite */}
                 {order.status === 'payment_pending' && (
                   <div className="bg-white p-6 rounded-3xl border-2 border-blue-100 shadow-lg shadow-blue-100/50 text-center">
                     <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -158,7 +170,7 @@ export default function CustomerOrderModal({
                     {isUploading ? (
                       <div className="py-3 flex justify-center text-blue-600"><Loader2 className="animate-spin"/></div>
                     ) : (
-                      <label className="block w-full py-3 bg-blue-600 text-white rounded-xl font-bold cursor-pointer hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20">
+                      <label className="block w-full py-3 bg-blue-600 text-white rounded-xl font-bold cursor-pointer hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 active:scale-95 text-sm">
                         Seleccionar Archivo
                         <input 
                           type="file" 
@@ -173,25 +185,23 @@ export default function CustomerOrderModal({
 
                 {/* 2. Resumen Financiero */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                   <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide">
+                   <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2 text-xs md:text-sm uppercase tracking-wide">
                      <CreditCard size={16}/> Totales
                    </h4>
-                   <div className="space-y-3 text-sm">
+                   <div className="space-y-3 text-xs md:text-sm">
                      <div className="flex justify-between text-slate-500">
                        <span>Subtotal</span>
-                       {/* ✅ CORREGIDO: Usamos || '0' para evitar undefined */}
                        <span>{formatCurrency(parseFloat(order.subtotal || '0'))}</span>
                      </div>
                      <div className="flex justify-between text-slate-500">
                        <span>Envío ({order.shipping_method})</span>
-                       {/* ✅ CORREGIDO: Usamos || '0' para evitar undefined */}
                        <span>
                          {parseFloat(order.shipping_cost || '0') > 0 
                            ? formatCurrency(parseFloat(order.shipping_cost || '0')) 
                            : 'Gratis'}
                        </span>
                      </div>
-                     <div className="pt-3 border-t border-slate-100 flex justify-between font-black text-lg text-slate-900">
+                     <div className="pt-3 border-t border-slate-100 flex justify-between font-black text-base md:text-lg text-slate-900">
                        <span>Total</span>
                        <span>{formatCurrency(order.total)}</span>
                      </div>
@@ -200,7 +210,7 @@ export default function CustomerOrderModal({
 
                 {/* 3. Dirección de Entrega */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                   <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide">
+                   <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2 text-xs md:text-sm uppercase tracking-wide">
                      <MapPin size={16}/> Envío a
                    </h4>
                    {order.shipping_address_json ? (
