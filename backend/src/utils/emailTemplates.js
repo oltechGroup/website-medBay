@@ -1,9 +1,8 @@
 // backend/src/utils/emailTemplates.js
 
-const path = require('path');
-
-// Ajusta la ruta relativa a donde tengas tus iconos en el backend
-const ICONS_PATH = path.join(__dirname, '../../../frontend/public/icons');
+// ✅ CAMBIO 1: Definimos la URL pública de tus assets en producción
+// Esto evita buscar carpetas locales que no existen en el contenedor de AWS
+const ASSETS_URL = 'https://medbaysupply.com/icons';
 
 const theme = {
   colors: {
@@ -58,7 +57,7 @@ const wrapHtml = (title, content, actionButton = null) => `
   <body>
     <div class="container">
       <div class="header">
-        <img src="cid:logomedbayblanco" alt="MedBay" class="logo"/>
+        <img src="${ASSETS_URL}/logocompletoblanco.png" alt="MedBay" class="logo" style="display:block; margin:0 auto;"/>
       </div>
       <div class="body">
         <h1 class="title">${title}</h1>
@@ -380,14 +379,9 @@ const generateResponseTemplate = (title, message, isSuccess = true) => {
   return wrapHtml(title, content, null);
 };
 
+// ✅ CAMBIO 3: Devolvemos array vacío para no intentar adjuntar archivos físicos
 const getBrandingAttachments = () => {
-  return [
-    {
-      filename: 'logocompletoblanco.png',
-      path: path.join(ICONS_PATH, 'logocompletoblanco.png'),
-      cid: 'logomedbayblanco'
-    }
-  ];
+  return []; 
 };
 
 module.exports = { 

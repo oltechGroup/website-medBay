@@ -1,7 +1,12 @@
-// frontend/src/hooks/useCountries
+// frontend/src/hooks/useCountries.ts
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+// ✅ CAMBIO 1: Importamos axios directo para peticiones públicas sin token
+import axios from 'axios';
+
+// ✅ CAMBIO 2: Definimos la URL base para evitar usar la instancia 'api' en rutas públicas
+const API_URL = 'https://api.medbaysupply.com/api';
 
 export interface Country {
   code: string;
@@ -56,6 +61,7 @@ export interface CountryStats {
 }
 
 // Hook principal para obtener países con paginación y búsqueda
+// ✅ CAMBIO: Usamos axios.get para evitar error 401 si hay un token basura
 export const useCountries = (page: number = 1, limit: number = 10, search: string = '') => {
   return useQuery({
     queryKey: ['countries', page, limit, search],
@@ -66,7 +72,7 @@ export const useCountries = (page: number = 1, limit: number = 10, search: strin
         ...(search && { search })
       });
       
-      const response = await api.get(`/countries?${params}`);
+      const response = await axios.get(`${API_URL}/countries?${params}`);
       return response.data;
     },
     placeholderData: (previousData) => previousData,
@@ -74,22 +80,24 @@ export const useCountries = (page: number = 1, limit: number = 10, search: strin
 };
 
 // Hook para obtener estadísticas de países
+// ✅ CAMBIO: Usamos axios.get
 export const useCountryStats = () => {
   return useQuery({
     queryKey: ['countries', 'stats'],
     queryFn: async (): Promise<{ success: boolean; data: CountryStats }> => {
-      const response = await api.get('/countries/stats');
+      const response = await axios.get(`${API_URL}/countries/stats`);
       return response.data;
     },
   });
 };
 
 // Hook para obtener un país específico
+// ✅ CAMBIO: Usamos axios.get
 export const useCountry = (code: string) => {
   return useQuery({
     queryKey: ['countries', code],
     queryFn: async (): Promise<{ success: boolean; data: Country }> => {
-      const response = await api.get(`/countries/${code}`);
+      const response = await axios.get(`${API_URL}/countries/${code}`);
       return response.data;
     },
     enabled: !!code,
@@ -97,11 +105,12 @@ export const useCountry = (code: string) => {
 };
 
 // Hook para obtener países por moneda
+// ✅ CAMBIO: Usamos axios.get
 export const useCountriesByCurrency = (currencyCode: string) => {
   return useQuery({
     queryKey: ['countries', 'currency', currencyCode],
     queryFn: async (): Promise<{ success: boolean; data: Country[] }> => {
-      const response = await api.get(`/countries/currency/${currencyCode}`);
+      const response = await axios.get(`${API_URL}/countries/currency/${currencyCode}`);
       return response.data;
     },
     enabled: !!currencyCode,
@@ -109,6 +118,7 @@ export const useCountriesByCurrency = (currencyCode: string) => {
 };
 
 // Hook para crear país
+// 🔒 MANTENEMOS 'api' porque requiere Auth
 export const useCreateCountry = () => {
   const queryClient = useQueryClient();
   
@@ -130,6 +140,7 @@ export const useCreateCountry = () => {
 };
 
 // Hook para actualizar país
+// 🔒 MANTENEMOS 'api' porque requiere Auth
 export const useUpdateCountry = () => {
   const queryClient = useQueryClient();
   
@@ -152,6 +163,7 @@ export const useUpdateCountry = () => {
 };
 
 // Hook para eliminar país
+// 🔒 MANTENEMOS 'api' porque requiere Auth
 export const useDeleteCountry = () => {
   const queryClient = useQueryClient();
   
@@ -173,11 +185,13 @@ export const useDeleteCountry = () => {
 };
 
 // Hook para obtener países básicos (sin paginación, para selects)
+// ✅ CAMBIO CRÍTICO: Usamos axios.get para el registro
 export const useCountriesBasic = () => {
   return useQuery({
     queryKey: ['countries', 'basic'],
     queryFn: async (): Promise<Country[]> => {
-      const response = await api.get('/countries?limit=1000');
+      // Petición limpia sin Header Authorization
+      const response = await axios.get(`${API_URL}/countries?limit=1000`);
       return response.data.data;
     },
     select: (data) => data.map(country => ({
