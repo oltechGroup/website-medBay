@@ -9,12 +9,16 @@ const nodemailer = require('nodemailer');
 // ✅ IMPORTANTE: Importamos la nueva función generateRegisterTemplate
 const { generateRegisterTemplate, getBrandingAttachments } = require('../utils/emailTemplates');
 
+// ✅ CORRECCIÓN: Activamos SSL para AWS RDS
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 const transporter = nodemailer.createTransport({
