@@ -1,21 +1,26 @@
+//backend/src/routes/countryRoutes.js
 const express = require('express');
 const router = express.Router();
-const countryController = require('../controllers/countryController');
-const auth = require('../middleware/auth'); // Middleware de autenticación
+const countryController = require('../controllers/countryController'); 
+const auth = require('../middleware/auth'); 
 
-// Aplicar autenticación a todas las rutas de países
-// CORRECCIÓN: Usar auth.verifyToken en lugar de auth
+// ==========================================
+// 🔓 RUTAS PÚBLICAS (Accesibles para todos)
+// ==========================================
+// IMPORTANTE: Estas deben ir ANTES del middleware de auth
+router.get('/', countryController.getAll); 
+router.get('/stats', countryController.getStats);
+router.get('/currency/:currencyCode', countryController.getByCurrency); 
+router.get('/:code', countryController.getByCode); 
+
+// ==========================================
+// 🔒 RUTAS PROTEGIDAS (Solo Admin/Usuarios Logueados)
+// ==========================================
+// A partir de esta línea, se requiere Token
 router.use(auth.verifyToken);
 
-// 📊 RUTAS DE CONSULTA
-router.get('/', countryController.getAll); // Con paginación y búsqueda
-router.get('/stats', countryController.getStats); // Estadísticas
-router.get('/currency/:currencyCode', countryController.getByCurrency); // Por moneda
-router.get('/:code', countryController.getByCode); // Por código
-
-// ✏️ RUTAS DE GESTIÓN
-router.post('/', countryController.create); // Crear país
-router.put('/:code', countryController.update); // Actualizar país
-router.delete('/:code', countryController.delete); // Eliminar país
+router.post('/', countryController.create); 
+router.put('/:code', countryController.update); 
+router.delete('/:code', countryController.delete); 
 
 module.exports = router;

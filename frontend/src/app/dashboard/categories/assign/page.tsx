@@ -1,3 +1,4 @@
+//frontend/src/app/dashboard/categories/assign/page.tsx
 'use client';
 
 import { useRouter } from 'next/navigation';
