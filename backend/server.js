@@ -14,21 +14,32 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Configuración de carpetas de subida
-const uploadsPath = path.join(process.cwd(), 'uploads');
+// =======================================================
+// 🔧 CORRECCIÓN DE RUTAS (LA SOLUCIÓN A TU PROBLEMA)
+// =======================================================
+
+// Usamos __dirname para asegurarnos que busque la carpeta "uploads" 
+// exactamente donde está este archivo server.js
+const uploadsPath = path.join(__dirname, 'uploads');
 const imagesPath = path.join(uploadsPath, 'images');
-const evidencePath = path.join(uploadsPath, 'evidence'); // Aseguramos que exista evidence
+const evidencePath = path.join(uploadsPath, 'evidence');
+const documentsPath = path.join(uploadsPath, 'documents'); // Aseguramos documents también
 
 // Crear directorios si no existen
 if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
 if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
 if (!fs.existsSync(evidencePath)) fs.mkdirSync(evidencePath, { recursive: true });
+if (!fs.existsSync(documentsPath)) fs.mkdirSync(documentsPath, { recursive: true });
+
+// Debug: Imprimir ruta para verificar en los logs de PM2
+console.log('📂 Sirviendo archivos estáticos desde:', uploadsPath);
 
 // Servir archivos estáticos
 app.use('/uploads', express.static(uploadsPath));
 
-// ==================== RUTAS ====================
+// =======================================================
 
+// Rutas API
 app.use('/api/import', require('./src/routes/importRoutes'));
 app.use('/api/users', require('./src/routes/userRoutes'));
 app.use('/api/auth', require('./src/routes/authRoutes'));
@@ -71,7 +82,7 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 MedBay Server listo en http://localhost:${PORT}`);
+  console.log(`\n🚀 MedBay Server listo en puerto ${PORT}`);
   console.log(`🌎 Moneda Base: USD`);
-  console.log(`📸 Carpeta de imágenes: ${uploadsPath}`);
+  console.log(`📸 Carpeta de imágenes configurada en: ${uploadsPath}`);
 });
