@@ -1,14 +1,23 @@
 // frontend/src/components/features/contact/details/RegisterDetails.tsx
 
 import React from 'react';
-import { Building2, MapPin, Hash, UserCheck, Shield } from 'lucide-react';
+import { Building2, MapPin, Hash, UserCheck, Shield, FileText, ExternalLink, Eye } from 'lucide-react';
 
 interface RegisterDetailsProps {
-  details: any; // Datos que vienen en extra_data (user_id, role_name, company, address, etc.)
+  details: any; // Datos que vienen en extra_data
 }
 
 export default function RegisterDetails({ details }: RegisterDetailsProps) {
   if (!details) return null;
+
+  // Construimos la URL completa para el archivo
+  // Asumimos que tu API está en esa URL basada en los logs que me mostraste.
+  // Si tienes una variable de entorno, úsala: process.env.NEXT_PUBLIC_API_URL
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.medbaysupply.com';
+  
+  // Verificamos si hay archivo (el backend guarda "/uploads/...")
+  const hasFile = details.file_path && details.file_path !== 'null';
+  const fileUrl = hasFile ? `${API_URL}${details.file_path}` : '#';
 
   return (
     <div className="space-y-6">
@@ -60,6 +69,44 @@ export default function RegisterDetails({ details }: RegisterDetailsProps) {
           {details.address}
         </div>
       </div>
+
+      {/* 4. EVIDENCIA DOCUMENTAL (NUEVA SECCIÓN) */}
+      {hasFile && (
+        <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
+          <h4 className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <FileText size={14} /> Documentación Adjunta
+          </h4>
+
+          <a 
+            href={fileUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="group flex items-center justify-between bg-white p-4 rounded-xl border border-blue-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-100 text-blue-600 rounded-lg group-hover:scale-110 transition-transform">
+                <FileText size={24} />
+              </div>
+              <div>
+                <p className="font-bold text-slate-800 group-hover:text-blue-700 transition-colors">
+                  Documento Probatorio
+                </p>
+                <p className="text-xs text-slate-500">
+                  Clic para visualizar archivo original
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 text-slate-400 group-hover:text-blue-600 transition-colors text-sm font-bold">
+              Ver <ExternalLink size={16} />
+            </div>
+          </a>
+          
+          <p className="text-[10px] text-blue-600/60 mt-2 px-1">
+             * Este documento es necesario para validar el nivel de verificación solicitado.
+          </p>
+        </div>
+      )}
 
     </div>
   );

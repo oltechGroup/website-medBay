@@ -24,7 +24,7 @@ export default function RegisterPage() {
 
   const [selectedRole, setSelectedRole] = useState<'medical_professional' | 'business_verified' | null>(null);
   const [files, setFiles] = useState<File[]>([]);
-  const [showSuccessModal, setShowSuccessModal] = useState(false); // Estado para el modal de éxito
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const {
     register,
@@ -63,6 +63,7 @@ export default function RegisterPage() {
     setFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
   };
 
+  // ✅ CORRECCIÓN PRINCIPAL AQUÍ
   const onSubmit = async (data: RegisterFormData) => {
     try {
       if (files.length === 0) {
@@ -97,15 +98,27 @@ export default function RegisterPage() {
 
       await registerMutation.mutateAsync(formData);
       
-      // EN LUGAR DE REDIRIGIR, MOSTRAMOS EL MODAL
       setShowSuccessModal(true);
       
     } catch (error: any) {
       console.error("Error submitting form:", error);
-      setError('root', {
-        type: 'manual',
-        message: error.response?.data?.error || 'Error al conectar con el servidor.',
-      });
+
+      // 1. Detectar conflicto (409) - Correo duplicado
+      if (error.response && error.response.status === 409) {
+        setError('email', { // <-- Seteamos el error en el input 'email'
+          type: 'manual',
+          message: 'Este correo electrónico ya está registrado o en revisión.'
+        });
+        // Opcional: Si quieres un mensaje global también, puedes descomentar esto, 
+        // pero con el input rojo suele ser suficiente UX.
+      } 
+      // 2. Otros errores
+      else {
+        setError('root', {
+          type: 'manual',
+          message: error.response?.data?.error || 'Error al conectar con el servidor.',
+        });
+      }
     }
   };
 
@@ -113,6 +126,7 @@ export default function RegisterPage() {
 
   // --- VISTA 1: SELECCIÓN DE ROL ---
   if (!selectedRole) {
+    // (Sin cambios en esta parte visual)
     return (
       <div className="min-h-screen w-full flex bg-slate-50 font-sans items-center justify-center p-6">
         <div className="max-w-4xl w-full animate-in fade-in zoom-in-95 duration-500">
@@ -154,16 +168,15 @@ export default function RegisterPage() {
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
            <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl text-center relative overflow-hidden animate-in zoom-in-95 duration-300">
-              {/* Decoración de fondo */}
-              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
-              
-              <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                 <CheckCircle2 size={40} strokeWidth={2.5} />
-              </div>
-              
-              <h2 className="text-3xl font-black text-slate-800 mb-4">¡Solicitud Recibida!</h2>
-              
-              <div className="space-y-4 text-slate-600 text-sm leading-relaxed mb-8">
+             <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+             
+             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                <CheckCircle2 size={40} strokeWidth={2.5} />
+             </div>
+             
+             <h2 className="text-3xl font-black text-slate-800 mb-4">¡Solicitud Recibida!</h2>
+             
+             <div className="space-y-4 text-slate-600 text-sm leading-relaxed mb-8">
                  <p>
                    Gracias por registrarte en <span className="font-bold text-slate-800">MedBay</span>. Hemos recibido tu documentación exitosamente.
                  </p>
@@ -177,20 +190,20 @@ export default function RegisterPage() {
                  <p className="flex items-center justify-center gap-2 font-medium">
                     <Mail size={16} /> Te notificaremos vía correo electrónico.
                  </p>
-              </div>
+             </div>
 
-              <button 
-                onClick={() => router.push('/')}
-                className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-lg flex items-center justify-center gap-2 group"
-              >
-                Entendido, volver al inicio 
-                <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform rotate-180" />
-              </button>
+             <button 
+               onClick={() => router.push('/')}
+               className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-lg flex items-center justify-center gap-2 group"
+             >
+               Entendido, volver al inicio 
+               <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform rotate-180" />
+             </button>
            </div>
         </div>
       )}
 
-      {/* Sidebar Visual */}
+      {/* Sidebar Visual (Sin cambios) */}
       <div className="hidden lg:flex lg:w-1/3 relative overflow-hidden bg-slate-900">
         <img src="/Images/7.png" alt="Fondo" className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay scale-105" />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent"></div>
@@ -332,12 +345,22 @@ export default function RegisterPage() {
                )}
             </section>
 
+            {/* ✅ CORRECCIÓN VISUAL: Mensaje de error inteligente */}
             {Object.keys(errors).length > 0 && (
-              <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3">
+              <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
                  <AlertCircle className="text-red-600 shrink-0 mt-0.5" size={18}/>
                  <div>
-                    <h4 className="text-red-800 font-bold text-sm">Faltan datos obligatorios</h4>
-                    <p className="text-xs text-red-600 mt-1">Revisa los campos en rojo (Dirección, RFC o Documentos).</p>
+                    {/* Si el error es del API (email duplicado), cambiamos el texto */}
+                    <h4 className="text-red-800 font-bold text-sm">
+                      {errors.email?.type === 'manual' 
+                        ? 'Problema con el registro' 
+                        : 'Faltan datos obligatorios'}
+                    </h4>
+                    <p className="text-xs text-red-600 mt-1">
+                      {errors.email?.type === 'manual'
+                        ? 'El correo ingresado ya existe. Revisa el campo para más detalles.'
+                        : 'Revisa los campos en rojo (Dirección, RFC o Documentos).'}
+                    </p>
                  </div>
               </div>
             )}
