@@ -1,8 +1,9 @@
 // backend/src/utils/emailTemplates.js
 
-// Usamos la URL pública porque es seguro para AWS.
-// Asegúrate de que al entrar a esta URL en tu navegador, veas el logo.
-const ASSETS_URL = 'https://medbaysupply.com/icons';
+const path = require('path');
+
+// ✅ Regresamos a la ruta relativa que funcionaba
+const ICONS_PATH = path.join(__dirname, '../../../frontend/public/icons');
 
 const theme = {
   colors: {
@@ -19,7 +20,6 @@ const theme = {
 };
 
 // --- BASE HTML WRAPPER ---
-// ✅ MEJORA: Ajusté los estilos de la imagen para garantizar que se vea bien en Gmail/Outlook
 const wrapHtml = (title, content, actionButton = null) => `
   <!DOCTYPE html>
   <html>
@@ -30,9 +30,7 @@ const wrapHtml = (title, content, actionButton = null) => `
       body { font-family: 'Helvetica', 'Arial', sans-serif; background-color: ${theme.colors.bg}; margin: 0; padding: 0; color: ${theme.colors.text}; }
       .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
       .header { background-color: ${theme.colors.secondary}; padding: 30px 20px; text-align: center; }
-      
-      /* Quitamos estilos de clase para el logo y usamos inline en el HTML para compatibilidad */
-      
+      .logo { width: 160px; height: auto; }
       .body { padding: 40px 30px; }
       .title { color: ${theme.colors.secondary}; font-size: 22px; font-weight: 800; margin-top: 0; margin-bottom: 10px; text-align: center; }
       .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 30px; margin-top: 0; }
@@ -60,12 +58,7 @@ const wrapHtml = (title, content, actionButton = null) => `
   <body>
     <div class="container">
       <div class="header">
-        <img 
-          src="${ASSETS_URL}/logocompletoblanco.png" 
-          alt="MedBay" 
-          width="160"
-          style="width: 160px; max-width: 100%; height: auto; display: block; margin: 0 auto; border: 0; outline: none; text-decoration: none;"
-        />
+        <img src="cid:logomedbayblanco" alt="MedBay" class="logo"/>
       </div>
       <div class="body">
         <h1 class="title">${title}</h1>
@@ -387,9 +380,15 @@ const generateResponseTemplate = (title, message, isSuccess = true) => {
   return wrapHtml(title, content, null);
 };
 
-// ✅ Devolvemos array vacío para no adjuntar archivos físicos y usar la URL
+// ✅ Restuarado para adjuntar archivo físico con ruta relativa
 const getBrandingAttachments = () => {
-  return []; 
+  return [
+    {
+      filename: 'logocompletoblanco.png',
+      path: ICONS_PATH + '/logocompletoblanco.png', // Ajuste para asegurar la ruta correcta
+      cid: 'logomedbayblanco'
+    }
+  ];
 };
 
 module.exports = { 
