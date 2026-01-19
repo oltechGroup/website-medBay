@@ -15,26 +15,28 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // =======================================================
-// 🔧 CORRECCIÓN DE RUTAS (LA SOLUCIÓN A TU PROBLEMA)
+// 🔧 CONFIGURACIÓN DE ARCHIVOS ESTÁTICOS
 // =======================================================
 
-// Usamos __dirname para asegurarnos que busque la carpeta "uploads" 
-// exactamente donde está este archivo server.js
+// Usamos __dirname para anclar la ruta a la carpeta donde está este archivo server.js
+// Esto evita problemas con PM2 ejecutándose desde otras rutas.
 const uploadsPath = path.join(__dirname, 'uploads');
+
+// Definimos subcarpetas para crearlas si no existen
 const imagesPath = path.join(uploadsPath, 'images');
 const evidencePath = path.join(uploadsPath, 'evidence');
-const documentsPath = path.join(uploadsPath, 'documents'); // Aseguramos documents también
+const documentsPath = path.join(uploadsPath, 'documents');
 
-// Crear directorios si no existen
+// Crear directorios recursivamente si no existen
 if (!fs.existsSync(uploadsPath)) fs.mkdirSync(uploadsPath, { recursive: true });
 if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
 if (!fs.existsSync(evidencePath)) fs.mkdirSync(evidencePath, { recursive: true });
 if (!fs.existsSync(documentsPath)) fs.mkdirSync(documentsPath, { recursive: true });
 
-// Debug: Imprimir ruta para verificar en los logs de PM2
+// Debug: Veremos esto en los logs de PM2 para confirmar la ruta física
 console.log('📂 Sirviendo archivos estáticos desde:', uploadsPath);
 
-// Servir archivos estáticos
+// Servir la carpeta uploads en la URL /uploads
 app.use('/uploads', express.static(uploadsPath));
 
 // =======================================================

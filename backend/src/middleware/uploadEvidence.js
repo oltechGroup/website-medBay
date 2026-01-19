@@ -4,8 +4,10 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// ✅ CORRECCIÓN: Usamos __dirname para navegar relativo a este archivo.
+const evidenceDir = path.join(__dirname, '../../uploads/evidence');
+
 // Crear carpeta si no existe
-const evidenceDir = path.join(process.cwd(), 'uploads', 'evidence');
 if (!fs.existsSync(evidenceDir)) {
   fs.mkdirSync(evidenceDir, { recursive: true });
 }
@@ -15,7 +17,7 @@ const storage = multer.diskStorage({
     cb(null, evidenceDir);
   },
   filename: function (req, file, cb) {
-    // Nombre único: order-ID-TIMESTAMP.ext
+    // Nombre único: evidence-TIMESTAMP-RANDOM.ext
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, 'evidence-' + uniqueSuffix + path.extname(file.originalname));
   }

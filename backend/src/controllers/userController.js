@@ -6,10 +6,8 @@ const Address = require('../models/addressModel');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const nodemailer = require('nodemailer'); 
-// ✅ IMPORTANTE: Importamos la nueva función generateRegisterTemplate
 const { generateRegisterTemplate, getBrandingAttachments } = require('../utils/emailTemplates');
 
-// ✅ CORRECCIÓN: Activamos SSL para AWS RDS
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -17,7 +15,7 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
   ssl: {
-    rejectUnauthorized: false // <--- ESTO ES LO QUE FALTABA
+    rejectUnauthorized: false
   }
 });
 
@@ -104,10 +102,12 @@ const userController = {
         is_fiscal: true
       });
 
-      // --- 3. CREAR DOCUMENTO ---
+      // --- 3. CREAR DOCUMENTO (CORREGIDO) ---
       let filePathDB = null;
       if (documentFile) {
-        filePathDB = `/uploads/documents/${documentFile.filename}`;
+        // ✅ AQUI ESTÁ LA CORRECCIÓN: 'evidence' en lugar de 'documents'
+        filePathDB = `/uploads/evidence/${documentFile.filename}`;
+        
         await Document.create({
           owner_type: 'user',
           owner_id: newUser.id,
@@ -151,8 +151,7 @@ const userController = {
         ]
       );
 
-      // --- 5. CORREO AL ADMIN (CON NUEVO TEMPLATE) ---
-      // Preparamos los datos para el template bonito
+      // --- 5. CORREO AL ADMIN ---
       const registerEmailData = {
         fullName: full_name,
         roleName: roleFriendlyName,
@@ -160,10 +159,9 @@ const userController = {
         phone: cleanPhone,
         company: cleanCompany,
         taxId: cleanTaxId,
-        fullAddress: fullAddress.replace(/\n/g, '<br>') // Formato HTML para dirección
+        fullAddress: fullAddress.replace(/\n/g, '<br>')
       };
 
-      // Generamos el HTML usando la nueva función
       const adminHtml = generateRegisterTemplate(registerEmailData);
 
       await transporter.sendMail({
