@@ -1,23 +1,27 @@
 // frontend/src/components/features/contact/details/RegisterDetails.tsx
 
 import React from 'react';
-import { Building2, MapPin, Hash, UserCheck, Shield, FileText, ExternalLink, Eye } from 'lucide-react';
+import { Building2, MapPin, Hash, UserCheck, Shield, FileText, ExternalLink } from 'lucide-react';
 
 interface RegisterDetailsProps {
-  details: any; // Datos que vienen en extra_data
+  details: any; 
 }
 
 export default function RegisterDetails({ details }: RegisterDetailsProps) {
   if (!details) return null;
 
-  // Construimos la URL completa para el archivo
-  // Asumimos que tu API está en esa URL basada en los logs que me mostraste.
-  // Si tienes una variable de entorno, úsala: process.env.NEXT_PUBLIC_API_URL
+  // --- CORRECCIÓN AQUÍ ---
+  // Obtenemos la URL base (ej: https://api.medbaysupply.com/api)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.medbaysupply.com';
   
-  // Verificamos si hay archivo (el backend guarda "/uploads/...")
+  // TRUCO: Si la URL termina en '/api' (o '/api/'), lo quitamos.
+  // Así nos aseguramos de apuntar a la raíz del servidor para los archivos estáticos.
+  const SERVER_URL = API_URL.replace(/\/api\/?$/, '');
+  
   const hasFile = details.file_path && details.file_path !== 'null';
-  const fileUrl = hasFile ? `${API_URL}${details.file_path}` : '#';
+  
+  // Ahora fileUrl será: https://api.medbaysupply.com/uploads/... (Sin el /api extra)
+  const fileUrl = hasFile ? `${SERVER_URL}${details.file_path}` : '#';
 
   return (
     <div className="space-y-6">
@@ -70,7 +74,7 @@ export default function RegisterDetails({ details }: RegisterDetailsProps) {
         </div>
       </div>
 
-      {/* 4. EVIDENCIA DOCUMENTAL (NUEVA SECCIÓN) */}
+      {/* 4. EVIDENCIA DOCUMENTAL */}
       {hasFile && (
         <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
           <h4 className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-4 flex items-center gap-2">
