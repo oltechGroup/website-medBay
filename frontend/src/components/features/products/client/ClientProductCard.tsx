@@ -1,4 +1,4 @@
-//frontend/src/app/components/features/products/client/ClientProductCard.tsx
+// frontend/src/app/components/features/products/client/ClientProductCard.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,7 +8,7 @@ import { Product } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   ChevronDown, ChevronUp, ShoppingCart, Package, Calendar, 
-  AlertTriangle, Lock, UserCircle, Heart, FileText 
+  AlertTriangle, Lock, Heart, FileText 
 } from "lucide-react";
 import { formatCurrency, formatDate, getImageUrl, getLotStatusConfig } from "@/lib/formatters";
 import { useProductDetails } from "@/hooks/useProductDetails";
@@ -19,7 +19,6 @@ import QuoteModal from "./QuoteModal";
 import { QuantitySelector } from "@/components/ui/QuantitySelector";
 
 // --- SUB-COMPONENTE: FILA DE LOTE ---
-// Maneja su propio estado de cantidad para no afectar a otros lotes
 interface LotRowProps {
   lot: any;
   onAddToCart: (lotId: string, quantity: number, redirect?: boolean) => Promise<void>;
@@ -70,7 +69,7 @@ const LotRow = ({ lot, onAddToCart, isAdding }: LotRowProps) => {
             <div className="flex justify-end w-full">
               <QuantitySelector 
                 quantity={quantity}
-                max={lot.quantity} // Limitamos al stock real
+                max={lot.quantity}
                 onIncrease={() => setQuantity(q => q + 1)}
                 onDecrease={() => setQuantity(q => q - 1)}
                 disabled={isAdding}
@@ -98,7 +97,6 @@ const LotRow = ({ lot, onAddToCart, isAdding }: LotRowProps) => {
           </>
         ) : (
           <div className="w-full">
-             {/* Si no hay precio, lógica de cotización se maneja en el padre */}
              <div className="text-right text-xs font-bold text-gray-400 italic py-2">
                Precio bajo cotización
              </div>
@@ -132,8 +130,8 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
   // Verificar si este producto ya está en favoritos
   const { data: isInWishlist } = useWishlistStatus(product.id);
 
-  // Cargar lotes solo si está expandido
-  const { lots, isLoadingLots } = useProductDetails(product.id, isExpanded && isAuthenticated, filterStatus);
+  // ✅ CAMBIO 1: Eliminamos "&& isAuthenticated". Cargamos lotes siempre que esté expandido.
+  const { lots, isLoadingLots } = useProductDetails(product.id, isExpanded, filterStatus);
 
   useEffect(() => {
     setMounted(true);
@@ -146,12 +144,18 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
     setIsExpanded(!isExpanded);
   };
 
-  // ✅ AQUÍ ESTÁ EL CAMBIO IMPORTANTE: Redirección a /checkout
+  // ✅ CAMBIO 2: Lógica de protección en la acción de compra
   const handleAddToCart = async (lotId: string, quantity: number, redirect: boolean = false) => {
+    // Si no es usuario registrado, mandamos al login
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+
     try {
       await addToCart({ lotId, quantity });
       if (redirect) {
-        router.push('/checkout'); // <-- Redirige directo al pago
+        router.push('/checkout');
       }
     } catch (error) {
       console.error("Error agregando al carrito", error);
@@ -160,7 +164,11 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
 
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isAuthenticated) return;
+    // También protegemos favoritos
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
 
     if (isInWishlist) {
       await removeFromWishlist(product.id);
@@ -194,7 +202,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
              </div>
 
              {/* BOTÓN FAVORITOS */}
-             {mounted && isAuthenticated && (
+             {mounted && (
                <button 
                  onClick={handleToggleWishlist}
                  className={`absolute top-2 right-2 p-1.5 rounded-full shadow-sm border transition-all z-10
@@ -223,7 +231,8 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                  SKU: {product.global_sku || 'N/A'}
                </span>
                
-               {mounted && isAuthenticated ? (
+               {/* ✅ CAMBIO 3: Mostrar stock real a todos */}
+               {mounted && (
                    hasActiveLots ? (
                      <span className="flex items-center gap-1.5 text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-full text-[10px] border border-emerald-100">
                        <Package size={12} /> {product.active_lots} Lotes disponibles
@@ -233,10 +242,6 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                        <AlertTriangle size={12} /> Bajo stock
                      </span>
                    )
-               ) : (
-                   <span className="flex items-center gap-1.5 text-slate-500 font-bold bg-slate-100 px-2.5 py-1 rounded-full text-[10px] border border-slate-200">
-                     <Lock size={10} /> Stock Reservado
-                   </span>
                )}
             </div>
           </div>
@@ -244,7 +249,8 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
           {/* PRECIO Y ACCIÓN */}
           <div className="flex flex-row md:flex-col items-center justify-between w-full md:w-auto gap-4 md:gap-1 pl-0 md:pl-6 md:border-l border-gray-100 min-w-[160px]">
             <div className="text-right w-full">
-               {mounted && isAuthenticated ? (
+               {/* ✅ CAMBIO 3: Mostrar precio real a todos */}
+               {mounted && (
                  hasActiveLots ? (
                    <>
                      <p className="text-[10px] text-gray-400 mb-0.5 uppercase tracking-wide font-bold">Precio Unitario</p>
@@ -260,11 +266,6 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                  ) : (
                    <p className="text-sm font-bold text-gray-400 italic bg-gray-50 px-2 py-1 rounded">Cotizar precio</p>
                  )
-               ) : (
-                 <div className="flex flex-col items-end opacity-50 select-none">
-                    <p className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide font-bold">Precio</p>
-                    <div className="text-lg font-black text-slate-400 blur-[3px]">$$$.$$</div>
-                 </div>
                )}
             </div>
             
@@ -273,17 +274,14 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
               className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all text-xs uppercase tracking-wide
               ${isExpanded 
                   ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' 
-                  : isAuthenticated 
-                    ? 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg shadow-slate-900/10' 
-                    : 'bg-slate-800 text-white hover:bg-slate-700 shadow-md'
+                  : 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg shadow-slate-900/10' 
                }`}
             >
               {isExpanded ? (
                   <>Cerrar <ChevronUp size={14} /></>
-              ) : isAuthenticated ? (
-                  <>Ver Opciones <ChevronDown size={14} /></>
               ) : (
-                  <><Lock size={12} /> Ver Disponibilidad</>
+                  // ✅ CAMBIO 3: Botón estándar para todos
+                  <>Ver Opciones <ChevronDown size={14} /></>
               )}
             </button>
           </div>
@@ -293,79 +291,57 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
         {isExpanded && (
           <div className="border-t border-gray-100 bg-slate-50/50 p-4 md:p-6 animate-in slide-in-from-top-2 duration-200">
             
-            {mounted && !isAuthenticated ? (
-               // ESTADO NO AUTENTICADO
-               <div className="text-center py-8 bg-white rounded-2xl border border-slate-100 shadow-sm max-w-2xl mx-auto">
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                     <UserCircle className="text-slate-400" size={32} />
-                  </div>
-                  <h4 className="text-slate-800 font-black text-lg mb-2">Acceso Exclusivo a Profesionales</h4>
-                  <p className="text-slate-500 text-sm mb-6 max-w-sm mx-auto font-medium">
-                     Para visualizar fechas de caducidad exactas, precios por volumen y disponibilidad de lotes, necesitas una cuenta verificada.
-                  </p>
-                  <div className="flex justify-center gap-4">
-                     <Link href="/login" className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 text-sm">
-                        Iniciar Sesión
-                     </Link>
-                     <Link href="/register" className="px-6 py-2.5 bg-white border-2 border-slate-100 text-slate-600 font-bold rounded-xl hover:border-slate-200 hover:text-slate-800 transition-all text-sm">
-                        Crear Cuenta
-                     </Link>
-                  </div>
-               </div>
-            ) : (
-               // ESTADO AUTENTICADO
-               <>
-                  <div className="flex justify-between items-center mb-4 px-1">
-                    <h4 className="text-sm font-black text-slate-700 flex items-center gap-2 uppercase tracking-wide">
-                      <Package className="text-blue-500" size={16}/> 
-                      {filterStatus !== 'all' 
-                        ? `Inventario Filtrado (${filterStatus === 'expired' ? 'Caducados' : 'Próximos a vencer'})` 
-                        : 'Selecciona un lote'}
-                    </h4>
-                    
-                    {!hasActiveLots && (
-                      <button 
-                        onClick={() => setIsQuoteOpen(true)}
-                        className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
-                      >
-                        <FileText size={12}/> Solicitar Cotización
-                      </button>
-                    )}
-                  </div>
+            {/* ✅ CAMBIO 4: Eliminada la sección de "Acceso Exclusivo". Renderizado directo. */}
+            <div className="flex justify-between items-center mb-4 px-1">
+                <h4 className="text-sm font-black text-slate-700 flex items-center gap-2 uppercase tracking-wide">
+                  <Package className="text-blue-500" size={16}/> 
+                  {filterStatus !== 'all' 
+                    ? `Inventario Filtrado (${filterStatus === 'expired' ? 'Caducados' : 'Próximos a vencer'})` 
+                    : 'Selecciona un lote'}
+                </h4>
+                
+                {!hasActiveLots && (
+                  <button 
+                    onClick={() => setIsQuoteOpen(true)}
+                    className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+                  >
+                    <FileText size={12}/> Solicitar Cotización
+                  </button>
+                )}
+            </div>
 
-                  {isLoadingLots ? (
-                    <div className="space-y-3">
-                        {[1,2].map(i => <div key={i} className="h-20 bg-white rounded-xl border border-slate-100 animate-pulse"></div>)}
-                    </div>
-                  ) : lots.length > 0 ? (
-                    <div className="grid gap-3">
-                      {lots.map((lot: any) => (
-                        <LotRow 
-                          key={lot.id} 
-                          lot={lot} 
-                          onAddToCart={handleAddToCart}
-                          isAdding={isAdding}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    // SIN LOTES DISPONIBLES
-                    <div className="text-center py-8 bg-white rounded-xl border border-dashed border-slate-300">
-                      <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <AlertTriangle className="text-amber-400" size={24} />
-                      </div>
-                      <p className="text-slate-600 font-bold text-sm mb-1">Agotado temporalmente</p>
-                      <p className="text-slate-400 text-xs mb-4">No hay lotes disponibles bajo este criterio.</p>
-                      <button 
-                        onClick={() => setIsQuoteOpen(true)}
-                        className="text-blue-600 font-bold hover:bg-blue-50 px-4 py-2 rounded-lg text-xs transition-colors border border-blue-100"
-                      >
-                        Solicitar búsqueda de producto
-                      </button>
-                    </div>
-                  )}
-               </>
+            {isLoadingLots ? (
+                <div className="space-y-3">
+                    {[1,2].map(i => <div key={i} className="h-20 bg-white rounded-xl border border-slate-100 animate-pulse"></div>)}
+                </div>
+            ) : lots.length > 0 ? (
+                <div className="grid gap-3">
+                  {lots.map((lot: any) => (
+                    <LotRow 
+                      key={lot.id} 
+                      lot={lot} 
+                      onAddToCart={handleAddToCart}
+                      isAdding={isAdding}
+                    />
+                  ))}
+                </div>
+            ) : (
+                // SIN LOTES DISPONIBLES
+                <div className="text-center py-8 bg-white rounded-xl border border-dashed border-slate-300">
+                  <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <AlertTriangle className="text-amber-400" size={24} />
+                  </div>
+                  <p className="text-slate-600 font-bold text-sm mb-1">Agotado temporalmente</p>
+                  <p className="text-slate-400 text-xs mb-4">No hay lotes disponibles bajo este criterio.</p>
+                  <button 
+                    onClick={() => setIsQuoteOpen(true)}
+                    className="text-blue-600 font-bold hover:bg-blue-50 px-4 py-2 rounded-lg text-xs transition-colors border border-blue-100"
+                  >
+                    Solicitar búsqueda de producto
+                  </button>
+                </div>
             )}
+
           </div>
         )}
       </div>
