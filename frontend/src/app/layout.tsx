@@ -9,7 +9,7 @@ import MainLayout from '@/components/layout/MainLayout';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'MedBay - Plataforma Médica B2B',
+  title: 'MedBay - Global Access to Medical Devices',
   description: 'Plataforma B2B especializada en insumos médicos y gestión de inventario.',
 };
 
