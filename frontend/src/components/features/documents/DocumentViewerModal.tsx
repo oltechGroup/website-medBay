@@ -12,7 +12,7 @@ import { UserContext } from "./viewers/UserContext";
 interface DocumentViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  document: DocumentData; // Usamos el nuevo nombre del tipo
+  document: DocumentData; 
   onStatusChange: (id: string, status: DocStatus, notes?: string) => Promise<void>;
   isUpdating: boolean;
 }
@@ -20,7 +20,7 @@ interface DocumentViewerModalProps {
 export const DocumentViewerModal = ({ 
   isOpen, 
   onClose, 
-  document: doc, // ✅ CAMBIO 2: Renombramos la prop a 'doc' internamente
+  document: doc, 
   onStatusChange,
   isUpdating 
 }: DocumentViewerModalProps) => {
@@ -30,14 +30,12 @@ export const DocumentViewerModal = ({
 
   useEffect(() => {
     setMounted(true);
-    // ✅ AHORA SÍ: 'document' se refiere al navegador (DOM global)
     if (isOpen) document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
 
   if (!isOpen || !mounted) return null;
 
-  // ✅ Usamos 'doc' para referirnos a los datos del archivo
   const isPdf = doc.file_path.toLowerCase().endsWith('.pdf');
   const fileUrl = getImageUrl(doc.file_path);
 
@@ -138,19 +136,7 @@ export const DocumentViewerModal = ({
           {/* Body: Context Viewers */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
             
-            {/* Estado Actual */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase">Estado Actual</span>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                doc.status === 'verified' ? 'bg-green-100 text-green-700' :
-                doc.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                'bg-amber-100 text-amber-700'
-              }`}>
-                {doc.status === 'under_review' ? 'En Revisión' : doc.status}
-              </span>
-            </div>
-
-            {/* Renderizado Condicional del Contexto */}
+            {/* Renderizado Condicional del Contexto (Ahora es lo primero visible) */}
             {renderContext()}
 
             {/* Historial de Notas (Si existen) */}
@@ -216,5 +202,6 @@ export const DocumentViewerModal = ({
       </div>
     </div>
   );
+
   return createPortal(modalContent, document.body);
 };

@@ -1,5 +1,8 @@
 // frontend/src/lib/formatters.ts
 
+// ✅ DEFINIMOS EL DOMINIO DEL BACKEND
+const API_DOMAIN = "https://api.medbaysupply.com";
+
 export const formatCurrency = (amount?: number | string | null) => {
   if (amount === null || amount === undefined || amount === 0 || amount === "0") {
     return "Consultar"; 
@@ -24,19 +27,26 @@ export const formatDate = (dateString?: string | Date | null) => {
   }).format(date);
 };
 
+// ✅ CORRECCIÓN DE IMÁGENES
 export const getImageUrl = (path?: string | null) => {
   if (!path) return "https://placehold.co/400x400/f3f4f6/9ca3af?text=Sin+Imagen"; 
+  
+  // Si ya viene con http (ej. S3 o enlace externo), lo dejamos igual
   if (path.startsWith("http")) return path;
+  
+  // Normalizamos las barras (Windows a Unix)
   const cleanPath = path.replace(/\\/g, "/");
-  if (cleanPath.startsWith("/")) return cleanPath;
-  return `/${cleanPath}`;
+  
+  // Aseguramos que empiece con /
+  const normalizedPath = cleanPath.startsWith("/") ? cleanPath : `/${cleanPath}`;
+  
+  // 🔥 AQUÍ ESTÁ LA SOLUCIÓN:
+  // Devolvemos la URL absoluta apuntando al Backend, no relativa.
+  return `${API_DOMAIN}${normalizedPath}`;
 };
 
 // ✅ CORRECCIÓN DE LÓGICA DE NEGOCIO:
-// Respetamos estrictamente el status que viene de la BD. 
-// No calculamos fechas manualmente.
 export const getLotStatusConfig = (status: string, expiryDate?: string) => {
-  // Normalizamos a minúsculas por seguridad
   const s = status?.toLowerCase() || '';
 
   if (s === 'expired') {
@@ -54,7 +64,6 @@ export const getLotStatusConfig = (status: string, expiryDate?: string) => {
     };
   }
   
-  // Default: available o cualquier otro status positivo
   return { 
     color: 'bg-green-100 text-green-700 border-green-200', 
     label: 'En Fecha', 
