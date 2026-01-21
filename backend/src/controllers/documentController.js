@@ -1,38 +1,56 @@
-//backend/src/controllers/documentController.js
+// backend/src/controllers/documentController.js
 
-const Document = require('../models/documentModel');
+const { Pool } = require('pg');
+
+// Configuración de la Base de Datos (Igual que en contactController)
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 const documentController = {
-  // Crear nuevo documento
+  
+  // --- CREAR DOCUMENTO ---
   create: async (req, res) => {
     try {
-      const documentData = req.body;
+      const { owner_type, owner_id, document_type, file_path, reference_id } = req.body;
 
-      // Validaciones básicas
-      if (!documentData.owner_type || !documentData.owner_id || !documentData.document_type || !documentData.file_path) {
-        return res.status(400).json({ error: 'owner_type, owner_id, document_type y file_path son requeridos' });
+      // 1. Validaciones básicas
+      if (!owner_type || !owner_id || !document_type || !file_path) {
+        return res.status(400).json({ error: 'Faltan campos requeridos (owner_type, owner_id, document_type, file_path)' });
       }
 
-      // Verificar que el owner_type sea válido
-      if (!['user', 'supplier'].includes(documentData.owner_type)) {
+      // 2. Verificar owner_type
+      if (!['user', 'supplier'].includes(owner_type)) {
         return res.status(400).json({ error: 'owner_type debe ser "user" o "supplier"' });
       }
 
-      // Si el documento es para un usuario, verificar que el usuario existe y es el mismo que sube el documento o admin
-      if (documentData.owner_type === 'user') {
-        if (documentData.owner_id !== req.user.id && req.user.verification_level !== 'admin') {
-          return res.status(403).json({ error: 'No puedes subir documentos para otro usuario' });
+      // 3. Validar Permisos (Seguridad)
+      if (owner_type === 'user') {
+        // El usuario solo puede subir documentos para sí mismo, a menos que sea admin
+        if (owner_id !== req.user.id && req.user.verification_level !== 'admin') {
+          return res.status(403).json({ error: 'No tienes permiso para subir documentos a este usuario.' });
         }
       }
 
-      const newDocument = await Document.create({
-        ...documentData,
-        status: 'uploaded'
-      });
+      // 4. Insertar en BD
+      const query = `
+        INSERT INTO documents (owner_type, owner_id, document_type, file_path, status, reference_id, created_at)
+        VALUES ($1, $2, $3, $4, 'uploaded', $5, NOW())
+        RETURNING *
+      `;
+      
+      const result = await pool.query(query, [owner_type, owner_id, document_type, file_path, reference_id || null]);
 
       res.status(201).json({
         message: 'Documento subido exitosamente',
-        document: newDocument
+        document: result.rows[0]
       });
 
     } catch (error) {
@@ -41,39 +59,68 @@ const documentController = {
     }
   },
 
-  // Obtener todos los documentos (solo admin)
+  // --- OBTENER TODOS (ADMIN - CON JOIN) ---
+  // 🔥 ESTA ES LA FUNCIÓN CLAVE PARA EL DASHBOARD 🔥
   getAll: async (req, res) => {
     try {
-      const documents = await Document.findAll();
-      res.json(documents);
+      // Hacemos LEFT JOIN para traer datos del usuario (email, nombre)
+      // Esto es vital para que AdminActions pueda enviar correos.
+      const query = `
+        SELECT 
+          d.*,
+          u.full_name as user_name,
+          u.email as user_email,
+          u.company_name,
+          u.verification_level as user_role
+        FROM documents d
+        LEFT JOIN users u ON d.owner_id = u.id AND d.owner_type = 'user'
+        ORDER BY d.created_at DESC
+      `;
+      
+      const result = await pool.query(query);
+      res.json(result.rows);
+
     } catch (error) {
       console.error('Error al obtener documentos:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
 
-  // Obtener documentos del usuario actual
+  // --- OBTENER MIS DOCUMENTOS ---
   getMyDocuments: async (req, res) => {
     try {
-      const documents = await Document.findByOwner('user', req.user.id);
-      res.json(documents);
+      const query = `
+        SELECT * FROM documents 
+        WHERE owner_type = 'user' AND owner_id = $1
+        ORDER BY created_at DESC
+      `;
+      const result = await pool.query(query, [req.user.id]);
+      res.json(result.rows);
     } catch (error) {
-      console.error('Error al obtener documentos:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      console.error('Error al obtener mis documentos:', error);
+      res.status(500).json({ error: 'Error interno' });
     }
   },
 
-  // Obtener documento por ID
+  // --- OBTENER POR ID ---
   getById: async (req, res) => {
     try {
       const { id } = req.params;
-      const document = await Document.findById(id);
+      
+      const query = `
+        SELECT d.*, u.full_name as user_name, u.email as user_email
+        FROM documents d
+        LEFT JOIN users u ON d.owner_id = u.id AND d.owner_type = 'user'
+        WHERE d.id = $1
+      `;
+      const result = await pool.query(query, [id]);
+      const document = result.rows[0];
       
       if (!document) {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
 
-      // Verificar permisos: admin o el dueño del documento
+      // Verificar permisos
       if (document.owner_type === 'user' && document.owner_id !== req.user.id && req.user.verification_level !== 'admin') {
         return res.status(403).json({ error: 'No tienes permisos para ver este documento' });
       }
@@ -81,57 +128,70 @@ const documentController = {
       res.json(document);
     } catch (error) {
       console.error('Error al obtener documento:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      res.status(500).json({ error: 'Error interno' });
     }
   },
 
-  // Actualizar estado de documento (solo admin)
+  // --- ACTUALIZAR ESTADO (ADMIN) ---
   updateStatus: async (req, res) => {
     try {
       const { id } = req.params;
       const { status, notes } = req.body;
 
-      const updatedDocument = await Document.updateStatus(id, status, req.user.id, notes);
+      // Actualizamos estado, notas y quién lo revisó
+      const query = `
+        UPDATE documents 
+        SET status = $1, notes = $2, checked_by = $3, updated_at = NOW()
+        WHERE id = $4
+        RETURNING *
+      `;
+
+      const result = await pool.query(query, [status, notes, req.user.id, id]);
       
-      if (!updatedDocument) {
+      if (result.rows.length === 0) {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
 
       res.json({
-        message: 'Estado de documento actualizado exitosamente',
-        document: updatedDocument
+        message: 'Estado actualizado',
+        document: result.rows[0]
       });
 
     } catch (error) {
-      console.error('Error al actualizar estado de documento:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      console.error('Error al actualizar estado:', error);
+      res.status(500).json({ error: 'Error interno' });
     }
   },
 
-  // Eliminar documento
+  // --- ELIMINAR DOCUMENTO ---
   delete: async (req, res) => {
     try {
       const { id } = req.params;
-      const document = await Document.findById(id);
-      
+
+      // Primero verificamos que exista y permisos
+      const checkQuery = 'SELECT * FROM documents WHERE id = $1';
+      const checkResult = await pool.query(checkQuery, [id]);
+      const document = checkResult.rows[0];
+
       if (!document) {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
 
-      // Verificar permisos: admin o el dueño del documento
       if (document.owner_type === 'user' && document.owner_id !== req.user.id && req.user.verification_level !== 'admin') {
         return res.status(403).json({ error: 'No tienes permisos para eliminar este documento' });
       }
 
-      const deletedDocument = await Document.delete(id);
-      res.json({
-        message: 'Documento eliminado exitosamente',
-        document: deletedDocument
-      });
+      // Eliminar de la BD
+      await pool.query('DELETE FROM documents WHERE id = $1', [id]);
+
+      // Nota: Aquí podrías agregar lógica para borrar el archivo físico del disco (fs.unlink)
+      // si quisieras limpiar el almacenamiento.
+
+      res.json({ message: 'Documento eliminado exitosamente' });
 
     } catch (error) {
       console.error('Error al eliminar documento:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      res.status(500).json({ error: 'Error interno' });
     }
   }
 };
