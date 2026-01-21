@@ -6,6 +6,7 @@ const Payment = require('../models/paymentModel');
 const Inventory = require('../models/productLotModel');
 const Cart = require('../models/cartModel');
 const NotificationService = require('../services/notificationService');
+const Document = require('../models/documentModel'); // ✅ IMPORTACIÓN NUEVA
 
 const orderController = {
   // --- CREAR ORDEN (Solicitud de Stock) ---
@@ -222,9 +223,10 @@ const orderController = {
   },
 
   // --- SUBIR EVIDENCIA (Cliente) ---
+  // ✅ MODIFICADO: Ahora crea un registro en DOCUMENTS vinculado a la orden
   uploadEvidence: async (req, res) => {
     try {
-      const { id } = req.params;
+      const { id } = req.params; // ID de la Orden
       const file = req.file; 
 
       if (!file) return res.status(400).json({ error: 'Falta el archivo' });
@@ -232,12 +234,27 @@ const orderController = {
       // Ruta relativa para guardar en BD
       const filePath = `/uploads/evidence/${file.filename}`;
 
+      // 1. ✅ CREAR DOCUMENTO DE EVIDENCIA
+      // Esto permite que aparezca en el Dashboard de Documentos con su tipo correcto
+      await Document.create({
+        owner_type: 'user',
+        owner_id: req.user.id,
+        document_type: 'payment_evidence', // Nuevo tipo habilitado en BD
+        file_path: filePath,
+        status: 'under_review', // Pendiente de revisión
+        notes: `Comprobante de pago para Orden #${id}`,
+        reference_id: id // ✅ Vinculamos con la Orden
+      });
+
+      // 2. ACTUALIZAR ESTADO DE LA ORDEN
+      // Seguimos usando esto para cambiar el estado de la orden a 'payment_review'
+      // y mantener compatibilidad con la vista actual de "Mis Pedidos"
       await Order.updateEvidence(id, filePath);
 
-      // Notificar al Admin
+      // 3. NOTIFICAR AL ADMIN
       NotificationService.notifyPaymentUploaded(id).catch(console.error);
 
-      res.json({ success: true, message: 'Evidencia recibida' });
+      res.json({ success: true, message: 'Evidencia recibida y vinculada correctamente' });
 
     } catch (error) {
       console.error('Error subiendo evidencia:', error);

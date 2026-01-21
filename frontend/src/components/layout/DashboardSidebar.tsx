@@ -1,3 +1,4 @@
+// frontend/src/components/layout/DashboardSidebar.tsx
 'use client';
 
 import React from 'react';
@@ -35,7 +36,7 @@ interface DashboardSidebarProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  // ✅ Mantenemos Cotizaciones aquí, pero NO Favoritos (según instrucción)
+  // ✅ Mantenemos Cotizaciones aquí
   { name: 'Cotizaciones', href: '/dashboard/quotes', icon: MessageSquareQuote },
   { name: 'Órdenes', href: '/dashboard/orders', icon: ShoppingCart },
   { name: 'Productos', href: '/dashboard/products', icon: Package },
@@ -44,7 +45,10 @@ const navigation = [
   { name: 'Inventario', href: '/dashboard/inventory', icon: Warehouse },
   { name: 'Proveedores', href: '/dashboard/suppliers', icon: Building },
   { name: 'Países', href: '/dashboard/countries', icon: Globe },
-  { name: 'Clientes', href: '/dashboard/customers', icon: Users },
+  
+  // ✅ CAMBIO: Renombrado a 'Usuarios' para la nueva gestión unificada (Clientes + Staff)
+  { name: 'Usuarios', href: '/dashboard/users', icon: Users },
+  
   { name: 'Importar', href: '/dashboard/import', icon: Upload },
   { name: 'Reportes', href: '/dashboard/reports', icon: BarChart3 },
   { name: 'Documentos', href: '/dashboard/documents', icon: FileText },
@@ -63,8 +67,7 @@ export default function DashboardSidebar({
   const pathname = usePathname();
   const { user, logout } = useAuth();
   
-  // En móvil, siempre queremos ver el texto y el diseño completo, 
-  // independientemente de si el usuario colapsó el menú en escritorio.
+  // En móvil, siempre queremos ver el texto y el diseño completo
   const showFullMenu = isOpen || !isCollapsed;
 
   // Helper para renderizar items
@@ -116,7 +119,6 @@ export default function DashboardSidebar({
         className={cn(
           "fixed top-0 left-0 z-[70] h-screen bg-white border-r border-slate-200 shadow-2xl lg:shadow-none transition-transform duration-300 ease-in-out flex flex-col",
           // 🔧 FIX MÓVIL: Agregamos 'w-72' (288px) como base para móvil.
-          // En Desktop (lg:), usamos la lógica de colapso.
           "w-72", 
           isCollapsed ? "lg:w-20" : "lg:w-64",
           
@@ -127,11 +129,10 @@ export default function DashboardSidebar({
         {/* === HEADER DEL SIDEBAR === */}
         <div className={cn(
           "flex items-center h-[72px] flex-shrink-0 transition-all duration-300 relative",
-          // En móvil siempre mostramos el gradiente. En escritorio depende del colapso.
           (!showFullMenu) ? "justify-center bg-white" : "justify-between px-6 bg-gradient-to-r from-blue-600 to-blue-700"
         )}>
           
-          {/* LOGO EXPANDIDO (Móvil o Desktop Expandido) */}
+          {/* LOGO EXPANDIDO */}
           <div className={cn("flex items-center gap-3 transition-opacity duration-200", (!showFullMenu) && "hidden opacity-0")}>
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner border border-white/10">
                <img 
@@ -146,7 +147,7 @@ export default function DashboardSidebar({
             </div>
           </div>
 
-          {/* LOGO COLAPSADO (Solo Desktop Mini) */}
+          {/* LOGO COLAPSADO */}
           {(!showFullMenu) && (
             <div 
               className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center cursor-pointer shadow-md hover:bg-blue-700 transition-colors"
@@ -202,10 +203,10 @@ export default function DashboardSidebar({
           </div>
         </div>
 
-        {/* === FOOTER DEL SIDEBAR (Perfil de Usuario) === */}
+        {/* === FOOTER DEL SIDEBAR === */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex-shrink-0">
           
-          {/* Caso Colapsado (Solo Desktop) */}
+          {/* Caso Colapsado */}
           {(!showFullMenu) ? (
             <button 
               onClick={onToggleCollapse}
@@ -215,7 +216,7 @@ export default function DashboardSidebar({
               <ChevronRight size={20} />
             </button>
           ) : (
-            // Caso Expandido (Desktop y Móvil)
+            // Caso Expandido
             <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2">
                <div className="flex items-center gap-3 px-2 py-1">
                  <div className="w-10 h-10 rounded-full bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-600 font-bold text-sm overflow-hidden">
@@ -230,7 +231,6 @@ export default function DashboardSidebar({
                </div>
 
                <div className="flex gap-2">
-                  {/* Botón Ocultar (Solo Desktop) */}
                   <button 
                     onClick={onToggleCollapse}
                     className="hidden lg:flex flex-1 items-center justify-center gap-2 py-2.5 text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors shadow-sm"
@@ -238,14 +238,12 @@ export default function DashboardSidebar({
                     <ChevronLeft size={14} /> Ocultar
                   </button>
                   
-                  {/* Botón Logout (Full width en móvil, pequeño en desktop) */}
                   <button 
                     onClick={() => logout()}
                     className="flex-1 lg:flex-none lg:w-10 flex items-center justify-center py-2.5 text-red-500 bg-white border border-red-100 rounded-xl hover:bg-red-50 transition-colors shadow-sm"
                     title="Cerrar Sesión"
                   >
                     <LogOut size={16} />
-                    {/* Texto solo en móvil para claridad */}
                     <span className="lg:hidden ml-2 text-xs font-bold">Salir</span>
                   </button>
                </div>

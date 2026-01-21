@@ -3,20 +3,36 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const authMiddleware = require('../middleware/auth');
-
-// ✅ CORRECCIÓN: Usamos el middleware que sí existe en tu proyecto
-// 'uploadEvidence' permite imágenes y PDFs, ideal para las cédulas/actas.
 const uploadEvidence = require('../middleware/uploadEvidence'); 
 
-// --- RUTAS PÚBLICAS ---
+// ==========================================
+// 🔓 RUTAS PÚBLICAS
+// ==========================================
 
-// Registro de usuarios
-// Usamos .single('documentFile') porque así se llama el campo en tu Frontend
+// Registro de clientes (Business/Médicos) con documento
 router.post('/register', uploadEvidence.single('documentFile'), userController.register);
 
-// --- RUTAS PROTEGIDAS (Requieren Token) ---
 
-router.get('/', authMiddleware.verifyToken, authMiddleware.requireRole(['admin']), userController.getAllUsers);
-router.get('/:id', authMiddleware.verifyToken, userController.getUserById);
+// ==========================================
+// 🔒 RUTAS PROTEGIDAS (Gestión de Usuarios)
+// ==========================================
+// Todo lo de abajo requiere Token válido
+router.use(authMiddleware.verifyToken);
+
+// ✅ Obtener lista de usuarios (Soporta filtros ?role=...&search=...)
+// Permitimos que admin y vendedores vean usuarios (vendedores para ver sus clientes)
+router.get('/', authMiddleware.requireRole(['admin', 'sales_agent']), userController.getAllUsers);
+
+// ✅ Crear Staff (Vendedores/Admins) - Cuenta activa inmediata
+router.post('/create-staff', authMiddleware.requireRole(['admin']), userController.createStaff);
+
+// ✅ Detalles de Usuario específico
+router.get('/:id', userController.getUserById);
+
+// ✅ Actualizar Estado (Aprobar/Rechazar/Suspender)
+router.put('/:id/status', authMiddleware.requireRole(['admin']), userController.updateUserStatus);
+
+// ✅ Eliminar Usuario
+router.delete('/:id', authMiddleware.requireRole(['admin']), userController.deleteUser);
 
 module.exports = router;

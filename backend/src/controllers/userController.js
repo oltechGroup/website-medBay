@@ -31,6 +31,7 @@ const transporter = nodemailer.createTransport({
 
 const userController = {
   
+  // --- REGISTRO PÚBLICO (Clientes) ---
   register: async (req, res) => {
     try {
       const { 
@@ -102,16 +103,15 @@ const userController = {
         is_fiscal: true
       });
 
-      // --- 3. CREAR DOCUMENTO (CORREGIDO) ---
+      // --- 3. CREAR DOCUMENTO ---
       let filePathDB = null;
       if (documentFile) {
-        // ✅ AQUI ESTÁ LA CORRECCIÓN: 'evidence' en lugar de 'documents'
         filePathDB = `/uploads/evidence/${documentFile.filename}`;
         
         await Document.create({
           owner_type: 'user',
           owner_id: newUser.id,
-          document_type: 'license',
+          document_type: 'license', // Es registro, así que es licencia/acta
           file_path: filePathDB,
           status: 'uploaded',
           notes: `Registro inicial: ${roleFriendlyName}`
@@ -187,8 +187,176 @@ const userController = {
     }
   },
 
-  getAllUsers: async (req, res) => { try { const users = await User.findAll(); res.json(users); } catch (e) { res.status(500).json({error: 'Error'}); } },
-  getUserById: async (req, res) => { try { const {id} = req.params; const user = await User.findById(id); if(!user) return res.status(404).json({error: 'No found'}); res.json(user); } catch (e) { res.status(500).json({error: 'Error'}); } }
+  // --- GESTIÓN DE USUARIOS (Admin Dashboard) ---
+
+  // ✅ 1. OBTENER TODOS (Con Filtros y Paginación)
+  getAllUsers: async (req, res) => { 
+    try { 
+      const { page = 1, limit = 10, search = '', role = 'all' } = req.query;
+      const offset = (page - 1) * limit;
+
+      // Construcción dinámica del Query
+      let query = `
+        SELECT id, email, full_name, company_name, verification_level, account_status, phone, created_at, referral_code
+        FROM users
+        WHERE 1=1
+      `;
+      const params = [];
+      let paramCount = 0;
+
+      // Filtro por Rol
+      if (role !== 'all') {
+        paramCount++;
+        query += ` AND verification_level = $${paramCount}`;
+        params.push(role);
+      }
+
+      // Filtro de Búsqueda (Nombre, Email, Empresa)
+      if (search) {
+        paramCount++;
+        query += ` AND (
+          full_name ILIKE $${paramCount} OR 
+          email ILIKE $${paramCount} OR 
+          company_name ILIKE $${paramCount} OR
+          referral_code ILIKE $${paramCount}
+        )`;
+        params.push(`%${search}%`);
+      }
+
+      // Ordenamiento y Paginación
+      query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+      params.push(limit, offset);
+
+      // Ejecutar Query Principal
+      const result = await pool.query(query, params);
+
+      // Contar total para paginación (Query separado simplificado)
+      let countQuery = `SELECT COUNT(*) FROM users WHERE 1=1`;
+      const countParams = [];
+      let countParamIdx = 0;
+
+      if (role !== 'all') {
+        countParamIdx++;
+        countQuery += ` AND verification_level = $${countParamIdx}`;
+        countParams.push(role);
+      }
+      if (search) {
+        countParamIdx++;
+        countQuery += ` AND (full_name ILIKE $${countParamIdx} OR email ILIKE $${countParamIdx} OR company_name ILIKE $${countParamIdx})`;
+        countParams.push(`%${search}%`);
+      }
+
+      const countResult = await pool.query(countQuery, countParams);
+      const total = parseInt(countResult.rows[0].count);
+
+      res.json({
+        data: result.rows,
+        total,
+        page: parseInt(page),
+        totalPages: Math.ceil(total / limit)
+      });
+
+    } catch (e) { 
+      console.error('Error en getAllUsers:', e);
+      res.status(500).json({error: 'Error al obtener usuarios'}); 
+    } 
+  },
+
+  // ✅ 2. CREAR STAFF (Vendedores/Admin) - Cuenta Activa Directa
+  createStaff: async (req, res) => {
+    try {
+      const { full_name, email, password, phone, role, referral_code } = req.body;
+
+      // Validar que quien crea sea admin (Extra check, aunque el middleware ya lo hace)
+      if (req.user.verification_level !== 'admin') {
+        return res.status(403).json({ error: 'No autorizado' });
+      }
+
+      const existing = await User.findByEmail(email);
+      if (existing) return res.status(409).json({ error: 'Email ya registrado' });
+
+      const password_hash = await bcrypt.hash(password, 10);
+      
+      // Generar código de referencia si no viene uno
+      const finalReferralCode = referral_code || `REF-${Math.floor(Math.random() * 10000)}`;
+
+      // Insertar directo con estado 'active'
+      const query = `
+        INSERT INTO users (email, password_hash, full_name, phone, verification_level, account_status, referral_code)
+        VALUES ($1, $2, $3, $4, $5, 'active', $6)
+        RETURNING id, email, full_name, verification_level, referral_code
+      `;
+      
+      const result = await pool.query(query, [email, password_hash, full_name, phone, role, finalReferralCode]);
+
+      res.status(201).json({
+        message: 'Usuario staff creado exitosamente',
+        user: result.rows[0]
+      });
+
+    } catch (error) {
+      console.error('Error creating staff:', error);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  },
+
+  // ✅ 3. OBTENER DETALLE USUARIO
+  getUserById: async (req, res) => { 
+    try { 
+      const {id} = req.params; 
+      
+      // Traemos usuario + documentos + dirección principal
+      const userQuery = `
+        SELECT u.*, 
+          (SELECT json_agg(d.*) FROM documents d WHERE d.owner_id = u.id) as documents,
+          (SELECT json_agg(a.*) FROM addresses a WHERE a.user_id = u.id) as addresses
+        FROM users u 
+        WHERE u.id = $1
+      `;
+      
+      const result = await pool.query(userQuery, [id]);
+      
+      if(result.rows.length === 0) return res.status(404).json({error: 'Usuario no encontrado'}); 
+      
+      res.json(result.rows[0]); 
+    } catch (e) { 
+      res.status(500).json({error: 'Error'}); 
+    } 
+  },
+
+  // ✅ 4. ACTUALIZAR ESTADO (Aprobar/Rechazar)
+  updateUserStatus: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body; // 'active', 'rejected', 'suspended'
+
+      const result = await pool.query(
+        'UPDATE users SET account_status = $1 WHERE id = $2 RETURNING id, email, account_status',
+        [status, id]
+      );
+
+      if (result.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+      // Opcional: Enviar email de notificación al usuario sobre el cambio de estado
+      // NotificationService.notifyStatusChange(...) 
+
+      res.json({ message: 'Estado actualizado', user: result.rows[0] });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Error actualizando estado' });
+    }
+  },
+
+  // ✅ 5. ELIMINAR USUARIO
+  deleteUser: async (req, res) => {
+    try {
+      const { id } = req.params;
+      await User.delete(id); // Asumiendo que tu modelo User tiene delete()
+      res.json({ message: 'Usuario eliminado' });
+    } catch (error) {
+      res.status(500).json({ error: 'Error eliminando usuario' });
+    }
+  }
 };
 
 module.exports = userController;

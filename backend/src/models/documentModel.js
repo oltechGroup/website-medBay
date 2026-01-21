@@ -1,4 +1,4 @@
-//backend/src/models/documentModel.js
+// backend/src/models/documentModel.js
 
 const db = require('../config/database');
 
@@ -13,18 +13,31 @@ const Document = {
       issued_date,
       expiry_date,
       status,
-      notes
+      notes,
+      reference_id // ✅ CAMBIO: Recibimos el ID de referencia (ej. Orden ID)
     } = documentData;
     
     const query = `
       INSERT INTO documents (
-        owner_type, owner_id, document_type, file_path, issued_date, expiry_date, status, notes
+        owner_type, owner_id, document_type, file_path, 
+        issued_date, expiry_date, status, notes, reference_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
     
-    const values = [owner_type, owner_id, document_type, file_path, issued_date, expiry_date, status, notes];
+    // ✅ CAMBIO: Agregamos reference_id al array de valores (o null si no viene)
+    const values = [
+      owner_type, 
+      owner_id, 
+      document_type, 
+      file_path, 
+      issued_date, 
+      expiry_date, 
+      status, 
+      notes, 
+      reference_id || null
+    ];
     
     try {
       const result = await db.query(query, values);
