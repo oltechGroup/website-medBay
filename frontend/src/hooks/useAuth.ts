@@ -1,3 +1,5 @@
+// frontend/src/hooks/useAuth.ts
+
 import { useAuthStore } from '@/stores/authStore';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
@@ -9,20 +11,32 @@ export const useAuth = () => {
 
   // --- LOGOUT MEJORADO ---
   const logout = () => {
-    // 1. Limpiar Cookies (Con el mismo path que se crearon)
-    Cookies.remove('medbay_token', { path: '/' });
-    Cookies.remove('medbay_role', { path: '/' });
+    // 1. CONFIGURACIÓN DE LIMPIEZA DE COOKIES
+    // Debe coincidir EXACTAMENTE con la configuración de creación (useApi.ts)
+    // o el navegador no la borrará.
+    const isProduction = typeof window !== 'undefined' && window.location.hostname.includes('medbaysupply.com');
+    
+    const cookieOptions: Cookies.CookieAttributes = { 
+        path: '/', 
+        domain: isProduction ? '.medbaysupply.com' : undefined,
+        secure: typeof window !== 'undefined' && window.location.protocol === 'https:',
+        sameSite: 'Lax'
+    };
 
-    // 2. Limpiar LocalStorage
+    // 2. Ejecutar limpieza con las opciones correctas
+    Cookies.remove('medbay_token', cookieOptions);
+    Cookies.remove('medbay_role', cookieOptions);
+
+    // 3. Limpiar LocalStorage
     if (typeof window !== 'undefined') {
         localStorage.removeItem('medbay_token');
         localStorage.removeItem('medbay_user');
     }
 
-    // 3. Limpiar Estado Global
+    // 4. Limpiar Estado Global (Zustand)
     storeLogout();
 
-    // 4. Redirigir
+    // 5. Redirigir y Refrescar
     router.replace('/login');
     router.refresh();
   };
