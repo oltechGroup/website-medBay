@@ -1,3 +1,5 @@
+// frontend/src/hooks/useApi.ts
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from './useAuth';
@@ -18,12 +20,25 @@ export const useLogin = () => {
       localStorage.setItem('medbay_token', data.token);
       localStorage.setItem('medbay_user', JSON.stringify(data.user));
 
-      // 2. Guardamos en COOKIES (Simple y Seguro)
-      // Usamos path: '/' para que sea global, pero sin meter lógica de dominios rara
-      Cookies.set('medbay_token', data.token, { expires: 1, path: '/' });
-      Cookies.set('medbay_role', data.user.verification_level, { expires: 1, path: '/' });
+      // 2. CONFIGURACIÓN ROBUSTA DE COOKIES
+      // Definimos las opciones DENTRO de la función para asegurar que 'window' existe
+      const isProduction = window.location.hostname.includes('medbaysupply.com');
+      
+      const cookieOptions: Cookies.CookieAttributes = { 
+        expires: 1, // 1 día
+        path: '/',
+        // Importante: El punto al inicio (.medbaysupply.com) hace la cookie visible en todos los subdominios
+        domain: isProduction ? '.medbaysupply.com' : undefined,
+        // Seguridad para HTTPS
+        secure: window.location.protocol === 'https:',
+        sameSite: 'Lax'
+      };
 
-      // 3. Actualizamos estado
+      // Guardamos las cookies con la nueva configuración blindada
+      Cookies.set('medbay_token', data.token, cookieOptions);
+      Cookies.set('medbay_role', data.user.verification_level, cookieOptions);
+
+      // 3. Actualizamos estado global
       login(data.token, data.user);
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
@@ -44,7 +59,7 @@ export const useRegister = () => {
   });
 };
 
-// Hook para usuario actual
+// Hook para obtener el usuario actual
 export const useCurrentUser = () => {
   const { isAuthenticated, token } = useAuth();
 
