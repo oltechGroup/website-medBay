@@ -1,19 +1,7 @@
-// frontend/src/hooks/useApi.ts
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from './useAuth';
 import Cookies from 'js-cookie';
-
-// --- CONFIGURACIÓN DE COOKIES BLINDADA ---
-// Usamos el dominio con punto (.) para que funcione en www y sin www
-const COOKIE_OPTIONS = {
-  expires: 1, // 1 día
-  path: '/',
-  domain: window.location.hostname.includes('medbaysupply.com') ? '.medbaysupply.com' : undefined,
-  secure: window.location.protocol === 'https:',
-  sameSite: 'Lax' as const
-};
 
 // Hook para login
 export const useLogin = () => {
@@ -26,13 +14,14 @@ export const useLogin = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      // 1. Guardamos en LocalStorage (Respaldo)
+      // 1. Guardamos en LocalStorage
       localStorage.setItem('medbay_token', data.token);
       localStorage.setItem('medbay_user', JSON.stringify(data.user));
 
-      // 2. Guardamos en COOKIES (Con configuración Global)
-      Cookies.set('medbay_token', data.token, COOKIE_OPTIONS);
-      Cookies.set('medbay_role', data.user.verification_level, COOKIE_OPTIONS);
+      // 2. Guardamos en COOKIES (Simple y Seguro)
+      // Usamos path: '/' para que sea global, pero sin meter lógica de dominios rara
+      Cookies.set('medbay_token', data.token, { expires: 1, path: '/' });
+      Cookies.set('medbay_role', data.user.verification_level, { expires: 1, path: '/' });
 
       // 3. Actualizamos estado
       login(data.token, data.user);
@@ -41,7 +30,7 @@ export const useLogin = () => {
   });
 };
 
-// Hook para registro (Sin cambios)
+// Hook para registro
 export const useRegister = () => {
   return useMutation({
     mutationFn: async (data: any) => {

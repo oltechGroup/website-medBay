@@ -1,5 +1,3 @@
-// frontend/src/lib/api.ts
-
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
@@ -17,7 +15,6 @@ export const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
-      // Intentamos leer cookie o localStorage
       const token = Cookies.get('medbay_token') || localStorage.getItem('medbay_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -47,13 +44,8 @@ api.interceptors.response.use(
         const currentPath = window.location.pathname;
         if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
           
-          const cookieOptions = {
-            path: '/',
-            domain: window.location.hostname.includes('medbaysupply.com') ? '.medbaysupply.com' : undefined
-          };
-
-          Cookies.remove('medbay_token', cookieOptions);
-          Cookies.remove('medbay_role', cookieOptions);
+          Cookies.remove('medbay_token', { path: '/' });
+          Cookies.remove('medbay_role', { path: '/' });
           localStorage.removeItem('medbay_token');
           localStorage.removeItem('medbay_user');
           
