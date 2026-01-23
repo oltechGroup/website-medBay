@@ -3,42 +3,47 @@
 import { useAuthStore } from '@/stores/authStore';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api'; // ✅ NUEVO: Importamos la API para consultar datos frescos
+import { api } from '@/lib/api';
 
 export const useAuth = () => {
-  // ✅ NUEVO: Extraemos 'updateUser' del store para poder guardar los cambios
   const { user, token, isAuthenticated, login, logout: storeLogout, updateUser } = useAuthStore();
   const router = useRouter();
 
   // --- LOGOUT MEJORADO ---
   const logout = () => {
-    // 1. Limpiar Cookies
-    Cookies.remove('medbay_token');
-    Cookies.remove('medbay_role');
+    // 1. ✅ CORRECCIÓN CRÍTICA: Limpiar Cookies con path: '/'
+    // Si no especificamos el path, la cookie global NO se borra.
+    Cookies.remove('medbay_token', { path: '/' });
+    Cookies.remove('medbay_role', { path: '/' });
 
     // 2. Limpiar LocalStorage
-    localStorage.removeItem('medbay_token');
-    localStorage.removeItem('medbay_user');
+    // Usamos removeItem para asegurar limpieza total
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('medbay_token');
+        localStorage.removeItem('medbay_user');
+    }
 
-    // 3. Limpiar Estado Global
+    // 3. Limpiar Estado Global (Zustand)
     storeLogout();
 
     // 4. Redirigir
-    router.push('/login');
+    // Usamos replace en lugar de push para que no puedan volver atrás con el botón "Atrás" del navegador
+    router.replace('/login');
     router.refresh();
   };
 
-  // --- ✅ NUEVA FUNCIÓN: REFRESH USER ---
-  // Esta función pide los datos más recientes del usuario a la BD y actualiza el frontend
+  // --- REFRESH USER ---
   const refreshUser = async () => {
     try {
       if (!user?.id) return;
 
-      // Hacemos la petición al backend para obtener los datos frescos
       const { data } = await api.get(`/users/${user.id}`);
       
-      // Guardamos los nuevos datos en el estado global (Zustand)
+      // Actualizamos el estado global
       updateUser(data);
+      
+      // Opcional: Si el rol cambió, actualizamos también la cookie
+      Cookies.set('medbay_role', data.verification_level, { expires: 1, path: '/' });
       
     } catch (error) {
       console.error("Error al refrescar información del usuario:", error);
@@ -51,6 +56,6 @@ export const useAuth = () => {
     isAuthenticated,
     login,
     logout,
-    refreshUser, // 👈 Exportamos la función para usarla en ProfilePage
+    refreshUser,
   };
 };

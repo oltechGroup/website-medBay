@@ -3,7 +3,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from './useAuth';
-// ✅ IMPORTANTE: Importamos js-cookie
 import Cookies from 'js-cookie';
 
 // Hook para login
@@ -17,25 +16,29 @@ export const useLogin = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      // 1. Guardamos en LocalStorage (Para tu app de React actual)
+      // 1. Guardamos en LocalStorage (Persistencia básica para Zustand)
       localStorage.setItem('medbay_token', data.token);
       localStorage.setItem('medbay_user', JSON.stringify(data.user));
 
-      // 2. ✅ Guardamos en COOKIES (Para que el Middleware lo vea)
-      Cookies.set('medbay_token', data.token, { expires: 1 });
-      Cookies.set('medbay_role', data.user.verification_level, { expires: 1 });
+      // 2. ✅ CORRECCIÓN CRÍTICA: Guardamos en COOKIES con path: '/'
+      // Sin 'path: /', la cookie solo existe en /login y el middleware no la ve en otras rutas.
+      Cookies.set('medbay_token', data.token, { expires: 1, path: '/' });
+      Cookies.set('medbay_role', data.user.verification_level, { expires: 1, path: '/' });
 
       // 3. Actualizamos el estado global
       login(data.token, data.user);
+      
+      // Invalidamos queries para forzar refresco de datos si existían
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
   });
 };
 
-// Hook para registro (Sin cambios)
+// Hook para registro (Sin cambios funcionales, solo limpieza)
 export const useRegister = () => {
   return useMutation({
     mutationFn: async (data: any) => {
+      // Detectamos si es FormData para configurar cabeceras
       const config = data instanceof FormData 
         ? { headers: { "Content-Type": "multipart/form-data" } }
         : {};
@@ -46,9 +49,8 @@ export const useRegister = () => {
   });
 };
 
-// Hook para obtener el usuario actual (✅ AJUSTADO)
+// Hook para obtener el usuario actual
 export const useCurrentUser = () => {
-  // Extraemos también el 'token' para validar que exista texto
   const { isAuthenticated, token } = useAuth();
 
   return useQuery({
@@ -57,12 +59,11 @@ export const useCurrentUser = () => {
       const response = await api.get('/auth/verify');
       return response.data;
     },
-    // ✅ CAMBIO DE SEGURIDAD:
-    // Solo ejecutamos la query si el flag es true Y además tenemos un token string.
+    // Solo ejecutamos si en teoría estamos autenticados
     enabled: isAuthenticated && !!token,
     
-    // ✅ EVITAR BUCLE: Si falla la verificación (401), no reintentar. 
-    // Asumimos que la sesión expiró y dejamos que el interceptor actúe una sola vez.
+    // Si falla la verificación (401), no reintentar. 
+    // Dejamos que el interceptor de Axios maneje la redirección si es necesario.
     retry: false, 
   });
 };
