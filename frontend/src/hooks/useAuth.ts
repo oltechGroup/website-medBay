@@ -1,29 +1,48 @@
 // frontend/src/hooks/useAuth.ts
 
 import { useAuthStore } from '@/stores/authStore';
-import Cookies from 'js-cookie'; // ✅ Importamos Cookies
-import { useRouter } from 'next/navigation'; // ✅ Para redirigir
+import Cookies from 'js-cookie';
+import { useRouter } from 'next/navigation';
+import { api } from '@/lib/api'; // ✅ NUEVO: Importamos la API para consultar datos frescos
 
 export const useAuth = () => {
-  const { user, token, isAuthenticated, login, logout: storeLogout } = useAuthStore();
+  // ✅ NUEVO: Extraemos 'updateUser' del store para poder guardar los cambios
+  const { user, token, isAuthenticated, login, logout: storeLogout, updateUser } = useAuthStore();
   const router = useRouter();
 
-  // Creamos una función logout "mejorada"
+  // --- LOGOUT MEJORADO ---
   const logout = () => {
-    // 1. Limpiar Cookies (Para que el Middleware sepa que saliste)
+    // 1. Limpiar Cookies
     Cookies.remove('medbay_token');
     Cookies.remove('medbay_role');
 
-    // 2. Limpiar LocalStorage (Limpieza general)
+    // 2. Limpiar LocalStorage
     localStorage.removeItem('medbay_token');
     localStorage.removeItem('medbay_user');
 
-    // 3. Limpiar Estado Global de Zustand
+    // 3. Limpiar Estado Global
     storeLogout();
 
-    // 4. Redirigir al Login o Home
+    // 4. Redirigir
     router.push('/login');
-    router.refresh(); // Opcional: Refresca para asegurar que el middleware actúe
+    router.refresh();
+  };
+
+  // --- ✅ NUEVA FUNCIÓN: REFRESH USER ---
+  // Esta función pide los datos más recientes del usuario a la BD y actualiza el frontend
+  const refreshUser = async () => {
+    try {
+      if (!user?.id) return;
+
+      // Hacemos la petición al backend para obtener los datos frescos
+      const { data } = await api.get(`/users/${user.id}`);
+      
+      // Guardamos los nuevos datos en el estado global (Zustand)
+      updateUser(data);
+      
+    } catch (error) {
+      console.error("Error al refrescar información del usuario:", error);
+    }
   };
 
   return {
@@ -31,6 +50,7 @@ export const useAuth = () => {
     token,
     isAuthenticated,
     login,
-    logout, // Usamos nuestra función nueva
+    logout,
+    refreshUser, // 👈 Exportamos la función para usarla en ProfilePage
   };
 };

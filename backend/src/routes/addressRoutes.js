@@ -14,6 +14,9 @@ router.get('/', addressController.getAddresses);
 // Crear una nueva dirección
 router.post('/', addressController.createAddress);
 
+// ✅ NUEVO: Actualizar una dirección existente (Alerta si es fiscal)
+router.put('/:id', addressController.updateAddress);
+
 // Eliminar una dirección específica
 router.delete('/:id', addressController.deleteAddress);
 

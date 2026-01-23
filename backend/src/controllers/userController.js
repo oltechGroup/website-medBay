@@ -324,7 +324,43 @@ const userController = {
     } 
   },
 
-  // ✅ 4. ACTUALIZAR ESTADO (Aprobar/Rechazar)
+  // ✅ 4. ACTUALIZAR PERFIL (Usuario Propio) - SOLO TELÉFONO
+  updateProfile: async (req, res) => {
+    try {
+      const userId = req.user.id;
+      // 🔒 SEGURIDAD: Solo extraemos 'phone' del body.
+      // Si el usuario intenta enviar 'verification_level', 'tax_id', etc., se ignora.
+      const { phone } = req.body;
+
+      if (!phone) {
+        return res.status(400).json({ error: 'El teléfono es requerido para actualizar.' });
+      }
+
+      const query = `
+        UPDATE users 
+        SET phone = $1, updated_at = NOW() 
+        WHERE id = $2 
+        RETURNING id, full_name, email, phone, verification_level, company_name
+      `;
+
+      const result = await pool.query(query, [phone, userId]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+
+      res.json({
+        message: 'Información de contacto actualizada',
+        user: result.rows[0]
+      });
+
+    } catch (error) {
+      console.error('Error actualizando perfil:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
+
+  // ✅ 5. ACTUALIZAR ESTADO (Aprobar/Rechazar)
   updateUserStatus: async (req, res) => {
     try {
       const { id } = req.params;
@@ -347,7 +383,7 @@ const userController = {
     }
   },
 
-  // ✅ 5. ELIMINAR USUARIO
+  // ✅ 6. ELIMINAR USUARIO
   deleteUser: async (req, res) => {
     try {
       const { id } = req.params;

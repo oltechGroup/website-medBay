@@ -284,6 +284,59 @@ const generateQuoteRejectedAdminTemplate = (data) => {
 };
 
 // ==========================================
+// 🛡️ TEMPLATES DE SEGURIDAD / PERFIL (NUEVO)
+// ==========================================
+
+// 1. ADMIN: ALERTA DE CAMBIO DE DIRECCIÓN FISCAL
+const generateFiscalAddressChangeTemplate = (data) => {
+  const content = `
+    <div class="warning-box" style="border-left: 4px solid ${theme.colors.warning}; background: #fffbeb;">
+      <strong style="color: #b45309;">⚠️ Alerta de Auditoría</strong><br>
+      Un usuario ha modificado su dirección de facturación (Fiscal).
+    </div>
+
+    <table class="info-table">
+      <tr><td class="label">Usuario</td><td class="value">${data.userName}</td></tr>
+      <tr><td class="label">Empresa</td><td class="value">${data.companyName || 'N/A'}</td></tr>
+      <tr><td class="label">Email</td><td class="value">${data.userEmail}</td></tr>
+    </table>
+
+    <div class="label" style="margin-top: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Nueva Dirección Fiscal</div>
+    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 13px; line-height: 1.6; color: ${theme.colors.secondary};">
+      ${data.newAddress}
+    </div>
+
+    <p style="font-size: 12px; color: #64748b; margin-top: 15px; text-align: center;">
+      Se recomienda verificar que la nueva dirección coincida con la Constancia de Situación Fiscal actualizada.
+    </p>
+  `;
+  return wrapHtml(`⚠️ Actualización Fiscal: ${data.userName}`, content, { text: 'Revisar Perfil de Usuario', url: `http://localhost:3000/dashboard/users/${data.userId}` });
+};
+
+// 2. ADMIN: ALERTA DE ACTUALIZACIÓN DE DOCUMENTO
+const generateDocumentUpdateTemplate = (data) => {
+  const content = `
+    <p class="subtitle">Un usuario ha subido una nueva versión de un documento legal.</p>
+
+    <div style="background: #eff6ff; padding: 20px; border-radius: 8px; border: 1px solid #dbeafe; margin-bottom: 20px;">
+      <table class="info-table" style="margin-top: 0; background: transparent;">
+        <tr><td class="label">Usuario</td><td class="value">${data.userName}</td></tr>
+        <tr><td class="label">Tipo de Documento</td><td class="value" style="text-transform: capitalize;">${data.documentType.replace('_', ' ')}</td></tr>
+        <tr><td class="label">Estado Actual</td><td class="value"><span style="background: ${theme.colors.warning}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px;">EN REVISIÓN</span></td></tr>
+      </table>
+    </div>
+
+    ${data.notes ? `<div class="message-box"><strong>Nota del Usuario:</strong><br>"${data.notes}"</div>` : ''}
+
+    <div class="success-box" style="text-align: center;">
+      <strong>Acción Requerida:</strong><br>
+      Validar la autenticidad del nuevo archivo adjunto.
+    </div>
+  `;
+  return wrapHtml(`📄 Documento Actualizado: ${data.userName}`, content, { text: 'Validar Documento', url: `http://localhost:3000/dashboard/documents` });
+};
+
+// ==========================================
 // 📥 TEMPLATES GENERALES (COTIZACIÓN INICIAL Y CONTACTO)
 // ==========================================
 
@@ -410,6 +463,10 @@ module.exports = {
   // Órdenes (Admin)
   generateNewOrderAdminTemplate, 
   generatePaymentUploadedTemplate,
+
+  // Seguridad / Perfil (Nuevos)
+  generateFiscalAddressChangeTemplate,
+  generateDocumentUpdateTemplate,
 
   // Otros
   generateContactTemplate, 

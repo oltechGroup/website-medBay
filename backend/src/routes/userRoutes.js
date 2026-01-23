@@ -12,18 +12,19 @@ const uploadEvidence = require('../middleware/uploadEvidence');
 // Registro de clientes (Business/Médicos) con documento
 router.post('/register', uploadEvidence.single('documentFile'), userController.register);
 
-
 // ==========================================
 // 🔒 RUTAS PROTEGIDAS (Gestión de Usuarios)
 // ==========================================
 // Todo lo de abajo requiere Token válido
 router.use(authMiddleware.verifyToken);
 
+// ✅ NUEVO: Actualizar mi propio perfil (Solo teléfono por ahora)
+router.put('/profile', userController.updateProfile);
+
 // ✅ Obtener lista de usuarios (Soporta filtros ?role=...&search=...)
-// Permitimos que admin y vendedores vean usuarios (vendedores para ver sus clientes)
 router.get('/', authMiddleware.requireRole(['admin', 'sales_agent']), userController.getAllUsers);
 
-// ✅ Crear Staff (Vendedores/Admins) - Cuenta activa inmediata
+// ✅ Crear Staff (Vendedores/Admins)
 router.post('/create-staff', authMiddleware.requireRole(['admin']), userController.createStaff);
 
 // ✅ Detalles de Usuario específico
