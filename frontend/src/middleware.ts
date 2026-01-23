@@ -7,15 +7,12 @@ export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // 1. DEFINICIÓN DE ROLES Y RUTAS
-  
-  // Roles que tienen acceso al Dashboard
   const staffRoles = ['admin', 'sales_agent'];
-
-  // Rutas exclusivas de Staff (Admin y Vendedores)
-  // Usamos startsWith para proteger sub-rutas (ej: /dashboard/settings)
+  
+  // Rutas exclusivas de Dashboard
   const isDashboardRoute = path.startsWith('/dashboard') || path.startsWith('/admin');
 
-  // Rutas que requieren estar LOGUEADO (Cualquier rol: Cliente o Staff)
+  // Rutas que requieren estar LOGUEADO
   const protectedRoutes = [
     '/cart', 
     '/checkout', 
@@ -26,25 +23,21 @@ export function middleware(request: NextRequest) {
   ];
   const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route));
 
-  // Rutas de AUTENTICACIÓN (Login/Registro)
-  const authRoutes = ['/login', '/register', '/forgot-password'];
-  const isAuthRoute = authRoutes.some(route => path.startsWith(route));
+  // Rutas de Auth
+  const isAuthRoute = ['/login', '/register', '/forgot-password'].some(route => path.startsWith(route));
 
   // 2. OBTENER CREDENCIALES
-  // Gracias al fix anterior en useApi.ts (path: '/'), estas cookies AHORA SÍ son visibles en todas las rutas.
   const token = request.cookies.get('medbay_token')?.value;
   const userRole = request.cookies.get('medbay_role')?.value; 
 
   // --- LÓGICA DE CONTROL DE TRÁFICO ---
 
-  // CASO A: Usuario YA LOGUEADO intenta entrar a Login/Registro
-  // (Evitamos que se vuelvan a loguear si ya tienen sesión)
-  if (isAuthRoute && token) {
-    // Si es Staff (Admin o Vendedor) -> Al Dashboard
+  // CASO A: Usuario YA LOGUEADO intenta entrar a Registro
+  // (Solo bloqueamos registro. PERMITIMOS /login para romper bucles de tokens vencidos)
+  if (path.startsWith('/register') && token) {
     if (staffRoles.includes(userRole || '')) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
-    // Si es Cliente (Cualquier otro rol) -> Al Home
     return NextResponse.redirect(new URL('/', request.url));
   }
 
@@ -52,46 +45,36 @@ export function middleware(request: NextRequest) {
   if (isDashboardRoute) {
     // 1. Si no hay token -> Login
     if (!token) {
-      // Guardamos la URL a la que querían ir para redirigirlos después (opcional, pero buena práctica)
       const url = new URL('/login', request.url);
       url.searchParams.set('callbackUrl', path);
       return NextResponse.redirect(url);
     }
     
     // 2. Si hay token pero NO es Staff -> Home (Acceso Denegado)
-    // Esto evita que un cliente normal vea el panel de administración
     if (!staffRoles.includes(userRole || '')) {
       return NextResponse.redirect(new URL('/', request.url));
     }
   }
 
-  // CASO C: Rutas PROTEGIDAS (Carrito, Perfil, etc.)
+  // CASO C: Rutas PROTEGIDAS (Cliente verificado)
   if (isProtectedRoute) {
     // Si no hay token -> Login
     if (!token) {
       const url = new URL('/login', request.url);
-      url.searchParams.set('callbackUrl', path); // Para regresar al usuario a donde iba
+      url.searchParams.set('callbackUrl', path);
       return NextResponse.redirect(url);
     }
-    // Si hay token, Pasa.
+    // Si hay token, PASA. 
+    // No redirigimos a ningún lado, dejamos que cargue la página.
   }
 
-  // CASO D: Rutas PÚBLICAS (Home, Catálogo, Contacto)
-  // El middleware deja pasar. El frontend decidirá qué mostrar (precios o "inicia sesión").
-  
+  // CASO D: Todo lo demás (Público)
   return NextResponse.next();
 }
 
-// Configuración: En qué rutas se ejecuta este middleware
+// Configuración: Excluir estáticos y API interna
 export const config = {
   matcher: [
-    /*
-     * Coincide con todas las rutas excepto:
-     * 1. /api (backend)
-     * 2. /_next (nextjs internals)
-     * 3. /static (public assets)
-     * 4. Archivos con extensión (imágenes, favicon, etc)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
