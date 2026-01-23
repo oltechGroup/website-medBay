@@ -2,7 +2,7 @@
 
 const { Pool } = require('pg');
 
-// Configuración de la Base de Datos (Igual que en contactController)
+// Configuración de la Base de Datos
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -33,7 +33,6 @@ const documentController = {
 
       // 3. Validar Permisos (Seguridad)
       if (owner_type === 'user') {
-        // El usuario solo puede subir documentos para sí mismo, a menos que sea admin
         if (owner_id !== req.user.id && req.user.verification_level !== 'admin') {
           return res.status(403).json({ error: 'No tienes permiso para subir documentos a este usuario.' });
         }
@@ -59,19 +58,18 @@ const documentController = {
     }
   },
 
-  // --- OBTENER TODOS (ADMIN - CON JOIN) ---
-  // 🔥 ESTA ES LA FUNCIÓN CLAVE PARA EL DASHBOARD 🔥
+  // --- OBTENER TODOS (ADMIN - CON JOIN COMPLETO) ---
   getAll: async (req, res) => {
     try {
-      // Hacemos LEFT JOIN para traer datos del usuario (email, nombre)
-      // Esto es vital para que AdminActions pueda enviar correos.
+      // ✅ AGREGADO: u.account_status as user_status
       const query = `
         SELECT 
           d.*,
           u.full_name as user_name,
           u.email as user_email,
           u.company_name,
-          u.verification_level as user_role
+          u.verification_level as user_role,
+          u.account_status as user_status 
         FROM documents d
         LEFT JOIN users u ON d.owner_id = u.id AND d.owner_type = 'user'
         ORDER BY d.created_at DESC
@@ -107,8 +105,15 @@ const documentController = {
     try {
       const { id } = req.params;
       
+      // ✅ AGREGADO: Datos completos del usuario incluyendo status
       const query = `
-        SELECT d.*, u.full_name as user_name, u.email as user_email
+        SELECT 
+          d.*, 
+          u.full_name as user_name, 
+          u.email as user_email,
+          u.company_name,
+          u.verification_level as user_role,
+          u.account_status as user_status
         FROM documents d
         LEFT JOIN users u ON d.owner_id = u.id AND d.owner_type = 'user'
         WHERE d.id = $1
@@ -138,7 +143,6 @@ const documentController = {
       const { id } = req.params;
       const { status, notes } = req.body;
 
-      // Actualizamos estado, notas y quién lo revisó
       const query = `
         UPDATE documents 
         SET status = $1, notes = $2, checked_by = $3, updated_at = NOW()
@@ -168,7 +172,6 @@ const documentController = {
     try {
       const { id } = req.params;
 
-      // Primero verificamos que exista y permisos
       const checkQuery = 'SELECT * FROM documents WHERE id = $1';
       const checkResult = await pool.query(checkQuery, [id]);
       const document = checkResult.rows[0];
@@ -181,11 +184,7 @@ const documentController = {
         return res.status(403).json({ error: 'No tienes permisos para eliminar este documento' });
       }
 
-      // Eliminar de la BD
       await pool.query('DELETE FROM documents WHERE id = $1', [id]);
-
-      // Nota: Aquí podrías agregar lógica para borrar el archivo físico del disco (fs.unlink)
-      // si quisieras limpiar el almacenamiento.
 
       res.json({ message: 'Documento eliminado exitosamente' });
 

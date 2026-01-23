@@ -3,13 +3,13 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, CheckCircle2, XCircle, FileText, Download, ExternalLink, Loader2 } from "lucide-react";
+import { X, CheckCircle2, XCircle, FileText, Download, ExternalLink, Loader2, AlertCircle } from "lucide-react";
 import { Document as DocumentData, DocStatus } from "@/hooks/useDocuments";
 import { getImageUrl } from "@/lib/formatters";
 import { OrderContext } from "./viewers/OrderContext";
 import { UserContext } from "./viewers/UserContext";
 
-// ✅ IMPORTAMOS EL COMPONENTE DE ACCIONES ADMINISTRATIVAS
+// Importamos AdminActions para aprobar usuarios
 import AdminActions from "../admin/AdminActions";
 
 interface DocumentViewerModalProps {
@@ -29,7 +29,7 @@ export const DocumentViewerModal = ({
 }: DocumentViewerModalProps) => {
   const [mounted, setMounted] = useState(false);
   
-  // Estados para la acción manual (Solo se usan si NO es licencia)
+  // Estados para acción manual (Solo documentos simples)
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
 
@@ -44,7 +44,7 @@ export const DocumentViewerModal = ({
   const isPdf = doc.file_path.toLowerCase().endsWith('.pdf');
   const fileUrl = getImageUrl(doc.file_path);
 
-  // Determinar contexto
+  // Contexto a mostrar
   const renderContext = () => {
     if (doc.document_type === 'payment_evidence' && doc.reference_id) {
       return <OrderContext orderId={doc.reference_id} />;
@@ -52,16 +52,17 @@ export const DocumentViewerModal = ({
     return <UserContext userId={doc.owner_id} />;
   };
 
+  // Título Personalizado
   const getDocTitle = () => {
     switch (doc.document_type) {
       case 'payment_evidence': return 'Evidencia de Pago';
-      case 'license': return 'Licencia Sanitaria / Acta';
+      case 'license': return 'Evidencia de Registro'; // ✅ CAMBIADO
       case 'business_registration': return 'Registro de Negocio';
       default: return 'Documento';
     }
   };
 
-  // Acción simple (Para pagos u otros docs)
+  // Acción simple (Pagos/Otros)
   const handleSimpleAction = async (status: DocStatus) => {
     if (status === 'rejected' && !rejectReason) {
       setShowRejectInput(true);
@@ -121,71 +122,86 @@ export const DocumentViewerModal = ({
           </div>
 
           {/* === FOOTER INTELIGENTE === */}
-          <div className="p-6 border-t border-slate-100 bg-slate-50/50">
-            
-            {/* OPCIÓN A: ES UN REGISTRO DE USUARIO (Usamos AdminActions) */}
-            {doc.document_type === 'license' ? (
-              <div className="animate-in slide-in-from-bottom-2">
-                <p className="text-xs font-bold text-slate-400 uppercase mb-2 text-center">Gestión de Cuenta</p>
-                <AdminActions 
-                  userId={doc.owner_id}
-                  userEmail={doc.user_email || ''} // Fallback si falta en join
-                  userName={doc.user_name || 'Usuario'}
-                  onActionComplete={() => {
-                    // Al terminar el flujo de correo/aprobación, cerramos el modal.
-                    // El AdminActions ya se encarga de actualizar el usuario y notificar.
-                    onClose();
-                  }}
-                />
-              </div>
-            ) : (
+          {/* Solo mostramos footer si NO es pago (los pagos se validan en ordenes) */}
+          {doc.document_type !== 'payment_evidence' && (
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50">
               
-              /* OPCIÓN B: ES OTRO DOCUMENTO (Pago, etc.) - Usamos botones simples */
-              <>
-                {showRejectInput ? (
-                  <div className="space-y-3 animate-in slide-in-from-bottom-2">
-                    <label className="text-xs font-bold text-slate-700 ml-1">Motivo del rechazo:</label>
-                    <textarea 
-                      className="w-full p-3 rounded-xl border border-slate-300 text-sm focus:border-red-500 focus:ring-red-500 outline-none"
-                      rows={3}
-                      placeholder="Ej. Ilegible, monto incorrecto..."
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      autoFocus
-                    ></textarea>
-                    <div className="flex gap-2">
-                      <button onClick={() => setShowRejectInput(false)} className="flex-1 py-3 text-slate-500 font-bold text-sm hover:bg-slate-200 rounded-xl">Cancelar</button>
-                      <button 
-                        onClick={() => handleSimpleAction('rejected')}
-                        disabled={isUpdating || !rejectReason.trim()}
-                        className="flex-1 py-3 bg-red-600 text-white font-bold text-sm hover:bg-red-700 rounded-xl shadow-lg shadow-red-500/20 disabled:opacity-50 flex justify-center"
-                      >
-                        {isUpdating ? <Loader2 className="animate-spin"/> : 'Confirmar'}
-                      </button>
-                    </div>
+              {/* CASO 1: USUARIO YA ACTIVO (Aprobado) */}
+              {doc.user_status === 'active' ? (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-center">
+                  <p className="text-green-700 font-bold flex items-center justify-center gap-2">
+                    <CheckCircle2 size={20}/> Cuenta Aprobada
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">El usuario ya tiene acceso al sistema.</p>
+                </div>
+              ) : doc.user_status === 'rejected' ? (
+                /* CASO 2: USUARIO RECHAZADO */
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center">
+                  <p className="text-red-700 font-bold flex items-center justify-center gap-2">
+                    <XCircle size={20}/> Solicitud Rechazada
+                  </p>
+                  <p className="text-xs text-red-600 mt-1">El usuario fue notificado.</p>
+                </div>
+              ) : (
+                /* CASO 3: PENDIENTE (Mostramos acciones) */
+                doc.document_type === 'license' ? (
+                  <div className="animate-in slide-in-from-bottom-2">
+                    <p className="text-xs font-bold text-slate-400 uppercase mb-2 text-center">Gestión de Cuenta</p>
+                    <AdminActions 
+                      userId={doc.owner_id}
+                      userEmail={doc.user_email || ''}
+                      userName={doc.user_name || 'Usuario'}
+                      onActionComplete={onClose}
+                    />
                   </div>
                 ) : (
-                  <div className="flex gap-3">
-                    <button 
-                      onClick={() => setShowRejectInput(true)}
-                      disabled={isUpdating}
-                      className="flex-1 py-4 border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <XCircle size={20}/> Rechazar
-                    </button>
-                    <button 
-                      onClick={() => handleSimpleAction('verified')}
-                      disabled={isUpdating}
-                      className="flex-[2] py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
-                    >
-                      {isUpdating ? <Loader2 className="animate-spin"/> : <CheckCircle2 size={20}/>}
-                      Validar
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+                  /* CASO 4: DOCUMENTO SIMPLE (No es registro ni pago) */
+                  <>
+                    {showRejectInput ? (
+                      <div className="space-y-3 animate-in slide-in-from-bottom-2">
+                        <label className="text-xs font-bold text-slate-700 ml-1">Motivo del rechazo:</label>
+                        <textarea 
+                          className="w-full p-3 rounded-xl border border-slate-300 text-sm focus:border-red-500 focus:ring-red-500 outline-none"
+                          rows={3}
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                          autoFocus
+                        ></textarea>
+                        <div className="flex gap-2">
+                          <button onClick={() => setShowRejectInput(false)} className="flex-1 py-3 text-slate-500 font-bold text-sm hover:bg-slate-200 rounded-xl">Cancelar</button>
+                          <button 
+                            onClick={() => handleSimpleAction('rejected')}
+                            disabled={isUpdating || !rejectReason.trim()}
+                            className="flex-1 py-3 bg-red-600 text-white font-bold text-sm hover:bg-red-700 rounded-xl shadow-lg shadow-red-500/20 disabled:opacity-50 flex justify-center"
+                          >
+                            {isUpdating ? <Loader2 className="animate-spin"/> : 'Confirmar'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={() => setShowRejectInput(true)}
+                          disabled={isUpdating}
+                          className="flex-1 py-4 border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <XCircle size={20}/> Rechazar
+                        </button>
+                        <button 
+                          onClick={() => handleSimpleAction('verified')}
+                          disabled={isUpdating}
+                          className="flex-[2] py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                        >
+                          {isUpdating ? <Loader2 className="animate-spin"/> : <CheckCircle2 size={20}/>}
+                          Validar
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )
+              )}
+            </div>
+          )}
 
         </div>
       </div>

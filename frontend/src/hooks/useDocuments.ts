@@ -1,4 +1,4 @@
-//frontend/src/hooks/useDocuments.ts
+// frontend/src/hooks/useDocuments.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
@@ -14,12 +14,16 @@ export interface Document {
   status: DocStatus;
   notes?: string;
   created_at: string;
-  reference_id?: string; // ✅ ID de la Orden (si aplica)
+  reference_id?: string; 
   
   // Datos unidos (JOINs del backend)
   user_name?: string;
   user_email?: string;
   supplier_name?: string;
+
+  // ✅ NUEVOS CAMPOS (Necesarios para la lógica del Modal)
+  user_status?: string; // 'pending' | 'active' | 'rejected'
+  user_role?: string;   // 'business_verified' | 'medical_professional'
 }
 
 export const useDocuments = (typeFilter: string = 'all') => {
@@ -29,8 +33,6 @@ export const useDocuments = (typeFilter: string = 'all') => {
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ['documents', typeFilter],
     queryFn: async () => {
-      // Nota: Tu endpoint actual devuelve todos. 
-      // Idealmente, el backend filtraría, pero podemos filtrar aquí por ahora.
       const response = await api.get('/documents');
       const allDocs = response.data as Document[];
       
