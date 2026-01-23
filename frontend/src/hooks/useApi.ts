@@ -5,6 +5,16 @@ import { api } from '@/lib/api';
 import { useAuth } from './useAuth';
 import Cookies from 'js-cookie';
 
+// --- CONFIGURACIÓN DE COOKIES BLINDADA ---
+// Usamos el dominio con punto (.) para que funcione en www y sin www
+const COOKIE_OPTIONS = {
+  expires: 1, // 1 día
+  path: '/',
+  domain: window.location.hostname.includes('medbaysupply.com') ? '.medbaysupply.com' : undefined,
+  secure: window.location.protocol === 'https:',
+  sameSite: 'Lax' as const
+};
+
 // Hook para login
 export const useLogin = () => {
   const { login } = useAuth();
@@ -16,29 +26,25 @@ export const useLogin = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      // 1. Guardamos en LocalStorage (Persistencia básica para Zustand)
+      // 1. Guardamos en LocalStorage (Respaldo)
       localStorage.setItem('medbay_token', data.token);
       localStorage.setItem('medbay_user', JSON.stringify(data.user));
 
-      // 2. ✅ CORRECCIÓN CRÍTICA: Guardamos en COOKIES con path: '/'
-      // Sin 'path: /', la cookie solo existe en /login y el middleware no la ve en otras rutas.
-      Cookies.set('medbay_token', data.token, { expires: 1, path: '/' });
-      Cookies.set('medbay_role', data.user.verification_level, { expires: 1, path: '/' });
+      // 2. Guardamos en COOKIES (Con configuración Global)
+      Cookies.set('medbay_token', data.token, COOKIE_OPTIONS);
+      Cookies.set('medbay_role', data.user.verification_level, COOKIE_OPTIONS);
 
-      // 3. Actualizamos el estado global
+      // 3. Actualizamos estado
       login(data.token, data.user);
-      
-      // Invalidamos queries para forzar refresco de datos si existían
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
   });
 };
 
-// Hook para registro (Sin cambios funcionales, solo limpieza)
+// Hook para registro (Sin cambios)
 export const useRegister = () => {
   return useMutation({
     mutationFn: async (data: any) => {
-      // Detectamos si es FormData para configurar cabeceras
       const config = data instanceof FormData 
         ? { headers: { "Content-Type": "multipart/form-data" } }
         : {};
@@ -49,7 +55,7 @@ export const useRegister = () => {
   });
 };
 
-// Hook para obtener el usuario actual
+// Hook para usuario actual
 export const useCurrentUser = () => {
   const { isAuthenticated, token } = useAuth();
 
@@ -59,11 +65,7 @@ export const useCurrentUser = () => {
       const response = await api.get('/auth/verify');
       return response.data;
     },
-    // Solo ejecutamos si en teoría estamos autenticados
     enabled: isAuthenticated && !!token,
-    
-    // Si falla la verificación (401), no reintentar. 
-    // Dejamos que el interceptor de Axios maneje la redirección si es necesario.
     retry: false, 
   });
 };

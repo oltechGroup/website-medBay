@@ -11,23 +11,26 @@ export const useAuth = () => {
 
   // --- LOGOUT MEJORADO ---
   const logout = () => {
-    // 1. ✅ CORRECCIÓN CRÍTICA: Limpiar Cookies con path: '/'
-    // Si no especificamos el path, la cookie global NO se borra.
-    Cookies.remove('medbay_token', { path: '/' });
-    Cookies.remove('medbay_role', { path: '/' });
+    // Configuración para asegurar que borramos la cookie correcta
+    const cookieOptions = {
+        path: '/',
+        domain: window.location.hostname.includes('medbaysupply.com') ? '.medbaysupply.com' : undefined
+    };
+
+    // 1. Limpiar Cookies (Especificando dominio)
+    Cookies.remove('medbay_token', cookieOptions);
+    Cookies.remove('medbay_role', cookieOptions);
 
     // 2. Limpiar LocalStorage
-    // Usamos removeItem para asegurar limpieza total
     if (typeof window !== 'undefined') {
         localStorage.removeItem('medbay_token');
         localStorage.removeItem('medbay_user');
     }
 
-    // 3. Limpiar Estado Global (Zustand)
+    // 3. Limpiar Estado Global
     storeLogout();
 
     // 4. Redirigir
-    // Usamos replace en lugar de push para que no puedan volver atrás con el botón "Atrás" del navegador
     router.replace('/login');
     router.refresh();
   };
@@ -36,15 +39,8 @@ export const useAuth = () => {
   const refreshUser = async () => {
     try {
       if (!user?.id) return;
-
       const { data } = await api.get(`/users/${user.id}`);
-      
-      // Actualizamos el estado global
       updateUser(data);
-      
-      // Opcional: Si el rol cambió, actualizamos también la cookie
-      Cookies.set('medbay_role', data.verification_level, { expires: 1, path: '/' });
-      
     } catch (error) {
       console.error("Error al refrescar información del usuario:", error);
     }
