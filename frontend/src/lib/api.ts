@@ -3,14 +3,21 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-// Usa variables de entorno si es posible, si no, usa el string directo
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.medbaysupply.com/api';
+// 🛑 CORRECCIÓN DE EMERGENCIA:
+// Tu variable de entorno (process.env.NEXT_PUBLIC_API_URL) contiene la IP insegura (http).
+// La he comentado para OBLIGAR al sistema a usar la URL segura (https).
+//
+// NOTA: Asegúrate de que el subdominio 'api.medbaysupply.com' tenga certificado SSL.
+// Si no tienes SSL en 'api.', cambia esto a 'https://www.medbaysupply.com/api'
+const API_BASE_URL = 'https://api.medbaysupply.com/api';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  // Importante para que las cookies funcionen bien en producción
+  withCredentials: true 
 });
 
 // --- INTERCEPTOR DE REQUEST ---
@@ -18,7 +25,6 @@ api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
       // Prioridad absoluta a la Cookie. 
-      // El LocalStorage queda solo como respaldo secundario.
       const token = Cookies.get('medbay_token') || localStorage.getItem('medbay_token');
       
       if (token) {
@@ -43,11 +49,9 @@ api.interceptors.response.use(
         const currentPath = window.location.pathname;
 
         // 🛑 EVITAR BUCLE INFINITO
-        // Si ya estamos en login o registro, NO hacemos nada (dejamos que el usuario vea el error en el formulario)
         if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
           
-          // 🧹 LIMPIEZA PROFUNDA (CORREGIDA)
-          // Importante: Usar path: '/' para asegurar que borramos la cookie global
+          // 🧹 LIMPIEZA PROFUNDA
           Cookies.remove('medbay_token', { path: '/' });
           Cookies.remove('medbay_role', { path: '/' });
           
@@ -55,7 +59,6 @@ api.interceptors.response.use(
           localStorage.removeItem('medbay_user');
           
           // Redirigir al login
-          // Usamos window.location para un hard refresh y limpiar estados de memoria de React
           window.location.href = '/login';
         }
       }
