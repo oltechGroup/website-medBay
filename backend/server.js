@@ -1,7 +1,7 @@
 // backend/server.js 
 
 const express = require('express');
-// const cors = require('cors'); // ⚠️ Mantener comentado igual que en el servidor
+const cors = require('cors'); // ✅ 1. DESCOMENTADO (Es vital para que funcione)
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
@@ -9,6 +9,21 @@ require('dotenv').config();
 const app = express();
 // ⚠️ Puerto 4000 para que coincida con lo que espera Nginx
 const PORT = process.env.PORT || 4000; 
+
+// =======================================================
+// 🛡️ CONFIGURACIÓN DE CORS (LA SOLUCIÓN A TU ERROR)
+// =======================================================
+// Esto le dice al navegador: "Permite que www.medbaysupply.com se conecte 
+// y envíe cookies/credenciales".
+app.use(cors({
+  origin: [
+    'https://www.medbaysupply.com', 
+    'https://medbaysupply.com',
+  ],
+  credentials: true, // 👈 ESTO ARREGLA EL ERROR "Access-Control-Allow-Credentials"
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
@@ -61,7 +76,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',
     service: 'MedBay API',
-    mode: process.env.NODE_ENV
+    cors_enabled: true
   });
 });
 
@@ -77,5 +92,6 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`\n🚀 MedBay Server listo en puerto ${PORT}`);
+  console.log(`🛡️ CORS Habilitado para: https://www.medbaysupply.com`);
   console.log(`📸 Carpeta de imágenes configurada en: ${uploadsPath}`);
 });
