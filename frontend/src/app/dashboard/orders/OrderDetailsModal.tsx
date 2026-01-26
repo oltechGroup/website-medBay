@@ -6,9 +6,10 @@ import {
   X, Package, MapPin, User, CreditCard, 
   CheckCircle2, XCircle, Truck, FileText, 
   ExternalLink, ShieldCheck, AlertTriangle,
-  Clock, Phone, Globe, MessageCircle, Building2
+  Clock, Phone, Globe, MessageCircle, Building2,
+  Plus, Trash2, Send, DollarSign, Calendar
 } from "lucide-react";
-import { useAdminOrders, AdminOrder, OrderItem, Supplier } from "@/hooks/useAdminOrders";
+import { useAdminOrders, AdminOrder, OrderItem, Supplier, ShippingOption } from "@/hooks/useAdminOrders";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 
 interface OrderDetailsModalProps {
@@ -18,56 +19,96 @@ interface OrderDetailsModalProps {
 }
 
 export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDetailsModalProps) {
-  const { getOrderDetails, updateStatus, getStatusLabel, getStatusColor, isUpdating } = useAdminOrders();
+  const { 
+    getOrderDetails, updateStatus, 
+    addShippingOption, submitValuation, // ✅ Nuevas funciones
+    getStatusLabel, getStatusColor, 
+    isUpdating, isAddingOption, isSubmittingValuation 
+  } = useAdminOrders();
   
   const [order, setOrder] = useState<AdminOrder | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]); // ✅ Estado para proveedores
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  
+  // ✅ Nuevos estados para el flujo B2B
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [taxInput, setTaxInput] = useState<string>('');
+  const [newOption, setNewOption] = useState({ name: '', days: '', cost: '' });
+  
   const [loading, setLoading] = useState(true);
-
-  // Estado para el mini-modal de proveedores
   const [showSupplierModal, setShowSupplierModal] = useState(false);
 
-  // Cargar datos al abrir
+  // Cargar datos
+  const fetchOrder = () => {
+    setLoading(true);
+    getOrderDetails(orderId)
+      .then((data) => {
+        setOrder(data.order);
+        setItems(data.items);
+        setSuppliers(data.suppliers || []);
+        setShippingOptions(data.shippingOptions || []);
+        // Si ya hay tax guardado, lo ponemos, si no 0
+        setTaxInput(data.order.tax || '0');
+      })
+      .finally(() => setLoading(false));
+  };
+
   useEffect(() => {
     if (isOpen && orderId) {
-      setLoading(true);
-      getOrderDetails(orderId)
-        .then((data) => {
-          setOrder(data.order);
-          setItems(data.items);
-          setSuppliers(data.suppliers || []); // ✅ Guardamos proveedores
-        })
-        .finally(() => setLoading(false));
+      fetchOrder();
     }
   }, [isOpen, orderId]);
 
   if (!isOpen) return null;
 
-  // --- MANEJADORES DE ACCIÓN --- //
+  // --- MANEJADORES B2B (NUEVOS) ---
 
-  const handleApproveStock = async () => {
-    if(!confirm("¿Confirmas que hay stock disponible? El cliente recibirá un correo con los datos bancarios para pagar.")) return;
-    await updateStatus({ orderId, status: 'payment_pending' });
+  const handleAddOption = async () => {
+    if (!newOption.name || !newOption.cost) return alert("Nombre y Costo son obligatorios");
+    
+    await addShippingOption({
+      orderId,
+      name: newOption.name,
+      description: "Opción personalizada por agente",
+      estimated_days: newOption.days,
+      cost: parseFloat(newOption.cost)
+    });
+    
+    // Limpiar form y recargar para ver la nueva opción
+    setNewOption({ name: '', days: '', cost: '' });
+    fetchOrder(); 
+  };
+
+  const handleSubmitValuation = async () => {
+    if (shippingOptions.length === 0) return alert("Debes agregar al menos una opción de envío.");
+    if (!taxInput) return alert("Debes definir el impuesto (o poner 0).");
+    
+    if(!confirm("¿Enviar propuesta al cliente? Se le notificará por correo.")) return;
+
+    await submitValuation({
+      orderId,
+      tax_amount: parseFloat(taxInput)
+    });
     onClose();
   };
 
+  // --- MANEJADORES ANTERIORES ---
+
   const handleRejectOrder = async () => {
-    if(!confirm("¿Rechazar esta orden? Se notificará al cliente y se cancelará la solicitud.")) return;
+    if(!confirm("¿Rechazar esta orden?")) return;
     await updateStatus({ orderId, status: 'rejected' });
     onClose();
   };
 
   const handleApprovePayment = async () => {
-    if(!confirm("¿El pago es válido? Esto moverá la orden a 'En Proceso'.")) return;
+    if(!confirm("¿El pago es válido?")) return;
     await updateStatus({ orderId, status: 'processing' });
     onClose();
   };
 
   const handleMarkShipped = async () => {
-    // ✅ Pedimos el Tracking Number aquí
-    const tracking = prompt("Ingresa el Número de Rastreo / Guía (Opcional):");
-    if (tracking === null) return; // Cancelado por usuario
+    const tracking = prompt("Ingresa el Número de Rastreo / Guía:");
+    if (tracking === null) return; 
 
     await updateStatus({ 
       orderId, 
@@ -79,10 +120,8 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
 
   return (
     <div className="fixed inset-0 z-[50] flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
 
-      {/* Modal Content */}
       <div className="relative bg-white w-full max-w-6xl h-[90vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         
         {/* HEADER */}
@@ -102,7 +141,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
               </div>
               <p className="text-xs text-slate-500 font-medium flex items-center gap-3 mt-1">
                 <span className="flex items-center gap-1"><User size={12}/> {order?.customer_name}</span>
-                {/* ✅ Teléfono visible */}
                 {order?.customer_phone && (
                    <span className="flex items-center gap-1 text-slate-600">
                      <Phone size={12}/> {order.customer_phone}
@@ -118,7 +156,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
           </button>
         </div>
 
-        {/* BODY CON SCROLL */}
+        {/* BODY */}
         <div className="flex-1 overflow-y-auto bg-slate-50/50 p-8">
           {loading ? (
             <div className="flex items-center justify-center h-full">
@@ -127,17 +165,13 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
           ) : order ? (
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
               
-              {/* === COLUMNA IZQUIERDA (2/3): ÍTEMS === */}
+              {/* IZQUIERDA: PRODUCTOS */}
               <div className="xl:col-span-2 space-y-6">
-                
-                {/* Tabla de Productos */}
                 <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                     <span className="font-bold text-slate-700 flex items-center gap-2">
-                      <Package size={18} className="text-blue-500"/> Productos Solicitados
+                      <Package size={18} className="text-blue-500"/> Productos
                     </span>
-                    
-                    {/* ✅ BOTÓN DE PROVEEDORES (El botón mágico) */}
                     {suppliers.length > 0 && (
                       <button 
                         onClick={() => setShowSupplierModal(true)}
@@ -147,11 +181,10 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                       </button>
                     )}
                   </div>
-
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
                       <tr>
-                        <th className="px-6 py-3">Detalle</th>
+                        <th className="px-6 py-3">Producto</th>
                         <th className="px-6 py-3 text-center">Lote</th>
                         <th className="px-6 py-3 text-center">Cant.</th>
                         <th className="px-6 py-3 text-right">Total</th>
@@ -159,156 +192,207 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {items.map((item) => (
-                        <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
+                        <tr key={item.id}>
                           <td className="px-6 py-4">
                             <p className="font-bold text-slate-800">{item.product_name}</p>
                             <p className="text-xs text-slate-500 font-mono mt-0.5">SKU: {item.global_sku}</p>
-                            {/* Mostrar el supplier SKU si existe */}
-                            {item.supplier_sku && (
-                               <p className="text-[10px] text-blue-500 font-mono">Prov SKU: {item.supplier_sku}</p>
-                            )}
                           </td>
                           <td className="px-6 py-4 text-center">
                             <span className="bg-slate-100 px-2 py-1 rounded text-xs font-mono font-bold text-slate-600 border border-slate-200">
                               {item.lot_number}
                             </span>
-                            <div className="text-[10px] text-slate-400 mt-1">
-                              Cad: {formatDate(item.expiry_date)}
-                            </div>
                           </td>
-                          <td className="px-6 py-4 text-center font-bold text-slate-700">
-                            {item.quantity}
-                          </td>
-                          <td className="px-6 py-4 text-right font-bold text-slate-800">
-                            {formatCurrency(item.line_total)}
-                          </td>
+                          <td className="px-6 py-4 text-center font-bold text-slate-700">{item.quantity}</td>
+                          <td className="px-6 py-4 text-right font-bold text-slate-800">{formatCurrency(item.line_total)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
 
-                {/* VISOR DE EVIDENCIA (Solo si existe) */}
+                {/* VISOR DE EVIDENCIA */}
                 {order.evidence_file && (
                   <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
                     <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
                       <FileText className="text-purple-500" size={20}/> Evidencia de Pago
                     </h4>
                     <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 flex flex-col items-center">
-                      {order.evidence_file.endsWith('.pdf') ? (
-                        <iframe 
-                          src={`https://api.medbaysupply.com${order.evidence_file}`} 
-                          className="w-full h-96 rounded-xl border border-slate-200"
-                        ></iframe>
-                      ) : (
-                        <img 
-                          src={`https://api.medbaysupply.com${order.evidence_file}`} 
-                          alt="Comprobante" 
-                          className="max-h-96 object-contain rounded-lg shadow-sm"
-                        />
-                      )}
                       <a 
                         href={`https://api.medbaysupply.com${order.evidence_file}`} 
-                        target="_blank" 
-                        className="mt-4 flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline"
+                        target="_blank"
+                        className="text-blue-600 font-bold hover:underline flex items-center gap-2"
                       >
-                        <ExternalLink size={14}/> Abrir archivo original
+                        <ExternalLink size={16}/> Ver Documento Adjunto
                       </a>
                     </div>
                   </div>
                 )}
-
               </div>
 
-              {/* === COLUMNA DERECHA (1/3): INFO Y ACCIONES === */}
+              {/* DERECHA: PANEL DE CONTROL */}
               <div className="space-y-6">
                 
-                {/* 1. CAJA DE ACCIONES (Lógica de Negocio) */}
+                {/* 1. PANEL DE ACCIÓN DINÁMICO */}
                 <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl shadow-slate-900/20">
                   <h4 className="font-bold text-xs uppercase tracking-widest text-slate-400 mb-5 border-b border-slate-700 pb-2">
                     Panel de Control
                   </h4>
-                  
-                  {/* PENDIENTE DE REVISIÓN */}
-                  {order.status === 'pending_review' && (
-                    <div className="space-y-3">
-                      <p className="text-sm text-slate-300 mb-2">Valida disponibilidad con el proveedor antes de aprobar.</p>
+
+                  {/* CASO 1: PENDIENTE DE VALUACIÓN (COTIZACIÓN) */}
+                  {order.status === 'pending_valuation' && (
+                    <div className="space-y-4">
+                      
+                      {/* A. INPUT IMPUESTOS */}
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Impuestos (USD)</label>
+                        <div className="relative">
+                           <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+                           <input 
+                             type="number" 
+                             value={taxInput}
+                             onChange={(e) => setTaxInput(e.target.value)}
+                             placeholder="0.00"
+                             className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-white font-bold text-sm focus:border-blue-500 outline-none"
+                           />
+                        </div>
+                      </div>
+
+                      {/* B. LISTA DE OPCIONES AGREGADAS */}
+                      <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block flex justify-between">
+                          <span>Opciones de Envío</span>
+                          <span className="text-blue-400">{shippingOptions.length} agregadas</span>
+                        </label>
+                        <div className="space-y-2 mb-3">
+                          {shippingOptions.map(opt => (
+                            <div key={opt.id} className="bg-slate-800 p-2 rounded-lg flex justify-between items-center text-xs">
+                               <div>
+                                 <span className="font-bold block text-white">{opt.name}</span>
+                                 <span className="text-slate-400">{opt.estimated_days}</span>
+                               </div>
+                               <span className="font-mono text-emerald-400 font-bold">${opt.cost}</span>
+                            </div>
+                          ))}
+                          {shippingOptions.length === 0 && (
+                            <p className="text-xs text-slate-500 italic">No hay opciones de envío aún.</p>
+                          )}
+                        </div>
+
+                        {/* C. FORMULARIO PEQUEÑO PARA AGREGAR OPCIÓN */}
+                        <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 space-y-2">
+                           <input 
+                             placeholder="Nombre (Ej: Aéreo)" 
+                             value={newOption.name}
+                             onChange={(e) => setNewOption({...newOption, name: e.target.value})}
+                             className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white"
+                           />
+                           <div className="flex gap-2">
+                             <input 
+                               placeholder="Días (Ej: 2-3)" 
+                               value={newOption.days}
+                               onChange={(e) => setNewOption({...newOption, days: e.target.value})}
+                               className="w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white"
+                             />
+                             <input 
+                               type="number"
+                               placeholder="Costo $" 
+                               value={newOption.cost}
+                               onChange={(e) => setNewOption({...newOption, cost: e.target.value})}
+                               className="w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white"
+                             />
+                           </div>
+                           <button 
+                             onClick={handleAddOption}
+                             disabled={isAddingOption}
+                             className="w-full py-1.5 bg-slate-700 hover:bg-slate-600 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1"
+                           >
+                             <Plus size={12}/> Agregar Opción
+                           </button>
+                        </div>
+                      </div>
+
+                      <div className="h-px bg-slate-700 my-4"></div>
+
+                      {/* D. BOTÓN FINAL: ENVIAR PROPUESTA */}
                       <button 
-                        onClick={handleApproveStock}
-                        disabled={isUpdating}
-                        className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/20"
+                        onClick={handleSubmitValuation}
+                        disabled={isSubmittingValuation}
+                        className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition-all"
                       >
-                        <CheckCircle2 size={18}/> Confirmar Stock
+                         <Send size={16}/> Enviar Propuesta al Cliente
                       </button>
                       <button 
                         onClick={handleRejectOrder}
-                        disabled={isUpdating}
-                        className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-red-400 hover:text-red-300 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                        className="w-full py-3 bg-transparent text-red-400 hover:text-red-300 text-xs font-bold"
                       >
-                        <XCircle size={18}/> Rechazar Pedido
+                        Cancelar y Rechazar
                       </button>
                     </div>
                   )}
 
-                  {/* ESPERANDO PAGO */}
-                  {order.status === 'payment_pending' && (
-                    <div className="text-center py-6 bg-white/5 rounded-2xl border border-white/5">
-                      <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-3 text-blue-400">
+                  {/* CASO 2: ESPERANDO APROBACIÓN CLIENTE */}
+                  {order.status === 'waiting_customer_approval' && (
+                    <div className="text-center py-4">
+                      <div className="w-12 h-12 bg-sky-500/20 text-sky-400 rounded-full flex items-center justify-center mx-auto mb-3 animate-pulse">
                         <Clock size={24}/>
                       </div>
-                      <p className="font-bold text-white">Esperando Cliente</p>
-                      <p className="text-xs text-slate-400 mt-1 max-w-[200px] mx-auto">
-                        Se enviaron las instrucciones de pago. El cliente debe subir su comprobante.
+                      <p className="font-bold text-white">Esperando al Cliente</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Se enviaron {shippingOptions.length} opciones de envío. El cliente debe elegir una y confirmar.
                       </p>
                     </div>
                   )}
 
-                  {/* REVISIÓN DE PAGO */}
-                  {order.status === 'payment_review' && (
-                    <div className="space-y-3">
-                      <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-xl flex items-center gap-3 mb-2">
-                        <AlertTriangle className="text-yellow-400 flex-shrink-0" size={20}/>
-                        <span className="text-xs text-yellow-100 font-medium">Revisa la evidencia adjunta antes de validar.</span>
+                  {/* CASO 3: ESPERANDO PAGO */}
+                  {order.status === 'payment_pending' && (
+                    <div className="text-center py-4">
+                      <div className="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <AlertTriangle size={24}/>
                       </div>
-                      <button 
-                        onClick={handleApprovePayment}
-                        disabled={isUpdating}
-                        className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
-                      >
-                        <ShieldCheck size={18}/> Validar Pago
-                      </button>
+                      <p className="font-bold text-white">Pago Pendiente</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        El cliente aceptó la cotización. Esperando comprobante de pago.
+                      </p>
                     </div>
                   )}
 
-                  {/* EN PROCESO */}
+                  {/* CASO 4: REVISIÓN DE PAGO */}
+                  {order.status === 'payment_review' && (
+                     <div className="space-y-3">
+                       <p className="text-sm text-slate-300">Evidencia recibida. Valídala antes de procesar.</p>
+                       <button onClick={handleApprovePayment} className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold flex items-center justify-center gap-2">
+                         <ShieldCheck size={18}/> Validar Pago
+                       </button>
+                     </div>
+                  )}
+
+                  {/* CASO 5: EN PROCESO */}
                   {order.status === 'processing' && (
                     <div className="space-y-3">
-                      <p className="text-sm text-slate-300 mb-2">Orden pagada. Prepara el paquete.</p>
-                      <button 
-                        onClick={handleMarkShipped}
-                        disabled={isUpdating}
-                        className="w-full py-3.5 bg-blue-500 hover:bg-blue-400 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20"
-                      >
+                      <p className="text-sm text-slate-300">Pago Validado. Orden lista para envío.</p>
+                      <button onClick={handleMarkShipped} className="w-full py-3 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-bold flex items-center justify-center gap-2">
                         <Truck size={18}/> Marcar Enviado
                       </button>
                     </div>
                   )}
 
-                  {/* ESTADOS FINALES */}
-                  {['shipped', 'delivered', 'cancelled', 'rejected'].includes(order.status) && (
-                     <div className="text-center">
-                        <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Ciclo Finalizado</p>
-                        {order.tracking_number && (
-                          <div className="mt-3 bg-white/10 p-3 rounded-xl">
-                             <p className="text-[10px] text-slate-400 uppercase">Tracking Number</p>
-                             <p className="font-mono font-bold text-white tracking-wider">{order.tracking_number}</p>
-                          </div>
-                        )}
-                     </div>
-                  )}
+                   {/* CASOS FINALES */}
+                   {['shipped', 'delivered'].includes(order.status) && (
+                      <div className="text-center">
+                         <div className="bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-lg inline-block text-xs font-bold uppercase tracking-wider">
+                           Ciclo Completado
+                         </div>
+                         {order.tracking_number && (
+                           <div className="mt-4 bg-slate-800 p-3 rounded-lg">
+                             <p className="text-[10px] text-slate-500 uppercase">Tracking</p>
+                             <p className="font-mono text-white tracking-widest">{order.tracking_number}</p>
+                           </div>
+                         )}
+                      </div>
+                   )}
                 </div>
 
-                {/* 2. DATOS FINANCIEROS */}
+                {/* 2. RESUMEN FINANCIERO */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                   <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <CreditCard size={18} className="text-slate-400"/> Resumen Financiero
@@ -318,118 +402,80 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                       <span>Subtotal</span>
                       <span>{formatCurrency(parseFloat(order.subtotal || '0'))}</span>
                     </div>
+                    
+                    {/* Tax Dinámico */}
                     <div className="flex justify-between text-slate-500">
-                      <span>Envío ({order.shipping_method})</span>
-                      {/* ✅ Ahora usa el shipping_cost real */}
-                      <span className="font-medium text-slate-700">
-                        {parseFloat(order.shipping_cost) > 0 ? formatCurrency(parseFloat(order.shipping_cost)) : 'Gratis'}
-                      </span> 
+                      <span>Impuestos</span>
+                      {order.status === 'pending_valuation' ? (
+                        <span className="text-blue-500 font-bold italic">Pendiente</span>
+                      ) : (
+                        <span>{formatCurrency(parseFloat(order.tax || '0'))}</span>
+                      )}
                     </div>
-                    {parseFloat(order.tax) > 0 && (
-                      <div className="flex justify-between text-slate-500">
-                        <span>Impuestos</span>
-                        <span>{formatCurrency(parseFloat(order.tax))}</span>
-                      </div>
-                    )}
+
+                    {/* Envío Dinámico */}
+                    <div className="flex justify-between text-slate-500">
+                      <span>Envío {order.shipping_method ? `(${order.shipping_method})` : ''}</span>
+                      {order.status === 'pending_valuation' || order.status === 'waiting_customer_approval' ? (
+                        <span className="text-blue-500 font-bold italic">Por definir</span>
+                      ) : (
+                        <span>{formatCurrency(parseFloat(order.shipping_cost || '0'))}</span>
+                      )}
+                    </div>
+
                     <div className="pt-3 border-t border-slate-100 flex justify-between font-black text-lg text-slate-900">
                       <span>Total</span>
-                      <span>{formatCurrency(order.total)}</span>
+                      {order.status === 'pending_valuation' ? (
+                        <span className="text-slate-400 text-base">Calculando...</span>
+                      ) : (
+                        <span>{formatCurrency(order.total)}</span>
+                      )}
                     </div>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-center text-slate-400">
-                    Método: <span className="font-bold text-slate-600 uppercase">{order.payment_method?.replace('_', ' ')}</span>
                   </div>
                 </div>
 
-                {/* 3. DIRECCIÓN DE ENTREGA (MEJORADA) */}
+                {/* 3. DIRECCIÓN */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                  <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <MapPin size={18} className="text-slate-400"/> Dirección de Entrega
-                  </h4>
-                  
-                  {order.shipping_address_json ? (
-                    <div className="text-sm text-slate-600 space-y-1">
-                      <p className="font-bold text-slate-900">{order.customer_name}</p>
-                      <p>{order.shipping_address_json.street}</p>
-                      <p>
-                        {order.shipping_address_json.city}, {order.shipping_address_json.state}
-                      </p>
-                      <p className="font-mono text-xs bg-slate-100 inline-block px-1.5 rounded text-slate-500">
-                        CP: {order.shipping_address_json.postal_code}
-                      </p>
-                      <p className="font-bold text-slate-400 uppercase text-xs mt-1">
-                        {order.shipping_address_json.country}
-                      </p>
-                      {order.shipping_address_json.phone && (
-                        <p className="mt-2 flex items-center gap-2 text-blue-600 font-medium">
-                          <Phone size={14}/> {order.shipping_address_json.phone}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-slate-400 text-sm italic">Dirección no disponible en formato nuevo.</p>
-                  )}
+                   <h4 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                     <MapPin size={18} className="text-slate-400"/> Dirección de Envío
+                   </h4>
+                   {order.shipping_address_json ? (
+                      <div className="text-sm text-slate-600">
+                        <p className="font-bold">{order.shipping_address_json.street}</p>
+                        <p>{order.shipping_address_json.city}, {order.shipping_address_json.state}</p>
+                        <p className="text-xs uppercase mt-1">{order.shipping_address_json.country} • CP {order.shipping_address_json.postal_code}</p>
+                      </div>
+                   ) : (
+                     <p className="text-slate-400 text-xs italic">Sin dirección estructurada</p>
+                   )}
                 </div>
 
               </div>
             </div>
           ) : (
-            <div className="text-center text-red-500">Error al cargar orden</div>
+            <div className="text-center text-red-500">Error cargando datos</div>
           )}
         </div>
       </div>
 
-      {/* =========================================================
-          🔥 MINI-MODAL DE PROVEEDORES (POPUP)
-          ========================================================= */}
+      {/* MINI MODAL PROVEEDORES (Igual que antes) */}
       {showSupplierModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-           {/* Backdrop Transparente pero bloqueante */}
            <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" onClick={() => setShowSupplierModal(false)}></div>
-           
-           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6 relative animate-in zoom-in-95 duration-200">
-              <button 
-                onClick={() => setShowSupplierModal(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
-              >
-                <X size={20}/>
-              </button>
-              
-              <h3 className="text-lg font-black text-slate-800 mb-1 flex items-center gap-2">
-                <Building2 className="text-blue-600"/> Proveedores
-              </h3>
-              <p className="text-sm text-slate-500 mb-6">Contacta para verificar disponibilidad.</p>
-
-              <div className="space-y-4">
-                {suppliers.map(sup => (
-                  <div key={sup.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors">
-                    <p className="font-bold text-slate-900">{sup.name}</p>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 mb-3">
-                      <Globe size={12}/> {sup.country || 'Intl'}
-                    </div>
-                    
-                    {/* Botones de Contacto */}
-                    <div className="flex gap-2">
-                      <a 
-                        href={`mailto:${sup.contact_info}`} 
-                        className="flex-1 bg-white border border-slate-200 py-2 rounded-lg text-xs font-bold text-slate-700 flex items-center justify-center gap-2 hover:bg-slate-100"
-                      >
-                         <MessageCircle size={14}/> Email
-                      </a>
-                      <button 
-                        onClick={() => alert(`Teléfono: ${sup.contact_info}`)}
-                        className="flex-1 bg-white border border-slate-200 py-2 rounded-lg text-xs font-bold text-slate-700 flex items-center justify-center gap-2 hover:bg-slate-100"
-                      >
-                         <Phone size={14}/> Teléfono
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+           <div className="bg-white rounded-2xl shadow-2xl p-6 relative w-full max-w-md animate-in zoom-in-95">
+             <button onClick={() => setShowSupplierModal(false)} className="absolute top-4 right-4"><X size={20}/></button>
+             <h3 className="font-bold text-lg mb-4">Proveedores del Pedido</h3>
+             <div className="space-y-3">
+               {suppliers.map(sup => (
+                 <div key={sup.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                   <p className="font-bold">{sup.name}</p>
+                   <p className="text-xs text-slate-500">{sup.country} • {sup.contact_info}</p>
+                 </div>
+               ))}
+             </div>
            </div>
         </div>
       )}
-
     </div>
   );
 }

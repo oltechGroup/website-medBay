@@ -3,7 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
-// ✅ 1. Definimos AddressJSON (Igual que en admin, para reutilizar lógica)
+// --- TIPOS ---
+
 export interface AddressJSON {
   street: string;
   city: string;
@@ -13,7 +14,6 @@ export interface AddressJSON {
   phone?: string;
 }
 
-// ✅ 2. Definimos OrderItem (Para la tabla del modal)
 export interface OrderItem {
   id: string;
   product_name: string;
@@ -25,25 +25,37 @@ export interface OrderItem {
   expiry_date: string;
 }
 
-// ✅ 3. Definimos la Orden Completa (Renombrado a 'Order' para estándar)
+// ✅ Estructura de Opciones de Envío (Para que el cliente elija)
+export interface ShippingOption {
+  id: string;
+  name: string;
+  description?: string;
+  estimated_days?: string;
+  cost: string; 
+}
+
+// ✅ Orden Completa (Actualizada)
 export interface Order {
   id: string;
   status: string;
   total: string;
-  subtotal?: string;      // Nuevo
-  shipping_cost?: string; // Nuevo
-  tax?: string;           // Nuevo
-  currency: string;       // Nuevo
+  subtotal?: string;      
+  shipping_cost?: string; 
+  tax?: string;           
+  currency: string;       
   placed_at: string;
   shipping_method: string;
   payment_method: string;
   evidence_file?: string;
-  tracking_number?: string; // Nuevo
+  tracking_number?: string; 
   items_count?: number;
   
   // Datos complejos
-  items?: OrderItem[];    // Nuevo (vendrá al pedir detalle)
-  shipping_address_json?: AddressJSON; // Nuevo
+  items?: OrderItem[];    
+  shipping_address_json?: AddressJSON;
+  
+  // ✅ Nuevo: Lista de opciones disponibles para esta orden
+  shippingOptions?: ShippingOption[]; 
 }
 
 export const useMyOrders = () => {
@@ -58,7 +70,7 @@ export const useMyOrders = () => {
     },
   });
 
-  // 2. SUBIR EVIDENCIA
+  // 2. SUBIR EVIDENCIA (Ya existía)
   const uploadEvidenceMutation = useMutation({
     mutationFn: async ({ orderId, file }: { orderId: string; file: File }) => {
       const formData = new FormData();
@@ -74,24 +86,45 @@ export const useMyOrders = () => {
     },
   });
 
-  // Helpers de UI (Colores para el cliente)
+  // ✅ 3. SELECCIONAR ENVÍO (Aceptar Cotización) - NUEVO
+  const selectShippingMutation = useMutation({
+    mutationFn: async ({ orderId, shippingOptionId }: { orderId: string; shippingOptionId: string }) => {
+      const response = await api.post(`/orders/${orderId}/select-shipping`, { shippingOptionId });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+    },
+  });
+
+  // Helpers de UI (Colores y Etiquetas)
   const getStatusInfo = (status: string) => {
     switch (status) {
-      case 'pending_review': 
-        return { label: 'Revisando Stock', color: 'bg-amber-100 text-amber-700', actionRequired: false };
+      // --- ESTADOS INICIALES (Cotización) ---
+      case 'pending_valuation': 
+        return { label: 'Cotizando Envío', color: 'bg-amber-100 text-amber-700', actionRequired: false };
+      case 'waiting_customer_approval': 
+        return { label: 'Aprobar Cotización', color: 'bg-sky-100 text-sky-700 border-sky-200 animate-pulse', actionRequired: true };
+      
+      // --- ESTADOS DE PAGO ---
       case 'payment_pending': 
         return { label: 'Pago Pendiente', color: 'bg-blue-100 text-blue-700', actionRequired: true };
       case 'payment_review': 
         return { label: 'Validando Pago', color: 'bg-purple-100 text-purple-700', actionRequired: false };
+      
+      // --- ESTADOS LOGÍSTICOS ---
       case 'processing': 
-        return { label: 'Preparando Envío', color: 'bg-indigo-100 text-indigo-700', actionRequired: false };
+        return { label: 'Preparando', color: 'bg-indigo-100 text-indigo-700', actionRequired: false };
       case 'shipped': 
         return { label: 'Enviado', color: 'bg-cyan-100 text-cyan-700', actionRequired: false };
       case 'delivered':
         return { label: 'Entregado', color: 'bg-emerald-100 text-emerald-700', actionRequired: false };
+      
+      // --- ESTADOS NEGATIVOS ---
       case 'rejected': 
       case 'cancelled':
         return { label: 'Cancelada', color: 'bg-slate-100 text-slate-500', actionRequired: false };
+      
       default: 
         return { label: status, color: 'bg-gray-100 text-gray-500', actionRequired: false };
     }
@@ -102,6 +135,11 @@ export const useMyOrders = () => {
     isLoading,
     uploadEvidence: uploadEvidenceMutation.mutateAsync,
     isUploading: uploadEvidenceMutation.isPending,
+    
+    // Exportamos la nueva función
+    selectShippingOption: selectShippingMutation.mutateAsync,
+    isSelectingShipping: selectShippingMutation.isPending,
+    
     getStatusInfo
   };
 };
