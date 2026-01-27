@@ -5,13 +5,13 @@ import { useEffect, useState } from "react";
 import { 
   X, Package, MapPin, CreditCard, Truck, 
   CheckCircle2, AlertCircle, Clock, FileText, 
-  Loader2, UploadCloud, DollarSign, Landmark, Copy
+  Loader2, UploadCloud, DollarSign, Landmark
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { Order, OrderItem, ShippingOption } from "@/hooks/useMyOrders"; 
 import { api } from "@/lib/api";
 
-// --- DATOS BANCARIOS REALES (Hardcoded para seguridad visual) ---
+// --- DATOS BANCARIOS REALES ---
 const BANK_DETAILS = {
   company: "Silkweb Systems & Innovations LLC",
   bank: "JP Morgan Chase Bank, N.A.",
@@ -27,7 +27,7 @@ interface CustomerOrderModalProps {
   order: Order;
   onUploadEvidence: (e: React.ChangeEvent<HTMLInputElement>, orderId: string) => Promise<void>;
   isUploading: boolean;
-  // ✅ Nuevas Props
+  // ✅ Nuevas Props para el flujo B2B
   onSelectShipping: (opts: { orderId: string, shippingOptionId: string }) => Promise<void>;
   isSelecting: boolean;
 }
@@ -49,16 +49,17 @@ export default function CustomerOrderModal({
   // Estado para la selección del cliente (Local antes de enviar)
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
 
-  // Cargar items y opciones al abrir
+  // Cargar items y opciones al abrir el modal
   useEffect(() => {
     if (isOpen && order.id) {
       setLoading(true);
+      // Hacemos fetch directo para obtener los datos frescos (items + opciones de envío)
       api.get(`/orders/${order.id}`)
         .then(res => {
           setItems(res.data.items || []);
           setShippingOptions(res.data.shippingOptions || []);
         })
-        .catch(err => console.error(err))
+        .catch(err => console.error("Error cargando detalles de orden:", err))
         .finally(() => setLoading(false));
     }
   }, [isOpen, order.id]);
@@ -66,6 +67,7 @@ export default function CustomerOrderModal({
   if (!isOpen) return null;
 
   // --- LÓGICA DE CÁLCULO DE TOTALES (PREVIEW) ---
+  // Buscamos la opción seleccionada localmente para mostrar el total simulado
   const selectedOption = shippingOptions.find(o => o.id === selectedOptionId);
   
   const currentSubtotal = parseFloat(order.subtotal || '0');
@@ -81,8 +83,19 @@ export default function CustomerOrderModal({
   // --- HANDLER DE CONFIRMACIÓN ---
   const handleConfirmSelection = async () => {
     if (!selectedOptionId) return;
-    await onSelectShipping({ orderId: order.id, shippingOptionId: selectedOptionId });
-    onClose();
+    
+    try {
+      // Llamamos a la función del hook para enviar la selección al backend
+      await onSelectShipping({ 
+        orderId: order.id, 
+        shippingOptionId: selectedOptionId 
+      });
+      // Si tiene éxito, cerramos el modal
+      onClose();
+    } catch (error) {
+      console.error("Error al seleccionar envío:", error);
+      alert("Hubo un problema al procesar tu selección. Por favor intenta de nuevo.");
+    }
   };
 
   // Helpers de Estado (Visual)
@@ -127,7 +140,7 @@ export default function CustomerOrderModal({
           </button>
         </div>
 
-        {/* BODY */}
+        {/* BODY (Scrollable) */}
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50 p-6 md:p-8">
           {loading ? (
              <div className="flex h-full items-center justify-center">
@@ -194,22 +207,26 @@ export default function CustomerOrderModal({
                       <Truck size={16}/> Selecciona Envío
                     </h4>
                     <div className="space-y-3">
-                      {shippingOptions.map(option => (
-                        <div 
-                          key={option.id}
-                          onClick={() => setSelectedOptionId(option.id)}
-                          className={`
-                            cursor-pointer p-3 rounded-xl border transition-all flex justify-between items-center
-                            ${selectedOptionId === option.id ? 'border-sky-500 bg-sky-50 ring-1 ring-sky-200' : 'border-slate-200 hover:border-sky-300'}
-                          `}
-                        >
-                          <div>
-                            <p className="font-bold text-slate-800 text-sm">{option.name}</p>
-                            <p className="text-xs text-slate-500">{option.estimated_days}</p>
+                      {shippingOptions.length === 0 ? (
+                        <p className="text-sm text-slate-500 italic">No hay opciones disponibles aún.</p>
+                      ) : (
+                        shippingOptions.map(option => (
+                          <div 
+                            key={option.id}
+                            onClick={() => setSelectedOptionId(option.id)}
+                            className={`
+                              cursor-pointer p-3 rounded-xl border transition-all flex justify-between items-center
+                              ${selectedOptionId === option.id ? 'border-sky-500 bg-sky-50 ring-1 ring-sky-200' : 'border-slate-200 hover:border-sky-300'}
+                            `}
+                          >
+                            <div>
+                              <p className="font-bold text-slate-800 text-sm">{option.name}</p>
+                              <p className="text-xs text-slate-500">{option.estimated_days}</p>
+                            </div>
+                            <span className="font-bold text-slate-900">{formatCurrency(parseFloat(option.cost))}</span>
                           </div>
-                          <span className="font-bold text-slate-900">{formatCurrency(parseFloat(option.cost))}</span>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                     
                     <div className="mt-6 pt-4 border-t border-slate-100">

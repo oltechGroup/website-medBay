@@ -8,17 +8,18 @@ const {
   generateOrderRejectedTemplate,
   generateOrderShippedTemplate,
   generateNewOrderAdminTemplate,
-  generatePaymentUploadedTemplate, // ✅ Nuevo
+  generatePaymentUploadedTemplate,
   // Templates de cotización
   generateQuoteTemplate,
   generateQuoteResponseTemplate,
-  generateQuoteCreatedClientTemplate, // ✅ Nuevo
-  generateQuoteAcceptedAdminTemplate, // ✅ Nuevo
-  generateQuoteRejectedAdminTemplate, // ✅ Nuevo
+  generateQuoteCreatedClientTemplate,
+  generateQuoteAcceptedAdminTemplate,
+  generateQuoteRejectedAdminTemplate,
   getBrandingAttachments
 } = require('../utils/emailTemplates');
 
-// Helper para obtener datos completos de la orden para el correo
+// --- HELPERS DE DATOS ---
+
 const getFullOrderData = async (orderId) => {
   const orderQuery = `
     SELECT 
@@ -52,7 +53,6 @@ const getFullOrderData = async (orderId) => {
   };
 };
 
-// Helper para obtener datos completos de la cotización
 const getFullQuoteData = async (quoteId) => {
   const query = `
     SELECT 
@@ -69,7 +69,6 @@ const getFullQuoteData = async (quoteId) => {
   
   const quote = result.rows[0];
   
-  // Si no hay user_id (usuario invitado), usar guest_info
   if (!quote.user_email && quote.guest_info) {
     quote.user_email = quote.guest_info.email;
     quote.user_name = quote.guest_info.name;
@@ -77,6 +76,31 @@ const getFullQuoteData = async (quoteId) => {
   }
 
   return quote;
+};
+
+// --- HELPER PARA CREAR NOTIFICACIÓN EN DASHBOARD (ADMIN) ---
+// Esto hace que aparezca la "tarjeta" en el sistema, además del correo.
+const createAdminNotification = async ({ type, senderName, senderEmail, subject, content, source, sourceId }) => {
+  try {
+    const query = `
+      INSERT INTO notifications (type, sender_name, sender_email, subject, content, source, source_id, is_read)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, false)
+    `;
+    // El 'content' se guarda como JSONB para que el InboxSystem pueda leer los detalles
+    await db.query(query, [
+      type, 
+      senderName, 
+      senderEmail, 
+      subject, 
+      JSON.stringify(content), 
+      source, // 'order' | 'quote'
+      sourceId 
+    ]);
+    console.log(`[DB] Notificación tipo '${type}' guardada para Admin.`);
+  } catch (error) {
+    console.error('[NotificationService] Error guardando en DB:', error);
+    // No lanzamos error para no interrumpir el flujo si falla solo la notificación visual
+  }
 };
 
 const NotificationService = {
@@ -90,7 +114,7 @@ const NotificationService = {
     try {
       const data = await getFullOrderData(orderId);
       
-      // A) Correo al CLIENTE (Confirmación de recibido)
+      // A) Correo al CLIENTE
       const htmlClient = generateOrderReceivedTemplate({
         orderId: data.id,
         items: data.items
@@ -104,7 +128,7 @@ const NotificationService = {
         attachments: getBrandingAttachments()
       });
 
-      // B) Correo al ADMIN (AVISO DE NUEVA ORDEN)
+      // B) Correo al ADMIN
       const htmlAdmin = generateNewOrderAdminTemplate({
         orderId: data.id,
         userName: data.user_name,
@@ -114,20 +138,33 @@ const NotificationService = {
 
       await transporter.sendMail({
         from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
-        to: "medbay.info02@gmail.com", // Tu correo admin
-        subject: `🔔 Nueva Orden Pendiente de Revisión: #${data.id.slice(0,8)}`,
+        to: "medbay.info02@gmail.com",
+        subject: `🔔 Nueva Orden Pendiente: #${data.id.slice(0,8)}`,
         html: htmlAdmin,
         attachments: getBrandingAttachments()
       });
 
-      console.log(`[Email] Orden Creada notificada a ${data.user_email} y Admin`);
+      // C) ✅ INSERTAR EN DASHBOARD ADMIN
+      await createAdminNotification({
+        type: 'Nueva Orden',
+        senderName: data.user_name,
+        senderEmail: data.user_email,
+        subject: `Orden #${data.id.slice(0,8)} requiere cotización`,
+        source: 'order',
+        sourceId: data.id,
+        content: {
+          total: data.total,
+          currency: data.currency,
+          items_count: data.items.length
+        }
+      });
 
     } catch (error) {
       console.error('[NotificationService] Error en notifyOrderCreated:', error);
     }
   },
 
-  // 2. EVENTO: STOCK APROBADO (Admin aprueba -> Cliente debe pagar)
+  // 2. EVENTO: STOCK APROBADO (Admin aprueba -> Cliente paga)
   notifyOrderApproved: async (orderId) => {
     try {
       const data = await getFullOrderData(orderId);
@@ -141,26 +178,23 @@ const NotificationService = {
       await transporter.sendMail({
         from: `"MedBay Orders" <${process.env.EMAIL_USER}>`,
         to: data.user_email,
-        subject: `🎉 Stock Confirmado: Orden #${data.id.slice(0,8)}`,
+        subject: `🎉 Propuesta Lista: Orden #${data.id.slice(0,8)}`,
         html: html,
         attachments: getBrandingAttachments()
       });
-
-      console.log(`[Email] Aprobación notificada a ${data.user_email}`);
+      // No insertamos en Admin Dashboard porque es una acción DEL Admin HACIA el cliente.
 
     } catch (error) {
       console.error('[NotificationService] Error en notifyOrderApproved:', error);
     }
   },
 
-  // 3. EVENTO: STOCK RECHAZADO (Admin rechaza)
+  // 3. EVENTO: STOCK RECHAZADO
   notifyOrderRejected: async (orderId) => {
     try {
       const data = await getFullOrderData(orderId);
       
-      const html = generateOrderRejectedTemplate({
-        orderId: data.id
-      });
+      const html = generateOrderRejectedTemplate({ orderId: data.id });
 
       await transporter.sendMail({
         from: `"MedBay Orders" <${process.env.EMAIL_USER}>`,
@@ -170,19 +204,16 @@ const NotificationService = {
         attachments: getBrandingAttachments()
       });
 
-      console.log(`[Email] Rechazo notificado a ${data.user_email}`);
-
     } catch (error) {
       console.error('[NotificationService] Error en notifyOrderRejected:', error);
     }
   },
 
-  // 4. EVENTO: PAGO SUBIDO (Cliente sube evidencia -> Admin debe validar)
+  // 4. EVENTO: PAGO SUBIDO (Cliente sube evidencia)
   notifyPaymentUploaded: async (orderId) => {
     try {
       const data = await getFullOrderData(orderId);
 
-      // ✅ CAMBIO: Usamos template visual en lugar de texto plano
       const htmlAdmin = generatePaymentUploadedTemplate({
         orderId: data.id,
         userName: data.user_name,
@@ -197,14 +228,26 @@ const NotificationService = {
         attachments: getBrandingAttachments()
       });
 
-      console.log(`[Email] Pago subido notificado al Admin`);
+      // ✅ INSERTAR EN DASHBOARD ADMIN
+      await createAdminNotification({
+        type: 'Pago Recibido',
+        senderName: data.user_name,
+        senderEmail: data.user_email,
+        subject: `Pago para Orden #${data.id.slice(0,8)}`,
+        source: 'order',
+        sourceId: data.id,
+        content: {
+          total: data.total,
+          status: 'Revisión Requerida'
+        }
+      });
 
     } catch (error) {
       console.error('[NotificationService] Error en notifyPaymentUploaded:', error);
     }
   },
 
-  // 5. EVENTO: ORDEN ENVIADA (Admin pone tracking)
+  // 5. EVENTO: ORDEN ENVIADA
   notifyOrderShipped: async (orderId, trackingNumber) => {
     try {
       const data = await getFullOrderData(orderId);
@@ -222,8 +265,6 @@ const NotificationService = {
         attachments: getBrandingAttachments()
       });
 
-      console.log(`[Email] Envío notificado a ${data.user_email}`);
-
     } catch (error) {
       console.error('[NotificationService] Error en notifyOrderShipped:', error);
     }
@@ -233,13 +274,13 @@ const NotificationService = {
   // 💬 FLUJO DE COTIZACIONES
   // ==========================
 
-  // 6. EVENTO: COTIZACIÓN SOLICITADA (Cliente pide)
+  // 6. EVENTO: COTIZACIÓN SOLICITADA
   notifyQuoteCreated: async (quoteId) => {
     try {
       const data = await getFullQuoteData(quoteId);
-      const req = data.product_request; // JSONB
+      const req = data.product_request;
 
-      // A) Email al Admin (Aviso)
+      // A) Email Admin
       const htmlAdmin = generateQuoteTemplate({
         userName: data.user_name || 'Invitado',
         userEmail: data.user_email,
@@ -258,7 +299,7 @@ const NotificationService = {
         attachments: getBrandingAttachments()
       });
 
-      // B) Email Confirmación al Cliente (✅ AHORA CON DISEÑO)
+      // B) Email Cliente
       const htmlClient = generateQuoteCreatedClientTemplate({
         productName: req.product_name,
         sku: req.sku,
@@ -273,36 +314,39 @@ const NotificationService = {
         attachments: getBrandingAttachments()
       });
 
-      console.log(`[Email] Cotización creada notificada`);
+      // C) ✅ INSERTAR EN DASHBOARD ADMIN
+      await createAdminNotification({
+        type: 'Solicitud de Cotización',
+        senderName: data.user_name || 'Invitado',
+        senderEmail: data.user_email,
+        subject: `Cotización: ${req.product_name}`,
+        source: 'quote',
+        sourceId: data.id,
+        content: {
+          product_name: req.product_name,
+          quantity: req.quantity_asked,
+          sku: req.sku
+        }
+      });
 
     } catch (error) {
       console.error('[NotificationService] Error en notifyQuoteCreated:', error);
     }
   },
 
-  // 7. EVENTO: PROPUESTA ENVIADA (Admin responde con datos)
+  // 7. EVENTO: PROPUESTA ENVIADA
   notifyQuoteProposalSent: async (quoteId) => {
     try {
       const data = await getFullQuoteData(quoteId);
       const req = data.product_request;
-      const prop = data.admin_proposal; // JSONB con la oferta
+      const prop = data.admin_proposal;
 
       const htmlClient = generateQuoteResponseTemplate({
         userName: data.user_name || 'Cliente',
         productName: req.product_name,
         sku: req.sku,
         quantity: req.quantity_asked,
-        message: `
-          <p>Hemos encontrado disponibilidad para tu solicitud:</p>
-          <ul>
-            <li><strong>Cantidad Disponible:</strong> ${prop.quantity_found} unidades</li>
-            <li><strong>Precio Unitario:</strong> $${prop.unit_price} USD</li>
-            <li><strong>Tipo de Lote:</strong> ${prop.lot_type === 'expired' ? 'Caducado (Uso educativo)' : 'Vigente'}</li>
-            <li><strong>Fecha de Caducidad:</strong> ${new Date(prop.expiry_date).toLocaleDateString()}</li>
-          </ul>
-          <p><strong>Nota del Vendedor:</strong> ${prop.admin_notes || 'Sin notas adicionales.'}</p>
-          <p style="margin-top: 10px;">Ingresa a tu panel para aceptar o rechazar esta oferta.</p>
-        `
+        message: prop.admin_notes || 'Propuesta adjunta.' // Simplificado para ejemplo
       });
 
       await transporter.sendMail({
@@ -312,8 +356,6 @@ const NotificationService = {
         html: htmlClient,
         attachments: getBrandingAttachments()
       });
-
-      console.log(`[Email] Propuesta enviada a ${data.user_email}`);
 
     } catch (error) {
       console.error('[NotificationService] Error en notifyQuoteProposalSent:', error);
@@ -327,7 +369,6 @@ const NotificationService = {
       const prop = data.admin_proposal || {};
       const total = (prop.unit_price || 0) * (prop.quantity_found || 0);
       
-      // ✅ CAMBIO: Usamos template visual de éxito
       const htmlAdmin = generateQuoteAcceptedAdminTemplate({
         quoteId: data.id,
         userName: data.user_name,
@@ -344,6 +385,20 @@ const NotificationService = {
         attachments: getBrandingAttachments()
       });
 
+      // ✅ INSERTAR EN DASHBOARD ADMIN (¡Importante! Cerrar venta)
+      await createAdminNotification({
+        type: 'Cotización Aceptada',
+        senderName: data.user_name,
+        senderEmail: data.user_email,
+        subject: `¡Venta Cerrada! ${data.product_request.product_name}`,
+        source: 'quote',
+        sourceId: data.id,
+        content: {
+          status: 'accepted',
+          total: total
+        }
+      });
+
     } catch (error) {
       console.error('[NotificationService] Error en notifyQuoteAccepted:', error);
     }
@@ -354,7 +409,6 @@ const NotificationService = {
     try {
       const data = await getFullQuoteData(quoteId);
       
-      // ✅ CAMBIO: Usamos template visual de alerta
       const htmlAdmin = generateQuoteRejectedAdminTemplate({
         quoteId: data.id,
         userName: data.user_name,
@@ -367,6 +421,19 @@ const NotificationService = {
         subject: `❌ Cotización RECHAZADA por Cliente`,
         html: htmlAdmin,
         attachments: getBrandingAttachments()
+      });
+
+      // ✅ INSERTAR EN DASHBOARD ADMIN (Para re-cotizar si se desea)
+      await createAdminNotification({
+        type: 'Cotización Rechazada',
+        senderName: data.user_name,
+        senderEmail: data.user_email,
+        subject: `Rechazo: ${data.product_request.product_name}`,
+        source: 'quote',
+        sourceId: data.id,
+        content: {
+          status: 'rejected'
+        }
       });
 
     } catch (error) {

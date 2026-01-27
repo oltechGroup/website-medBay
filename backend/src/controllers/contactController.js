@@ -1,7 +1,7 @@
 // backend/src/controllers/contactController.js
 
 const nodemailer = require('nodemailer');
-const { Pool } = require('pg');
+const db = require('../config/database'); // ✅ Usamos la conexión centralizada
 const { 
   generateQuoteTemplate, 
   generateContactTemplate, 
@@ -9,18 +9,6 @@ const {
   generateQuoteResponseTemplate, 
   getBrandingAttachments 
 } = require('../utils/emailTemplates');
-
-// ✅ CORRECCIÓN: Activamos SSL para AWS RDS
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-  ssl: {
-    rejectUnauthorized: false // <--- ESTO ES LO QUE FALTABA
-  }
-});
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
@@ -37,7 +25,7 @@ const sendContactEmail = async (req, res) => {
   // Extraemos todos los campos posibles
   const { 
     nombre, email, asunto, mensaje, tipo = 'Contacto General',
-    // Campos específicos de cotización
+    // Campos específicos de cotización manual (Formulario antiguo)
     product_id, product_sku, product_name, requested_quantity, requested_type, manufacturer
   } = req.body;
 
@@ -45,11 +33,16 @@ const sendContactEmail = async (req, res) => {
 
   try {
     let htmlContent = '';
-    let dbContent = {}; // Lo que se guardará en el JSONB de la base de datos
+    let dbContent = {}; // Lo que se guardará en el JSONB
+    let source = 'notification'; // Por defecto es notificación general
+    let sourceId = null;
 
     // === LÓGICA DE SELECCIÓN DE TEMPLATE (ENTRANTE) ===
     if (tipo === 'Solicitud de Cotización') {
-      // 1. Caso Cotización
+      // 1. Caso Cotización Manual
+      source = 'quote'; // Esto permite filtrar en el Inbox como cotización
+      sourceId = product_id || null; // Si hay ID de producto, lo usamos de referencia
+
       const quoteData = {
         userName: nombre,
         userEmail: email,
@@ -89,14 +82,24 @@ const sendContactEmail = async (req, res) => {
       // Estructura para DB (Dashboard)
       dbContent = {
         mensaje,
-        contact_details: { ...req.body } // Guardamos todo lo extra por si acaso
+        contact_details: { ...req.body } 
       };
     }
 
-    // Guardar notificación en DB
-    await pool.query(
-      'INSERT INTO notifications (type, sender_name, sender_email, subject, content) VALUES ($1, $2, $3, $4, $5)',
-      [tipo, nombre, email, asunto, JSON.stringify(dbContent)]
+    // ✅ Guardar notificación en DB con campos nuevos (source, source_id)
+    await db.query(
+      `INSERT INTO notifications 
+       (type, sender_name, sender_email, subject, content, source, source_id, is_read) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, false)`,
+      [
+        tipo, 
+        nombre, 
+        email, 
+        asunto, 
+        JSON.stringify(dbContent),
+        source,    // 'quote' o 'notification'
+        sourceId   // ID opcional para vincular
+      ]
     );
 
     // Enviar Correo al Admin
@@ -149,7 +152,6 @@ const replyToEmail = async (req, res) => {
       });
     } else {
       // ✅ 2. Respuesta General (Diseño Estándar)
-      // generateResponseTemplate(Title, Message, isSuccess) -> isSuccess true para color verde/neutro
       htmlContent = generateResponseTemplate('Respuesta a su Solicitud', message, true);
     }
 
