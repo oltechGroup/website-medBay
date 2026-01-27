@@ -25,7 +25,7 @@ export interface OrderItem {
   expiry_date: string;
 }
 
-// ✅ Estructura de Opciones de Envío (Para que el cliente elija)
+// Estructura de Opciones de Envío
 export interface ShippingOption {
   id: string;
   name: string;
@@ -34,7 +34,7 @@ export interface ShippingOption {
   cost: string; 
 }
 
-// ✅ Orden Completa (Actualizada)
+// Orden Completa
 export interface Order {
   id: string;
   status: string;
@@ -54,7 +54,7 @@ export interface Order {
   items?: OrderItem[];    
   shipping_address_json?: AddressJSON;
   
-  // ✅ Nuevo: Lista de opciones disponibles para esta orden
+  // Lista de opciones disponibles para esta orden
   shippingOptions?: ShippingOption[]; 
 }
 
@@ -70,7 +70,7 @@ export const useMyOrders = () => {
     },
   });
 
-  // 2. SUBIR EVIDENCIA (Ya existía)
+  // 2. SUBIR EVIDENCIA
   const uploadEvidenceMutation = useMutation({
     mutationFn: async ({ orderId, file }: { orderId: string; file: File }) => {
       const formData = new FormData();
@@ -86,10 +86,13 @@ export const useMyOrders = () => {
     },
   });
 
-  // ✅ 3. SELECCIONAR ENVÍO (Aceptar Cotización) - NUEVO
+  // ✅ 3. SELECCIONAR ENVÍO (CORREGIDO)
   const selectShippingMutation = useMutation({
     mutationFn: async ({ orderId, shippingOptionId }: { orderId: string; shippingOptionId: string }) => {
-      const response = await api.post(`/orders/${orderId}/select-shipping`, { shippingOptionId });
+      // AQUÍ ESTABA EL ERROR: Cambiamos la clave a 'shipping_option_id' para que el backend la lea bien
+      const response = await api.post(`/orders/${orderId}/select-shipping`, { 
+        shipping_option_id: shippingOptionId 
+      });
       return response.data;
     },
     onSuccess: () => {
@@ -97,10 +100,10 @@ export const useMyOrders = () => {
     },
   });
 
-  // Helpers de UI (Colores y Etiquetas)
+  // Helpers de UI
   const getStatusInfo = (status: string) => {
     switch (status) {
-      // --- ESTADOS INICIALES (Cotización) ---
+      // --- ESTADOS INICIALES ---
       case 'pending_valuation': 
         return { label: 'Cotizando Envío', color: 'bg-amber-100 text-amber-700', actionRequired: false };
       case 'waiting_customer_approval': 
@@ -136,7 +139,7 @@ export const useMyOrders = () => {
     uploadEvidence: uploadEvidenceMutation.mutateAsync,
     isUploading: uploadEvidenceMutation.isPending,
     
-    // Exportamos la nueva función
+    // Exportamos la función corregida
     selectShippingOption: selectShippingMutation.mutateAsync,
     isSelectingShipping: selectShippingMutation.isPending,
     

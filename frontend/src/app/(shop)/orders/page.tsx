@@ -6,14 +6,24 @@ import { useMyOrders, Order } from "@/hooks/useMyOrders";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { 
   Package, UploadCloud, FileText, CheckCircle2, 
-  Clock, AlertCircle, Loader2, ChevronRight, Truck
+  Clock, AlertCircle, Loader2, ChevronRight, Truck,
+  AlertTriangle, DollarSign
 } from "lucide-react";
 
-// ✅ Importamos el Modal
+// Importamos el Modal
 import CustomerOrderModal from "./components/CustomerOrderModal"; 
 
 export default function MyOrdersPage() {
-  const { orders, isLoading, uploadEvidence, getStatusInfo, isUploading } = useMyOrders();
+  const { 
+    orders, 
+    isLoading, 
+    uploadEvidence, 
+    getStatusInfo, 
+    isUploading,
+    // ✅ 1. IMPORTAMOS LAS NUEVAS FUNCIONES DEL HOOK
+    selectShippingOption,
+    isSelectingShipping
+  } = useMyOrders();
   
   // Estado para el Modal de Detalles
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -54,14 +64,13 @@ export default function MyOrdersPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      {/* Ajuste: pt-32 para compensar el Header Fijo */}
       <div className="max-w-5xl mx-auto px-4 md:px-6 pt-32 pb-20">
         
         {/* Header de Sección */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 mb-8 md:mb-12">
           <div>
             <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mb-2">Mis Pedidos</h1>
-            <p className="text-slate-500 font-medium text-base md:text-lg">Historial de compras y seguimiento de envíos.</p>
+            <p className="text-slate-500 font-medium text-base md:text-lg">Gestión de compras y seguimiento B2B.</p>
           </div>
           <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-2 w-fit">
               <Package className="text-blue-600" size={20} />
@@ -77,20 +86,23 @@ export default function MyOrdersPage() {
             </div>
             <h3 className="text-xl md:text-2xl font-black text-slate-800 mb-2">No tienes pedidos aún</h3>
             <p className="text-slate-500 max-w-sm mx-auto font-medium text-sm md:text-base">
-              Tu historial de compras aparecerá aquí. Explora nuestro catálogo para realizar tu primera orden B2B.
+              Tu historial de compras aparecerá aquí. Explora nuestro catálogo para realizar tu primera solicitud.
             </p>
           </div>
         ) : (
           <div className="space-y-4 md:space-y-6">
             {orders.map((order) => {
               const statusInfo = getStatusInfo(order.status);
+              
               const showUpload = order.status === 'payment_pending';
               const isUploadingThis = uploadingId === order.id;
+              // ✅ Nuevo indicador visual para aprobación
+              const showApproval = order.status === 'waiting_customer_approval';
 
               return (
                 <div 
                   key={order.id} 
-                  className="group bg-white rounded-2xl md:rounded-[2rem] p-1 border border-slate-100 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all duration-300"
+                  className={`group bg-white rounded-2xl md:rounded-[2rem] p-1 border shadow-sm hover:shadow-xl transition-all duration-300 ${statusInfo.actionRequired ? 'border-blue-200 ring-1 ring-blue-100' : 'border-slate-100'}`}
                 >
                   <div className="p-5 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-start md:items-center justify-between">
                     
@@ -112,13 +124,18 @@ export default function MyOrdersPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-8">
                         <div>
                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Monto Total</p>
-                           <p className="text-xl md:text-2xl font-black text-slate-900">{formatCurrency(order.total)}</p>
+                           {/* Si está en cotización, mostramos "Pendiente" */}
+                           {order.status === 'pending_valuation' ? (
+                             <p className="text-xl font-bold text-slate-400 italic">Por cotizar</p>
+                           ) : (
+                             <p className="text-xl md:text-2xl font-black text-slate-900">{formatCurrency(order.total)}</p>
+                           )}
                         </div>
                         <div className="w-px h-8 bg-slate-100 hidden sm:block"></div>
                         <div>
                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Método de Pago</p>
                            <p className="text-xs md:text-sm font-bold text-slate-700 capitalize flex items-center gap-2">
-                             {order.payment_method?.replace('_', ' ')}
+                             {order.payment_method ? order.payment_method.replace('_', ' ') : 'Por definir'}
                            </p>
                         </div>
                       </div>
@@ -127,7 +144,23 @@ export default function MyOrdersPage() {
                     {/* Acciones & Estado */}
                     <div className="w-full md:w-auto flex flex-col items-end gap-3 min-w-[200px]">
                       
-                      {/* --- CASO 1: PENDIENTE DE PAGO (SUBIR EVIDENCIA RÁPIDA) --- */}
+                      {/* --- CASO 1: APROBAR COTIZACIÓN (NUEVO VISUAL) --- */}
+                      {showApproval && (
+                        <div className="w-full">
+                           <button 
+                             onClick={() => setSelectedOrder(order)}
+                             className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer active:scale-95 animate-pulse"
+                           >
+                             <DollarSign size={18} />
+                             Revisar Cotización
+                           </button>
+                           <p className="text-[10px] text-blue-600 mt-2 font-bold text-center">
+                             ¡Propuesta lista!
+                           </p>
+                        </div>
+                      )}
+
+                      {/* --- CASO 2: PENDIENTE DE PAGO --- */}
                       {showUpload && (
                         <div className="w-full">
                            <div className="text-center md:text-right">
@@ -136,7 +169,7 @@ export default function MyOrdersPage() {
                                  <Loader2 className="animate-spin" size={16}/> Subiendo...
                                </div>
                              ) : (
-                               <label className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer active:scale-95">
+                               <label className="w-full bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95">
                                  <UploadCloud size={18} />
                                  Subir Comprobante
                                  <input 
@@ -147,46 +180,37 @@ export default function MyOrdersPage() {
                                  />
                                </label>
                              )}
-                             <p className="text-[10px] text-blue-600 mt-2 font-bold bg-blue-50 px-2 py-1 rounded inline-block">
-                               ¡Stock reservado por 24h!
+                             <p className="text-[10px] text-slate-500 mt-2 font-medium bg-slate-100 px-2 py-1 rounded inline-block">
+                               Stock reservado 24h
                              </p>
                            </div>
                         </div>
                       )}
 
-                      {/* --- CASO 2: EN REVISIÓN --- */}
-                      {order.status === 'payment_review' && (
-                        <div className="bg-purple-50 px-4 py-3 rounded-xl border border-purple-100 w-full text-center md:text-right">
-                           <div className="flex items-center justify-center md:justify-end gap-2 text-purple-700 font-bold text-xs md:text-sm mb-1">
-                             <FileText size={16} /> Validación en Proceso
-                           </div>
-                           <p className="text-[10px] text-purple-600 font-medium">Finanzas está revisando tu pago.</p>
-                        </div>
-                      )}
-
-                      {/* --- CASO 3: ENVIADO (TRACKING) --- */}
+                      {/* --- CASO 3: ENVIADO --- */}
                       {(order.status === 'shipped') && (
                         <div className="bg-cyan-50 px-4 py-3 rounded-xl border border-cyan-100 w-full text-center md:text-right">
                            <div className="flex items-center justify-center md:justify-end gap-2 text-cyan-700 font-bold text-xs md:text-sm">
                              <Truck size={18}/> Pedido Enviado
                            </div>
-                           <p className="text-[10px] text-cyan-600 font-medium mt-1">Ver detalles para rastreo.</p>
+                           <p className="text-[10px] text-cyan-600 font-medium mt-1">Ver rastreo</p>
                         </div>
                       )}
 
                     </div>
                   </div>
                   
-                  {/* Footer de la tarjeta (Detalle rápido) */}
+                  {/* Footer de la tarjeta */}
                   <div className="bg-slate-50/50 px-5 py-3 md:px-8 md:py-3 border-t border-slate-100 flex justify-between items-center rounded-b-2xl md:rounded-b-[2rem]">
-                      <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Detalles del pedido</span>
+                      <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">
+                        {statusInfo.label}
+                      </span>
                       
-                      {/* ✅ BOTÓN ACTIVO PARA ABRIR MODAL */}
                       <button 
                         onClick={() => setSelectedOrder(order)}
                         className="text-blue-600 hover:text-blue-800 text-[10px] md:text-xs font-black uppercase tracking-wide flex items-center gap-1 transition-colors"
                       >
-                        Ver Productos <ChevronRight size={12} />
+                        Ver Detalles <ChevronRight size={12} />
                       </button>
                   </div>
                 </div>
@@ -195,7 +219,7 @@ export default function MyOrdersPage() {
           </div>
         )}
 
-        {/* ✅ MODAL DE DETALLE INTEGRADO */}
+        {/* ✅ MODAL CON LOGICA B2B CORREGIDA */}
         {selectedOrder && (
           <CustomerOrderModal 
             isOpen={!!selectedOrder}
@@ -203,6 +227,9 @@ export default function MyOrdersPage() {
             order={selectedOrder}
             onUploadEvidence={handleFileChange}
             isUploading={isUploading}
+            // ✅ 2. PASAMOS LAS PROPS QUE FALTABAN
+            onSelectShipping={selectShippingOption}
+            isSelecting={isSelectingShipping}
           />
         )}
 
