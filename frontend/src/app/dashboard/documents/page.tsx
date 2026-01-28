@@ -13,8 +13,9 @@ export default function DocumentsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDoc, setSelectedDoc] = useState<DocumentData | null>(null);
 
-  // Hook principal
-  const { documents, isLoading, updateStatus, isUpdating } = useDocuments('all');
+  // ✅ CORRECCIÓN AQUÍ:
+  // Agregamos 'admin' como segundo parámetro para forzar la vista de todos los documentos
+  const { documents, isLoading, updateStatus, isUpdating } = useDocuments('all', 'admin');
 
   // Filtrado en cliente (rápido y eficiente para listas administrativas)
   const filteredDocs = documents.filter(doc => {
@@ -35,7 +36,6 @@ export default function DocumentsPage() {
     await updateStatus({ id, status, notes });
     
     // Si la acción fue exitosa y era el documento abierto, lo cerramos
-    // (Opcional: podrías dejarlo abierto para ver el cambio de estado)
     if (selectedDoc?.id === id && status === 'verified') {
       setSelectedDoc(null);
     }
