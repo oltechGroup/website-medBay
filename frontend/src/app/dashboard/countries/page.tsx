@@ -1,14 +1,17 @@
+//frontend/src/app/dashboard/countries/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useCountries, useCountryStats, useDeleteCountry, useSyncExchangeRates } from '@/hooks/useCountries';
-import { Plus, Search, DollarSign, Globe, TrendingUp, Activity, RefreshCw, Clock, AlertCircle } from 'lucide-react';
+import { Plus, Search, DollarSign, Globe, TrendingUp, Activity, RefreshCw, Clock, AlertCircle, CheckCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import { CountryTable } from '@/components/features/countries/CountryTable';
 import { CurrencyStats } from '@/components/features/countries/CurrencyStats';
 import { CountryCard } from '@/components/features/countries/CountryCard';
 
-// Componente auxiliar para el Temporizador
+// ==========================================
+// 🕒 COMPONENTE: TEMPORIZADOR
+// ==========================================
 const NextUpdateTimer = () => {
   const [timeLeft, setTimeLeft] = useState('');
 
@@ -41,17 +44,89 @@ const NextUpdateTimer = () => {
   }, []);
 
   return (
-    <div className="flex items-center space-x-2 text-sm font-medium text-blue-800 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+    <div className="flex items-center space-x-2 text-sm font-medium text-blue-800 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 shadow-sm">
       <Clock className="h-4 w-4" />
       <span>Próxima actualización en: {timeLeft}</span>
     </div>
   );
 };
 
+// ==========================================
+// ✨ COMPONENTE: MODAL DE RESULTADOS
+// ==========================================
+interface SyncResultModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  stats: { updated: number; failed: number } | null;
+}
+
+const SyncResultModal = ({ isOpen, onClose, stats }: SyncResultModalProps) => {
+  if (!isOpen || !stats) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-all duration-300">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100 border border-gray-100">
+        
+        {/* Encabezado del Modal */}
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="bg-green-100 p-2 rounded-full">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">Sincronización Exitosa</h3>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Contenido */}
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Las tasas de cambio se han actualizado correctamente con los valores más recientes del mercado global.
+          </p>
+
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-2 bg-white rounded-lg shadow-sm border border-gray-100">
+                <span className="block text-2xl font-bold text-green-600">{stats.updated}</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wide font-medium">Actualizados</span>
+              </div>
+              <div className="text-center p-2 bg-white rounded-lg shadow-sm border border-gray-100">
+                <span className={`block text-2xl font-bold ${stats.failed > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                  {stats.failed}
+                </span>
+                <span className="text-xs text-gray-500 uppercase tracking-wide font-medium">Fallidos</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer / Botón */}
+        <div className="mt-6">
+          <button
+            onClick={onClose}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl transition-all shadow-md hover:shadow-lg"
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 📄 PÁGINA PRINCIPAL
+// ==========================================
 export default function CountriesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [limit] = useState(10);
+  
+  // Estado para el Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [syncStats, setSyncStats] = useState<{ updated: number; failed: number } | null>(null);
 
   // Hooks de datos
   const { 
@@ -63,7 +138,7 @@ export default function CountriesPage() {
   const { data: statsResponse } = useCountryStats();
   const { deleteCountry } = useDeleteCountry();
   
-  // 🚀 NUEVO HOOK DE SINCRONIZACIÓN
+  // Hook de sincronización
   const { syncRates, isSyncing } = useSyncExchangeRates();
 
   const countries = countriesResponse?.data || [];
@@ -86,12 +161,13 @@ export default function CountriesPage() {
     }
   };
 
-  // 🚀 Función para ejecutar la sincronización manual
+  // 🚀 Función Modificada: Usa el Modal en lugar de alert()
   const handleSync = async () => {
     try {
       const result = await syncRates();
-      // Podemos mostrar una notificación toast aquí si tienes un sistema de notificaciones
-      alert(`Sincronización completada.\nActualizados: ${result.stats.updated}\nFallidos: ${result.stats.failed}`);
+      // Guardamos los datos y abrimos el modal
+      setSyncStats({ updated: result.stats.updated, failed: result.stats.failed });
+      setIsModalOpen(true);
     } catch (err) {
       alert('Error al sincronizar las tasas. Verifica la conexión con el servidor.');
     }
@@ -112,6 +188,13 @@ export default function CountriesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
+      {/* Modal de Sincronización */}
+      <SyncResultModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        stats={syncStats} 
+      />
+
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header Principal con Panel de Control */}
@@ -201,7 +284,8 @@ export default function CountriesPage() {
                 placeholder="Buscar por país, código o moneda..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                // ✅ CORRECCIÓN DE ESTILO: Agregado text-gray-900 y placeholder-gray-500
+                className="w-full pl-10 pr-4 py-2 bg-gray-50 text-gray-900 placeholder-gray-500 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
               />
             </div>
             <button
