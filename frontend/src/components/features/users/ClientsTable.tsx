@@ -33,8 +33,10 @@ export const ClientsTable = () => {
     role: 'all'
   });
 
-  // Traemos los documentos (filtramos 'license' para optimizar la búsqueda de registros)
-  const { documents, updateStatus: updateDocStatus, isUpdating: isDocUpdating } = useDocuments('license');
+  // ✅ CORRECCIÓN AQUÍ:
+  // Agregamos 'admin' para traer TODAS las licencias, no solo las mías.
+  // Esto permite encontrar la licencia de cualquier cliente en la lista.
+  const { documents, updateStatus: updateDocStatus, isUpdating: isDocUpdating } = useDocuments('license', 'admin');
 
   // Filtramos para no mostrar Staff en esta tabla
   const clients = users.filter(u => !['admin', 'sales_agent'].includes(u.verification_level));
@@ -43,6 +45,7 @@ export const ClientsTable = () => {
 
   // 1. Buscar y abrir documento de registro
   const handleOpenDoc = (userId: string) => {
+    // Ahora 'documents' contiene todas las licencias del sistema, así que el find funcionará
     const userDoc = documents.find(d => d.owner_id === userId && d.document_type === 'license');
     
     if (userDoc) {
@@ -154,7 +157,7 @@ export const ClientsTable = () => {
                             <FileText size={18} />
                           </button>
 
-                          {/* 2. Ver Perfil 360 (Solo si ya no es pendiente, o siempre si prefieres) */}
+                          {/* 2. Ver Perfil 360 */}
                           {client.account_status !== 'pending' && (
                             <button 
                               onClick={() => setDetailsModalId(client.id)}
@@ -165,7 +168,7 @@ export const ClientsTable = () => {
                             </button>
                           )}
 
-                          {/* 3. Acciones de Aprobación (Solo pendientes) */}
+                          {/* 3. Acciones de Aprobación */}
                           {client.account_status === 'pending' && (
                             <>
                               <button 
