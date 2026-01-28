@@ -6,20 +6,43 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAddresses, Address } from "@/hooks/useAddresses";
 import { useDocuments, Document } from "@/hooks/useDocuments";
-import { api } from "@/lib/api"; // Usamos la instancia directa para las funciones nuevas
+import { api } from "@/lib/api"; 
 import { 
   User, Phone, Mail, Building2, MapPin, FileText, 
   Edit2, AlertTriangle, CheckCircle, Clock, XCircle, 
-  UploadCloud, Loader2, ShieldCheck, CreditCard
+  UploadCloud, Loader2, ShieldCheck, CreditCard, Receipt
 } from "lucide-react";
-import { toast } from "sonner"; // Asumiendo que usas sonner o react-hot-toast
+import { toast } from "sonner"; 
+
+// --- HELPER PARA URL DE ARCHIVOS ---
+// Esto soluciona el error "Cannot GET /api/uploads..."
+const getFileUrl = (path: string) => {
+  if (!path) return '#';
+  if (path.startsWith('http')) return path;
+
+  // 1. Obtenemos la URL base del API (ej: http://localhost:4000/api)
+  // Si no tienes variable de entorno, usará localhost:4000 por defecto según tu server.js
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+  
+  // 2. Le quitamos el "/api" al final para tener la raíz del servidor (ej: http://localhost:4000)
+  // Porque tu server.js sirve los archivos en la raíz app.use('/uploads'...)
+  const serverRoot = apiUrl.replace('/api', '');
+
+  // 3. Unimos raíz + path (ej: http://localhost:4000/uploads/evidence/archivo.pdf)
+  return `${serverRoot}${path}`;
+};
 
 export default function ProfilePage() {
-  const { user, refreshUser } = useAuth(); // Asumo que tienes un refreshUser, si no, recargamos página
+  const { user, refreshUser } = useAuth(); 
   const { addresses, billingAddresses, shippingAddresses, deleteAddress } = useAddresses();
+  // Pedimos TODOS los documentos (modo 'my' por defecto es correcto aquí)
   const { documents } = useDocuments('all');
   
-  // Estados de carga locales para acciones específicas
+  // --- SEPARACIÓN DE DOCUMENTOS ---
+  const legalDocs = documents.filter(d => ['license', 'business_registration'].includes(d.document_type));
+  const paymentDocs = documents.filter(d => d.document_type === 'payment_evidence');
+
+  // Estados de carga locales
   const [isUpdatingPhone, setIsUpdatingPhone] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [phoneForm, setPhoneForm] = useState("");
@@ -40,12 +63,11 @@ export default function ProfilePage() {
   const handleUpdatePhone = async () => {
     try {
       setIsUpdatingPhone(true);
-      // Llamada directa al nuevo endpoint
       await api.put('/users/profile', { phone: phoneForm });
       
       toast.success("Teléfono actualizado correctamente");
       setIsEditingPhone(false);
-      if (refreshUser) refreshUser(); // Actualizar contexto si existe la función
+      if (refreshUser) refreshUser(); 
     } catch (error) {
       toast.error("Error al actualizar el teléfono");
     } finally {
@@ -91,7 +113,6 @@ export default function ProfilePage() {
                 </div>
                 <h2 className="text-lg font-bold text-slate-800">{user.full_name}</h2>
                 <div className="mt-1">
-                   {/* Badge de Rol Reutilizado */}
                    <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
                      {user.verification_level.replace('_', ' ')}
                    </span>
@@ -165,7 +186,7 @@ export default function ProfilePage() {
           {/* === COLUMNA CENTRAL Y DERECHA: DIRECCIONES Y DOCUMENTOS === */}
           <div className="lg:col-span-2 space-y-6">
 
-            {/* 1. DIRECCIÓN FISCAL (CRÍTICA) */}
+            {/* 1. DIRECCIÓN FISCAL */}
             <div className="bg-white rounded-2xl shadow-sm border-l-4 border-amber-400 p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -199,14 +220,14 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* 2. DOCUMENTOS LEGALES */}
+            {/* 2. DOCUMENTACIÓN LEGAL (Licencias - Editables) */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6">
                  <ShieldCheck size={18} className="text-blue-600"/> Documentación Legal
                </h3>
                
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {documents.map((doc) => (
+                 {legalDocs.map((doc) => (
                    <div key={doc.id} className="border border-slate-100 rounded-xl p-4 hover:border-blue-200 transition-colors bg-slate-50/50">
                      <div className="flex justify-between items-start mb-3">
                         <div className="flex items-center gap-3">
@@ -214,14 +235,13 @@ export default function ProfilePage() {
                             <FileText size={20}/>
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-slate-700 capitalize">{doc.document_type.replace('_', ' ')}</p>
+                            <p className="text-sm font-bold text-slate-700 capitalize">Registro Sanitario</p>
                             <p className="text-xs text-slate-400">{new Date(doc.created_at).toLocaleDateString()}</p>
                           </div>
                         </div>
                         {getStatusBadge(doc.status)}
                      </div>
                      
-                     {/* Notas de rechazo si existen */}
                      {doc.status === 'rejected' && doc.notes && (
                        <div className="mb-3 text-xs bg-red-50 text-red-600 p-2 rounded-lg border border-red-100">
                          <strong>Nota:</strong> {doc.notes}
@@ -229,7 +249,13 @@ export default function ProfilePage() {
                      )}
 
                      <div className="flex gap-2 mt-2">
-                       <a href={doc.file_path} target="_blank" rel="noopener noreferrer" className="flex-1 text-center py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+                       {/* 🛑 AQUÍ USAMOS getFileUrl PARA CORREGIR EL LINK */}
+                       <a 
+                         href={getFileUrl(doc.file_path)} 
+                         target="_blank" 
+                         rel="noopener noreferrer" 
+                         className="flex-1 text-center py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+                       >
                          Ver Archivo
                        </a>
                        <button 
@@ -242,13 +268,55 @@ export default function ProfilePage() {
                    </div>
                  ))}
                  
-                 {documents.length === 0 && (
-                   <p className="text-slate-400 text-sm col-span-2 text-center py-4">No hay documentos registrados.</p>
+                 {legalDocs.length === 0 && (
+                   <p className="text-slate-400 text-sm col-span-2 text-center py-4">No tienes licencias o registros cargados.</p>
                  )}
                </div>
             </div>
 
-            {/* 3. DIRECCIONES DE ENVÍO */}
+            {/* 3. HISTORIAL DE PAGOS (Solo Lectura) - NUEVA SECCIÓN */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+               <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6">
+                 <Receipt size={18} className="text-emerald-600"/> Evidencias de Pago
+               </h3>
+               
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 {paymentDocs.map((doc) => (
+                   <div key={doc.id} className="border border-slate-100 rounded-xl p-4 hover:border-emerald-200 transition-colors bg-emerald-50/30">
+                     <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-slate-100 shadow-sm text-emerald-500">
+                            <CreditCard size={20}/>
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-700">Comprobante</p>
+                            <p className="text-xs text-slate-400">Orden: #{doc.reference_id?.slice(0,8) || 'N/A'}</p>
+                          </div>
+                        </div>
+                        {getStatusBadge(doc.status)}
+                     </div>
+
+                     <div className="mt-2">
+                       {/* 🛑 AQUÍ USAMOS getFileUrl Y SOLO MOSTRAMOS VER ARCHIVO */}
+                       <a 
+                         href={getFileUrl(doc.file_path)} 
+                         target="_blank" 
+                         rel="noopener noreferrer" 
+                         className="block w-full text-center py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+                       >
+                         Ver Comprobante
+                       </a>
+                     </div>
+                   </div>
+                 ))}
+                 
+                 {paymentDocs.length === 0 && (
+                   <p className="text-slate-400 text-sm col-span-2 text-center py-4">No hay evidencias de pago registradas.</p>
+                 )}
+               </div>
+            </div>
+
+            {/* 4. DIRECCIONES DE ENVÍO */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-bold text-slate-800 flex items-center gap-2">
@@ -265,22 +333,22 @@ export default function ProfilePage() {
               <div className="space-y-3">
                 {shippingAddresses.map((addr) => (
                   <div key={addr.id} className="flex justify-between items-center p-4 border border-slate-100 rounded-xl hover:bg-slate-50 transition group">
-                     <div className="flex items-center gap-3">
-                       <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-blue-500 transition">
-                         <MapPin size={16}/>
-                       </div>
-                       <div>
-                         <p className="text-sm font-bold text-slate-700">{addr.street} #{addr.street_number}</p>
-                         <p className="text-xs text-slate-500">{addr.city}, {addr.state}</p>
-                       </div>
-                     </div>
-                     <button 
-                       onClick={() => deleteAddress(addr.id)} 
-                       className="p-2 text-slate-300 hover:text-red-500 transition"
-                       title="Eliminar dirección"
-                     >
-                       <XCircle size={18}/>
-                     </button>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-blue-500 transition">
+                          <MapPin size={16}/>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-700">{addr.street} #{addr.street_number}</p>
+                          <p className="text-xs text-slate-500">{addr.city}, {addr.state}</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => deleteAddress(addr.id)} 
+                        className="p-2 text-slate-300 hover:text-red-500 transition"
+                        title="Eliminar dirección"
+                      >
+                        <XCircle size={18}/>
+                      </button>
                   </div>
                 ))}
                 {shippingAddresses.length === 0 && (
@@ -293,9 +361,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* =======================================================
-          MODAL: EDICIÓN DE DIRECCIÓN (Soporta Alerta Fiscal)
-         ======================================================= */}
+      {/* MODAL: EDICIÓN DE DIRECCIÓN */}
       {isAddressModalOpen && (
         <AddressModal 
           address={selectedAddress} 
@@ -303,9 +369,7 @@ export default function ProfilePage() {
         />
       )}
 
-      {/* =======================================================
-          MODAL: ACTUALIZAR DOCUMENTO (Soporta Reemplazo)
-         ======================================================= */}
+      {/* MODAL: ACTUALIZAR DOCUMENTO */}
       {isDocModalOpen && selectedDoc && (
         <DocumentUploadModal 
           doc={selectedDoc} 
@@ -319,18 +383,15 @@ export default function ProfilePage() {
 
 /* -----------------------------------------------------------------------
    COMPONENTES INTERNOS (MODALES) 
-   Para facilitar el copy-paste, los incluyo aquí. 
-   Idealmente irían en /components/features/profile/...
    -----------------------------------------------------------------------
 */
 
 function AddressModal({ address, onClose }: { address: Address | null, onClose: () => void }) {
   const isEdit = !!address;
   const isFiscal = address?.is_fiscal;
-  const { addAddress } = useAddresses(); // Asumiendo que el hook expone esto
+  const { addAddress } = useAddresses(); 
   const [loading, setLoading] = useState(false);
 
-  // Form state simple
   const [formData, setFormData] = useState({
     street: address?.street || '',
     street_number: address?.street_number || '',
@@ -347,16 +408,14 @@ function AddressModal({ address, onClose }: { address: Address | null, onClose: 
     setLoading(true);
     try {
       if (isEdit) {
-        // ✅ USAMOS EL NUEVO ENDPOINT PUT /api/addresses/:id
         await api.put(`/addresses/${address.id}`, formData);
         toast.success(isFiscal ? "Solicitud de cambio fiscal enviada" : "Dirección actualizada");
       } else {
-        // Crear nueva (shipping)
         await addAddress({ ...formData, address_type: 'shipping' });
         toast.success("Dirección agregada");
       }
       onClose();
-      window.location.reload(); // Recarga rápida para ver cambios (o usar invalidateQueries)
+      window.location.reload(); 
     } catch (error) {
       toast.error("Error al guardar la dirección");
     } finally {
@@ -433,7 +492,6 @@ function DocumentUploadModal({ doc, onClose }: { doc: Document, onClose: () => v
     formData.append('notes', 'Actualización solicitada por usuario desde perfil.');
 
     try {
-      // ✅ USAMOS EL NUEVO ENDPOINT PUT /api/documents/:id/replace
       await api.put(`/documents/${doc.id}/replace`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
