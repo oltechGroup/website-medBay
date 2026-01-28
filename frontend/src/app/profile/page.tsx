@@ -10,32 +10,16 @@ import { api } from "@/lib/api";
 import { 
   User, Phone, Mail, Building2, MapPin, FileText, 
   Edit2, AlertTriangle, CheckCircle, Clock, XCircle, 
-  UploadCloud, Loader2, ShieldCheck, CreditCard, Receipt
+  UploadCloud, Loader2, ShieldCheck, CreditCard, Receipt, Eye
 } from "lucide-react";
 import { toast } from "sonner"; 
 
-// --- HELPER PARA URL DE ARCHIVOS ---
-// Esto soluciona el error "Cannot GET /api/uploads..."
-const getFileUrl = (path: string) => {
-  if (!path) return '#';
-  if (path.startsWith('http')) return path;
-
-  // 1. Obtenemos la URL base del API (ej: http://localhost:4000/api)
-  // Si no tienes variable de entorno, usará localhost:4000 por defecto según tu server.js
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-  
-  // 2. Le quitamos el "/api" al final para tener la raíz del servidor (ej: http://localhost:4000)
-  // Porque tu server.js sirve los archivos en la raíz app.use('/uploads'...)
-  const serverRoot = apiUrl.replace('/api', '');
-
-  // 3. Unimos raíz + path (ej: http://localhost:4000/uploads/evidence/archivo.pdf)
-  return `${serverRoot}${path}`;
-};
+// Importamos el NUEVO modal dedicado al cliente
+import { ClientDocumentModal } from "@/components/features/profile/ClientDocumentModal";
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth(); 
   const { addresses, billingAddresses, shippingAddresses, deleteAddress } = useAddresses();
-  // Pedimos TODOS los documentos (modo 'my' por defecto es correcto aquí)
   const { documents } = useDocuments('all');
   
   // --- SEPARACIÓN DE DOCUMENTOS ---
@@ -51,8 +35,11 @@ export default function ProfilePage() {
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   
-  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
-  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  // Estado para el modal de VISUALIZACIÓN (Cliente)
+  const [viewDoc, setViewDoc] = useState<Document | null>(null);
+  
+  // Estado para el modal de ACTUALIZACIÓN (Subida)
+  const [updateDoc, setUpdateDoc] = useState<Document | null>(null);
 
   // Cargar teléfono inicial
   useEffect(() => {
@@ -249,17 +236,16 @@ export default function ProfilePage() {
                      )}
 
                      <div className="flex gap-2 mt-2">
-                       {/* 🛑 AQUÍ USAMOS getFileUrl PARA CORREGIR EL LINK */}
-                       <a 
-                         href={getFileUrl(doc.file_path)} 
-                         target="_blank" 
-                         rel="noopener noreferrer" 
-                         className="flex-1 text-center py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
-                       >
-                         Ver Archivo
-                       </a>
+                       {/* BOTÓN VER (Abre Modal) */}
                        <button 
-                         onClick={() => { setSelectedDoc(doc); setIsDocModalOpen(true); }}
+                         onClick={() => setViewDoc(doc)}
+                         className="flex-1 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition flex items-center justify-center gap-1"
+                       >
+                         <Eye size={14}/> Ver
+                       </button>
+                       {/* BOTÓN ACTUALIZAR (Abre Modal de Subida) */}
+                       <button 
+                         onClick={() => setUpdateDoc(doc)}
                          className="flex-1 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition shadow-sm"
                        >
                          Actualizar
@@ -274,7 +260,7 @@ export default function ProfilePage() {
                </div>
             </div>
 
-            {/* 3. HISTORIAL DE PAGOS (Solo Lectura) - NUEVA SECCIÓN */}
+            {/* 3. HISTORIAL DE PAGOS (Solo Lectura) */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6">
                  <Receipt size={18} className="text-emerald-600"/> Evidencias de Pago
@@ -297,15 +283,13 @@ export default function ProfilePage() {
                      </div>
 
                      <div className="mt-2">
-                       {/* 🛑 AQUÍ USAMOS getFileUrl Y SOLO MOSTRAMOS VER ARCHIVO */}
-                       <a 
-                         href={getFileUrl(doc.file_path)} 
-                         target="_blank" 
-                         rel="noopener noreferrer" 
-                         className="block w-full text-center py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+                       {/* BOTÓN VER (Abre Modal, sin botón de actualizar) */}
+                       <button 
+                         onClick={() => setViewDoc(doc)}
+                         className="w-full py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition flex items-center justify-center gap-1"
                        >
-                         Ver Comprobante
-                       </a>
+                         <Eye size={14}/> Ver Comprobante
+                       </button>
                      </div>
                    </div>
                  ))}
@@ -369,11 +353,20 @@ export default function ProfilePage() {
         />
       )}
 
-      {/* MODAL: ACTUALIZAR DOCUMENTO */}
-      {isDocModalOpen && selectedDoc && (
+      {/* MODAL: VISUALIZAR DOCUMENTO (NUEVO) */}
+      {viewDoc && (
+        <ClientDocumentModal 
+          isOpen={!!viewDoc}
+          document={viewDoc}
+          onClose={() => setViewDoc(null)}
+        />
+      )}
+
+      {/* MODAL: ACTUALIZAR DOCUMENTO (SUBIDA) */}
+      {updateDoc && (
         <DocumentUploadModal 
-          doc={selectedDoc} 
-          onClose={() => setIsDocModalOpen(false)}
+          doc={updateDoc} 
+          onClose={() => setUpdateDoc(null)}
         />
       )}
 
@@ -382,7 +375,7 @@ export default function ProfilePage() {
 }
 
 /* -----------------------------------------------------------------------
-   COMPONENTES INTERNOS (MODALES) 
+   COMPONENTES INTERNOS (MODALES DE FORMULARIO) 
    -----------------------------------------------------------------------
 */
 
