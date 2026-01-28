@@ -1,3 +1,4 @@
+//frontend/src/components/features/countries/CountryTable.tsx
 import { Country } from '@/hooks/useCountries';
 import { Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';

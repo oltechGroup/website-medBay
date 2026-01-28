@@ -1,3 +1,4 @@
+//frontend/src/components/features/countries/CurrencyStats.tsx
 import { Country } from '@/hooks/useCountries';
 import { TrendingUp } from 'lucide-react';
 

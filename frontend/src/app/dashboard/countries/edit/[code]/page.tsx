@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Info, AlertTriangle } from 'lucide-react';
 
 interface CountryFormData {
   name: string;
@@ -213,22 +213,47 @@ export default function EditCountryPage() {
             })}
           />
 
-          {/* Tasa de Cambio vs USD */}
-          <div>
-            <Input
-              label="Tasa de Cambio vs USD *"
-              type="number"
-              step="0.0001"
-              error={errors.exchange_rate?.message}
-              {...register('exchange_rate', { 
-                required: 'La tasa de cambio es requerida',
-                valueAsNumber: true,
-                min: { value: 0.0001, message: 'La tasa de cambio debe ser un número positivo' }
-              })}
-            />
-            <p className="mt-1 text-sm text-gray-500">
-              1 USD = {currentExchangeRate || 0} {currentCurrencyCode || ''}
-            </p>
+          {/* Tasa de Cambio vs USD - SECCIÓN IMPORTANTE */}
+          <div className="sm:col-span-2">
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 rounded-r-md">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <Info className="h-5 w-5 text-blue-500" aria-hidden="true" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-blue-700 font-medium">
+                    Actualización Automática Activada
+                  </p>
+                  <p className="text-sm text-blue-600 mt-1">
+                    Esta tasa se actualiza automáticamente todos los días a las 02:00 AM. 
+                    Incluye un margen de seguridad del 2% sobre el valor real del mercado.
+                  </p>
+                  <p className="text-xs text-blue-500 mt-2 flex items-center">
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    Solo edita este valor manualmente si necesitas una tasa personalizada urgente.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <Input
+                  label="Tasa de Cambio vs USD *"
+                  type="number"
+                  step="0.0001"
+                  error={errors.exchange_rate?.message}
+                  {...register('exchange_rate', { 
+                    required: 'La tasa de cambio es requerida',
+                    valueAsNumber: true,
+                    min: { value: 0.0001, message: 'La tasa de cambio debe ser un número positivo' }
+                  })}
+                />
+                <p className="mt-1 text-sm text-gray-500 font-medium">
+                  1 USD = {currentExchangeRate || 0} {currentCurrencyCode || ''}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -1,3 +1,4 @@
+//frontend/src/components/features/countries/CountryCard.tsx
 import { ReactNode } from 'react';
 
 interface CountryCardProps {

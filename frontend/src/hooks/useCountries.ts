@@ -60,6 +60,17 @@ export interface CountryStats {
   maxExchangeRate: number;
 }
 
+// Interface para la respuesta de sincronización
+export interface SyncRatesResponse {
+  success: boolean;
+  message: string;
+  stats: {
+    updated: number;
+    failed: number;
+    details: any[];
+  };
+}
+
 // Hook principal para obtener países con paginación y búsqueda
 // ✅ CAMBIO: Usamos axios.get para evitar error 401 si hay un token basura
 export const useCountries = (page: number = 1, limit: number = 10, search: string = '') => {
@@ -201,4 +212,31 @@ export const useCountriesBasic = () => {
       currency_symbol: country.currency_symbol
     }))
   });
+};
+
+// ==========================================
+// 🚀 NUEVO HOOK: Sincronizar Tasas de Cambio
+// ==========================================
+export const useSyncExchangeRates = () => {
+  const queryClient = useQueryClient();
+  
+  const mutation = useMutation({
+    mutationFn: async (): Promise<SyncRatesResponse> => {
+      // 🔒 Usamos 'api' porque es una ruta protegida (solo admin)
+      const response = await api.post('/countries/sync');
+      return response.data;
+    },
+    onSuccess: () => {
+      // 🔄 Refrescamos la lista de países y estadísticas para ver los nuevos precios
+      queryClient.invalidateQueries({ queryKey: ['countries'] });
+      queryClient.invalidateQueries({ queryKey: ['countries', 'stats'] });
+    },
+  });
+
+  return {
+    syncRates: mutation.mutateAsync,
+    isSyncing: mutation.isPending,
+    syncError: mutation.error,
+    syncResult: mutation.data
+  };
 };
