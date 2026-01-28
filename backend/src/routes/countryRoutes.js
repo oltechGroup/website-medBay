@@ -19,6 +19,10 @@ router.get('/:code', countryController.getByCode);
 // A partir de esta línea, se requiere Token
 router.use(auth.verifyToken);
 
+// 🚀 NUEVA RUTA: Sincronización manual de monedas
+// Debe ir antes de rutas con parámetros genéricos para evitar conflictos
+router.post('/sync', countryController.syncExchangeRates);
+
 router.post('/', countryController.create); 
 router.put('/:code', countryController.update); 
 router.delete('/:code', countryController.delete); 

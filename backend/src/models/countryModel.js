@@ -201,6 +201,36 @@ const Country = {
       ...country,
       exchange_rate: parseFloat(country.exchange_rate)
     }));
+  },
+
+  // ==========================================
+  // 🚀 NUEVOS MÉTODOS PARA AUTOMATIZACIÓN
+  // ==========================================
+
+  // 1. Obtener lista de monedas únicas (para saber qué pedir a la API)
+  getDistinctCurrencies: async () => {
+    const query = `
+      SELECT DISTINCT currency_code 
+      FROM countries 
+      WHERE currency_code IS NOT NULL AND currency_code != 'USD'
+    `;
+    // Excluimos USD porque es la moneda base y siempre vale 1.0
+    const result = await db.query(query);
+    return result.rows.map(row => row.currency_code);
+  },
+
+  // 2. Actualizar tasa de cambio por moneda (Bulk Update)
+  updateRateByCurrency: async (currencyCode, newRate) => {
+    const query = `
+      UPDATE countries 
+      SET 
+        exchange_rate = $1,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE currency_code = $2
+    `;
+    // $1: Nueva tasa, $2: Código de moneda (ej: 'MXN')
+    const result = await db.query(query, [newRate, currencyCode]);
+    return result.rowCount; // Devuelve cuántos países fueron actualizados
   }
 };
 

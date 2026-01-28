@@ -1,9 +1,13 @@
 // backend/server.js 
 
 const express = require('express');
-const cors = require('cors'); // ✅ 1. DESCOMENTADO (Es vital para que funcione)
+const cors = require('cors'); 
 const fs = require('fs');
 const path = require('path');
+// ✅ NUEVAS IMPORTACIONES PARA AUTOMATIZACIÓN
+const cron = require('node-cron');
+const currencyService = require('./src/services/currencyService');
+
 require('dotenv').config();
 
 const app = express();
@@ -11,16 +15,15 @@ const app = express();
 const PORT = process.env.PORT || 4000; 
 
 // =======================================================
-// 🛡️ CONFIGURACIÓN DE CORS (LA SOLUCIÓN A TU ERROR)
+// 🛡️ CONFIGURACIÓN DE CORS
 // =======================================================
-// Esto le dice al navegador: "Permite que www.medbaysupply.com se conecte 
-// y envíe cookies/credenciales".
 app.use(cors({
   origin: [
     'https://www.medbaysupply.com', 
     'https://medbaysupply.com',
+    'http://localhost:3000' // Opcional: útil para desarrollo local si lo necesitas
   ],
-  credentials: true, // 👈 ESTO ARREGLA EL ERROR "Access-Control-Allow-Credentials"
+  credentials: true, 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
@@ -30,7 +33,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // =======================================================
-// 🔧 CORRECCIÓN DE RUTAS (Vital para que no se rompa al subir)
+// 🔧 CORRECCIÓN DE RUTAS 
 // =======================================================
 const uploadsPath = path.join(__dirname, 'uploads');
 
@@ -90,8 +93,23 @@ app.use((err, req, res, next) => {
   });
 });
 
+// =======================================================
+// ⏰ TAREAS PROGRAMADAS (CRON JOBS)
+// =======================================================
+// '0 2 * * *' significa: En el minuto 0 de la hora 2 (2:00 AM) de cualquier día
+cron.schedule('0 2 * * *', async () => {
+  console.log('🌙 Ejecutando tarea nocturna: Actualización de Tasas de Cambio...');
+  try {
+    const result = await currencyService.updateExchangeRates();
+    console.log('✅ Tarea nocturna completada:', result.message);
+  } catch (error) {
+    console.error('❌ Error en tarea nocturna:', error.message);
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\n🚀 MedBay Server listo en puerto ${PORT}`);
   console.log(`🛡️ CORS Habilitado para: https://www.medbaysupply.com`);
   console.log(`📸 Carpeta de imágenes configurada en: ${uploadsPath}`);
+  console.log(`⏰ Cron Job configurado para ejecutarse diariamente a las 02:00 AM`);
 });

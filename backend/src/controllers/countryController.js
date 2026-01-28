@@ -1,6 +1,7 @@
-//backend/src/controllers/countryControllers.js
+//backend/src/controllers/countryController.js
 
 const Country = require('../models/countryModel');
+const currencyService = require('../services/currencyService'); // ✅ IMPORTACIÓN NUEVA
 
 const countryController = {
   // Obtener todos los países con paginación y búsqueda
@@ -343,6 +344,30 @@ const countryController = {
       res.status(500).json({
         success: false,
         message: 'Error al obtener países por moneda',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  },
+
+  // ==========================================
+  // 🚀 NUEVO MÉTODO - SINCRONIZACIÓN MANUAL
+  // ==========================================
+  syncExchangeRates: async (req, res) => {
+    try {
+      // Llamamos al servicio que hace toda la magia
+      const result = await currencyService.updateExchangeRates();
+      
+      // Devolvemos el resultado al frontend
+      res.json({
+        success: result.success,
+        message: result.message,
+        stats: result.stats
+      });
+    } catch (error) {
+      console.error('Error syncing exchange rates:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al sincronizar las tasas de cambio',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
