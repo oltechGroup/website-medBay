@@ -98,7 +98,7 @@ export const ImportResults: React.FC<ImportResultsProps> = ({
         <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow text-center">
           <Users className="h-6 w-6 text-blue-600 mx-auto mb-2" />
           <div className="text-3xl font-black text-gray-900">{productsCreated.toLocaleString()}</div>
-          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest">Nuevos Catálogos</p>
+          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest">Nuevos Productos</p>
         </div>
 
         <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow text-center">

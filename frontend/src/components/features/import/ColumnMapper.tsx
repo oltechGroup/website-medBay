@@ -1,7 +1,8 @@
+//frontend/src/components/features/import/ColumnMapper.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Map, CheckCircle, AlertCircle, Table, Download, XCircle, MinusCircle } from 'lucide-react';
+import { Map, CheckCircle, AlertCircle, Table, Download, MinusCircle, ArrowRight } from 'lucide-react';
 
 interface ColumnMapperProps {
   previewData: any[];
@@ -40,6 +41,7 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
   imageColumn, 
 }) => {
   const [mappings, setMappings] = useState(currentMappings || {});
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
       setMappings(newMappings);
       onMappingsChange(newMappings);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageColumn, availableColumns]);
 
   const handleMappingChange = (fieldKey: string, value: string) => {
@@ -60,8 +63,6 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
     onMappingsChange(newMappings);
   };
 
-  // Ahora solo la descripción es estrictamente requerida para avanzar
-  // Los demás deben tener una columna O estar marcados como not_applicable
   const isMappingComplete = () => {
     return REQUIRED_FIELDS.every(field => {
       if (field.key === 'descripcion') return !!mappings[field.key];
@@ -70,7 +71,7 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
   };
 
   const getMappedField = (columnName: string) => {
-    return Object.entries(mappings).find(([_, mappedColumn]) => mappedColumn === columnName)?.[0];
+    return Object.entries(mappings).find(([, mappedColumn]) => mappedColumn === columnName)?.[0];
   };
 
   const isColumnMapped = (columnName: string) => {
@@ -78,166 +79,249 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-center space-x-3">
-          <Map className="h-6 w-6 text-blue-600" />
+    <div className="space-y-8 animate-in fade-in duration-500">
+      
+      {/* Header Informativo */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 shadow-sm">
+        <div className="flex items-center space-x-4">
+          <div className="bg-blue-100 p-3 rounded-full">
+            <Map className="h-6 w-6 text-blue-600" />
+          </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-blue-900">Configuración de Corazón de Importación</h3>
-            <p className="text-sm text-blue-700">
-              Si un dato no existe en tu Excel, marca <strong>"No aplica"</strong>. MedBay generará la información necesaria.
+            <h3 className="font-bold text-blue-900 text-lg">Configuración de Importación</h3>
+            <p className="text-sm text-blue-700 mt-1">
+              Asocia las columnas de tu Excel. Si un dato no existe (como Cantidad o Precio), marca <strong>"No aplica"</strong> y el sistema lo gestionará automáticamente.
             </p>
           </div>
         </div>
       </div>
 
-      <div className="border rounded-lg bg-white p-6">
-        <h4 className="font-medium text-gray-900 mb-6 text-lg flex items-center">
-          <CheckCircle className="mr-2 h-5 w-5 text-green-500"/> Definición de Atributos
+      {/* Sección de Mapeo */}
+      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <h4 className="font-bold text-gray-900 mb-6 text-xl flex items-center border-b pb-4">
+          <CheckCircle className="mr-2 h-6 w-6 text-green-600"/> Definición de Atributos
         </h4>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {REQUIRED_FIELDS.map((field) => (
-            <div key={field.key} className={`relative border rounded-xl p-5 transition-all shadow-sm ${mappings[field.key] === 'not_applicable' ? 'bg-gray-50 border-gray-300 opacity-80' : 'bg-white border-gray-200 hover:border-blue-300'}`}>
-              
-              <div className="flex justify-between items-start mb-2">
-                <label className="block text-sm font-bold text-gray-800">
-                  {field.label} {field.key === 'descripcion' && <span className="text-red-500">*</span>}
-                </label>
+          {REQUIRED_FIELDS.map((field) => {
+            const isNotApplicable = mappings[field.key] === 'not_applicable';
+            const isMapped = mappings[field.key] && !isNotApplicable;
+
+            return (
+              <div 
+                key={field.key} 
+                className={`relative border rounded-xl p-5 transition-all duration-200 ${
+                  isNotApplicable 
+                    ? 'bg-gray-50 border-gray-300 border-dashed' 
+                    : isMapped 
+                      ? 'bg-white border-blue-400 ring-1 ring-blue-100 shadow-md' 
+                      : 'bg-white border-gray-200 hover:border-blue-300 shadow-sm'
+                }`}
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <label className={`text-sm font-bold ${isNotApplicable ? 'text-gray-500' : 'text-gray-800'}`}>
+                    {field.label} {field.key === 'descripcion' && <span className="text-red-500">*</span>}
+                  </label>
+                  
+                  {field.canSkip && (
+                    <button 
+                      onClick={() => handleMappingChange(field.key, isNotApplicable ? '' : 'not_applicable')}
+                      className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wide transition-colors ${
+                        isNotApplicable 
+                          ? 'bg-gray-200 text-gray-600 hover:bg-gray-300' 
+                          : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                      }`}
+                    >
+                      {isNotApplicable ? 'Habilitar' : 'Omitir'}
+                    </button>
+                  )}
+                </div>
                 
-                {field.canSkip && (
-                  <button 
-                    onClick={() => handleMappingChange(field.key, mappings[field.key] === 'not_applicable' ? '' : 'not_applicable')}
-                    className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-tighter transition-colors ${mappings[field.key] === 'not_applicable' ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
-                  >
-                    {mappings[field.key] === 'not_applicable' ? 'Habilitar' : 'No Aplica'}
-                  </button>
+                <p className={`text-xs mb-4 h-5 truncate ${isNotApplicable ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {field.description}
+                </p>
+                
+                {isNotApplicable ? (
+                  <div className="w-full py-2.5 px-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-500 text-sm font-medium flex items-center justify-center">
+                    <MinusCircle className="w-4 h-4 mr-2" /> No aplica
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={mappings[field.key] || ''}
+                      onChange={(e) => handleMappingChange(field.key, e.target.value)}
+                      className={`w-full border rounded-lg px-3 py-2.5 text-sm appearance-none font-medium text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+                        !mappings[field.key] ? 'border-amber-400' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="">Selecciona columna...</option>
+                      {availableColumns.map((column) => (
+                        <option 
+                          key={column} 
+                          value={column}
+                          disabled={isColumnMapped(column) && mappings[field.key] !== column}
+                          className="text-gray-900"
+                        >
+                          {column}
+                        </option>
+                      ))}
+                    </select>
+                    {/* Indicador visual de dropdown */}
+                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-500">
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                    </div>
+                  </div>
+                )}
+
+                {isMapped && (
+                  <div className="mt-3 flex items-center text-green-700 bg-green-50 px-2 py-1 rounded text-xs font-bold w-fit animate-in fade-in slide-in-from-left-2">
+                    <CheckCircle className="h-3 w-3 mr-1.5" />
+                    LISTO
+                  </div>
                 )}
               </div>
-              
-              <p className="text-xs text-gray-500 mb-4 h-8">{field.description}</p>
-              
-              {mappings[field.key] === 'not_applicable' ? (
-                <div className="w-full py-2 px-3 bg-gray-200 rounded-md text-gray-500 text-sm font-medium flex items-center justify-center italic">
-                  <MinusCircle className="w-4 h-4 mr-2" /> Campo omitido
-                </div>
-              ) : (
-                <select
-                  value={mappings[field.key] || ''}
-                  onChange={(e) => handleMappingChange(field.key, e.target.value)}
-                  className={`w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white ${!mappings[field.key] ? 'border-amber-300' : 'border-gray-300'}`}
-                >
-                  <option value="">Selecciona columna...</option>
-                  {availableColumns.map((column) => (
-                    <option 
-                      key={column} 
-                      value={column}
-                      disabled={isColumnMapped(column) && mappings[field.key] !== column}
-                    >
-                      {column}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {mappings[field.key] && mappings[field.key] !== 'not_applicable' && (
-                <div className="mt-3 flex items-center text-green-600 animate-in fade-in zoom-in-95">
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Mapeado</span>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        <div className="mt-10 border-t pt-8">
-          <h4 className="font-medium text-gray-900 mb-4 text-lg">Información Visual (Opcional)</h4>
+        {/* Campos Opcionales */}
+        <div className="mt-10 pt-8 border-t border-gray-100">
+          <h4 className="font-bold text-gray-800 mb-6 text-lg">Información Adicional (Opcional)</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {OPTIONAL_FIELDS.map((field) => (
-              <div key={field.key} className="border border-dashed border-gray-300 rounded-xl p-5 bg-gray-50">
+              <div key={field.key} className="border border-gray-200 rounded-xl p-5 bg-gray-50/50 hover:bg-white transition-colors">
                 <label className="block text-sm font-bold text-gray-700 mb-1">{field.label}</label>
                 <p className="text-xs text-gray-500 mb-4">{field.description}</p>
-                <select
-                  value={mappings[field.key] || ''}
-                  onChange={(e) => handleMappingChange(field.key, e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white text-gray-900"
-                >
-                  <option value="">No asignar...</option>
-                  {availableColumns.map((column) => (
-                    <option key={column} value={column} disabled={isColumnMapped(column) && mappings[field.key] !== column}>
-                      {column}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={mappings[field.key] || ''}
+                    onChange={(e) => handleMappingChange(field.key, e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-1 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="">No asignar...</option>
+                    {availableColumns.map((column) => (
+                      <option key={column} value={column} disabled={isColumnMapped(column) && mappings[field.key] !== column}>
+                        {column}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Preview Table */}
-      <div className="border rounded-lg bg-white overflow-hidden">
-        <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+      {/* Tabla de Previsualización Mejorada */}
+      <div className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
+        <div className="bg-gray-900 px-6 py-4 flex justify-between items-center text-white">
            <div className="flex items-center space-x-2">
-              <Table className="h-5 w-5 text-gray-600" />
-              <span className="font-bold text-gray-700 text-sm">Previsualización de Datos</span>
+              <Table className="h-5 w-5 text-blue-400" />
+              <span className="font-bold text-sm tracking-wide">VISTA PREVIA DE DATOS</span>
            </div>
-           <span className="text-[10px] font-bold bg-gray-200 px-2 py-1 rounded uppercase">Total: {totalRows} filas</span>
+           <span className="text-xs font-bold bg-gray-700 px-3 py-1 rounded-full border border-gray-600">
+             Total: {totalRows.toLocaleString()} filas
+           </span>
         </div>
+        
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-xs font-mono">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-4 py-3 text-left font-bold text-gray-500 border-r w-10">#</th>
-                {availableColumns.map((column) => (
-                  <th 
-                    key={column}
-                    className={`px-4 py-3 text-left font-bold border-r min-w-[150px] transition-colors ${isColumnMapped(column) ? 'bg-blue-600 text-white' : 'text-gray-600'}`}
-                  >
-                    {column}
-                    {isColumnMapped(column) && (
-                      <div className="text-[9px] uppercase mt-1 opacity-80">→ {getMappedField(column)}</div>
-                    )}
-                  </th>
-                ))}
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider border-r border-gray-200 w-12 bg-gray-50">
+                  #
+                </th>
+                {availableColumns.map((column) => {
+                  const isMapped = isColumnMapped(column);
+                  const mappedFieldKey = getMappedField(column);
+                  const mappedLabel = REQUIRED_FIELDS.find(f => f.key === mappedFieldKey)?.label || OPTIONAL_FIELDS.find(f => f.key === mappedFieldKey)?.label;
+
+                  return (
+                    <th 
+                      key={column}
+                      className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider border-r border-gray-200 min-w-[160px] transition-colors ${
+                        isMapped ? 'bg-blue-50 text-blue-800 border-b-2 border-b-blue-500' : 'text-gray-600'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span>{column}</span>
+                        {isMapped && (
+                          <span className="mt-1 inline-flex items-center text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded w-fit">
+                            <ArrowRight className="w-3 h-3 mr-1"/> {mappedLabel}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 bg-white">
               {previewData.slice(0, 5).map((row, idx) => (
-                <tr key={idx} className="hover:bg-blue-50/30">
-                  <td className="px-4 py-2 border-r bg-gray-50 text-gray-400 font-bold">{idx + 1}</td>
-                  {availableColumns.map((col) => (
-                    <td key={col} className={`px-4 py-2 border-r ${isColumnMapped(col) ? 'bg-blue-50/50' : ''}`}>
-                      {row[col]?.toString() || '—'}
-                    </td>
-                  ))}
+                <tr key={idx} className="hover:bg-blue-50 transition-colors">
+                  <td className="px-4 py-3 whitespace-nowrap text-xs font-bold text-gray-400 bg-gray-50 border-r border-gray-200 text-center">
+                    {idx + 1}
+                  </td>
+                  {availableColumns.map((col) => {
+                    const isMapped = isColumnMapped(col);
+                    return (
+                      <td 
+                        key={col} 
+                        className={`px-4 py-3 whitespace-nowrap text-sm text-gray-700 border-r border-gray-200 ${
+                          isMapped ? 'bg-blue-50/30 font-medium text-gray-900' : ''
+                        }`}
+                      >
+                        {row[col]?.toString() || <span className="text-gray-300 italic">vacío</span>}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 text-xs text-gray-500 text-center font-medium">
+          Mostrando las primeras 5 filas para verificación
+        </div>
       </div>
 
-      <div className="flex items-center justify-between bg-gray-50 p-6 rounded-xl border border-gray-200">
-        <div className="flex items-center space-x-3">
-          {isMappingComplete() ? (
-            <div className="flex items-center text-green-700 font-bold text-sm bg-green-100 px-4 py-2 rounded-lg border border-green-200">
-              <CheckCircle className="h-5 w-5 mr-2" /> Mapeo listo para procesar
-            </div>
-          ) : (
-            <div className="flex items-center text-amber-700 font-bold text-sm bg-amber-100 px-4 py-2 rounded-lg border border-amber-200">
-              <AlertCircle className="h-5 w-5 mr-2" /> Falta asignar descripción u otros campos
-            </div>
-          )}
-        </div>
+      {/* Botón de Acción Final */}
+      <div className="sticky bottom-4 z-10">
+        <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-xl ring-1 ring-black/5">
+          <div className="flex items-center space-x-3">
+            {isMappingComplete() ? (
+              <div className="flex items-center text-green-800 font-bold text-sm bg-green-100 px-4 py-2 rounded-lg border border-green-200 shadow-sm">
+                <CheckCircle className="h-5 w-5 mr-2" /> Configuración lista
+              </div>
+            ) : (
+              <div className="flex items-center text-amber-800 font-bold text-sm bg-amber-100 px-4 py-2 rounded-lg border border-amber-200 shadow-sm">
+                <AlertCircle className="h-5 w-5 mr-2" /> Completa los campos obligatorios (*)
+              </div>
+            )}
+          </div>
 
-        <button
-          onClick={() => onComplete(mappings)}
-          disabled={!isMappingComplete() || isProcessing}
-          className="flex items-center px-8 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:bg-gray-400 shadow-lg transition-all transform active:scale-95"
-        >
-          {isProcessing ? 'Procesando...' : <><Download className="h-5 w-5 mr-2" /> Iniciar Importación Masiva</>}
-        </button>
+          <button
+            onClick={() => onComplete(mappings)}
+            disabled={!isMappingComplete() || isProcessing}
+            className={`
+              flex items-center px-8 py-3.5 rounded-xl font-bold text-sm transition-all transform active:scale-95 shadow-lg
+              ${!isMappingComplete() || isProcessing 
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' 
+                : 'bg-gray-900 text-white hover:bg-black hover:shadow-gray-900/20'}
+            `}
+          >
+            {isProcessing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-white mr-2"></div>
+                Procesando...
+              </>
+            ) : (
+              <>
+                <Download className="h-5 w-5 mr-2" /> Iniciar Importación
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

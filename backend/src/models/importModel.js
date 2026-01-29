@@ -1,8 +1,10 @@
 // backend/src/models/importModel.js
+
 const db = require('../config/database');
 const XLSX = require('xlsx');
 
 const ImportModel = {
+
   createQuickSupplier: async (name, country_code) => {
     const query = `INSERT INTO suppliers (name, country_code, is_active) VALUES ($1, $2, true) RETURNING id, name, country_code`;
     const result = await db.query(query, [name, country_code]);
@@ -50,15 +52,17 @@ const ImportModel = {
     return result.rowCount;
   },
 
-  // --- NUEVA LÓGICA DE PROCESAMIENTO MASIVO ---
+  // --- LÓGICA DE PROCESAMIENTO MASIVO (MOTOR ASÍNCRONO) ---
 
   executeImportProcess: async (upload_id, mappings) => {
     try {
       await db.query("UPDATE raw_uploads SET status = 'processing' WHERE id = $1", [upload_id]);
+      
       const uploadRes = await db.query('SELECT * FROM raw_uploads WHERE id = $1', [upload_id]);
       const upload = uploadRes.rows[0];
 
       // 1. OBTENER TASA ACTUAL (EL CORAZÓN)
+      // Se captura al inicio para garantizar consistencia en todo el lote
       const currencyData = await ImportModel.getSupplierExchangeRate(upload.supplier_id);
       
       // 2. FASE "PUENTE": Volcar Excel a raw_rows para manejar archivos de 35k+ sin saturar RAM
@@ -69,24 +73,25 @@ const ImportModel = {
       const rawData = XLSX.utils.sheet_to_json(sheet);
       const totalExcelRows = rawData.length;
 
-      // Limpiar rows previos si existen (seguridad)
+      // Limpieza de seguridad: borrar datos previos de este upload si hubo un reintento fallido
       await db.query("DELETE FROM raw_rows WHERE raw_upload_id = $1", [upload_id]);
 
-      // Insertar en raw_rows en batches para velocidad de puente
+      // Insertar en raw_rows en batches (bloques) para velocidad
       const bridgeBatchSize = 500;
       for (let i = 0; i < rawData.length; i += bridgeBatchSize) {
         const chunk = rawData.slice(i, i + bridgeBatchSize);
+        // Escapamos comillas simples en el JSON para evitar errores SQL
         const values = chunk.map((row, idx) => `('${upload_id}', ${i + idx}, '${JSON.stringify(row).replace(/'/g, "''")}')`).join(',');
         await db.query(`INSERT INTO raw_rows (raw_upload_id, row_index, raw_data) VALUES ${values}`);
       }
 
       await ImportModel.updateProgress(upload_id, { total_rows: totalExcelRows, current_operation: 'Iniciando procesamiento de datos...' });
 
-      // 3. FASE PROCESAMIENTO: Consumir desde raw_rows
+      // 3. FASE PROCESAMIENTO: Consumir desde la base de datos (raw_rows)
       let processedCounter = 0;
       let globalStats = { created_lots: 0, created_products: 0, created_manufacturers: 0, skipped_rows: 0 };
       const allErrors = [];
-      const processingBatchSize = 100;
+      const processingBatchSize = 100; // Procesamos de 100 en 100 para no bloquear la BD
 
       while (processedCounter < totalExcelRows) {
         const rowsRes = await db.query(
@@ -96,8 +101,10 @@ const ImportModel = {
 
         if (rowsRes.rows.length === 0) break;
 
+        // Procesamos el lote actual
         const batchStats = await ImportModel.processBatch(rowsRes.rows, upload, currencyData, mappings, allErrors);
         
+        // Actualizamos contadores globales
         globalStats.created_lots += batchStats.created_lots;
         globalStats.created_products += batchStats.created_products;
         globalStats.created_manufacturers += batchStats.created_manufacturers;
@@ -105,6 +112,7 @@ const ImportModel = {
 
         processedCounter += rowsRes.rows.length;
 
+        // Reportar progreso al frontend
         await ImportModel.updateProgress(upload_id, { 
           processed_rows: processedCounter, 
           current_operation: `Procesando... (${Math.round((processedCounter/totalExcelRows)*100)}%)`,
@@ -112,11 +120,15 @@ const ImportModel = {
         });
       }
 
-      // 4. LIMPIEZA FINAL DEL PUENTE (raw_rows)
+      // 4. LIMPIEZA FINAL DEL PUENTE
+      // Borramos los datos temporales para no ocupar espacio en disco
       await db.query("DELETE FROM raw_rows WHERE raw_upload_id = $1", [upload_id]);
 
       const progressStatus = allErrors.length > 0 ? 'completed_with_errors' : 'completed';
+      // Si hubo errores pero se crearon lotes, es un éxito parcial. Solo fallamos si no se creó NADA.
       const uploadStatus = (allErrors.length > 0 && globalStats.created_lots === 0) ? 'failed' : 'finished';
+      
+      // Guardamos solo los primeros 200 errores para no saturar el campo JSON
       const finalPayload = { errors: allErrors.slice(0, 200), stats: globalStats };
 
       await db.query(`UPDATE import_progress SET status = $1, current_operation = 'Finalizado', processed_rows = $2, error_messages = $3::jsonb, updated_at = NOW() WHERE upload_id = $4`, [progressStatus, totalExcelRows, JSON.stringify(finalPayload), upload_id]);
@@ -134,46 +146,52 @@ const ImportModel = {
 
     try {
       await client.query('BEGIN');
+      
       for (const rowObj of dbRows) {
         const item = rowObj.raw_data;
-        const rowIndex = rowObj.row_index + 2;
+        const rowIndex = rowObj.row_index + 2; // +2 porque Excel tiene header y empieza en 1
 
         try {
           await client.query('SAVEPOINT row_processing');
 
           // --- LÓGICA DE MAPEOS FLEXIBLES (N/A) ---
           
-          // Descripción es el corazón. Si es N/A o vacío, no podemos crear lote.
+          // 1. Descripción (CORAZÓN): Es obligatoria para crear el producto
           const description = mappings.descripcion === 'not_applicable' ? null : item[mappings.descripcion];
           if (!description) {
-            throw new Error(`Fila ${rowIndex}: La descripción es obligatoria para generar el inventario.`);
+            throw new Error(`Fila ${rowIndex}: La descripción es obligatoria.`);
           }
 
-          // SKU Flexible: Si es 'not_applicable', generamos un SKU interno basado en hash o timestamp
+          // 2. SKU Flexible: Si es 'not_applicable', generamos un SKU interno único
           let sku = mappings.codigo === 'not_applicable' ? null : String(item[mappings.codigo] || '').trim();
           if (!sku || mappings.codigo === 'not_applicable') {
-            sku = `GEN-${Buffer.from(description).toString('base64').substring(0, 8)}-${Date.now()}`;
+            // Generamos SKU basado en hash de descripción + timestamp para evitar colisiones
+            sku = `GEN-${Buffer.from(description).toString('base64').substring(0, 6).toUpperCase()}-${Date.now().toString().slice(-6)}`;
           }
 
-          // Fabricante Flexible
+          // 3. Fabricante Flexible
           let manufacturerName = mappings.fabricante === 'not_applicable' ? 'No especificado' : String(item[mappings.fabricante] || 'No especificado').trim();
 
-          // Precio y Divisas (El Corazón)
+          // 4. Precio y Divisas
           let rawPrice = 0;
           if (mappings.precio !== 'not_applicable') {
             const priceStr = String(item[mappings.precio] || '0').replace(/[^0-9.]/g, '');
             rawPrice = parseFloat(priceStr) || 0;
           }
           
-          // Conversión usando la tasa del momento (Trazabilidad)
+          // Conversión de Divisa (Trazabilidad)
           const exchangeRateUsed = currencyData.exchange_rate || 1;
           const priceUSD = rawPrice / exchangeRateUsed;
 
-          // Cantidad
+          // 5. Cantidad (CORRECCIÓN APLICADA: PERMITIMOS 0)
           const quantity = mappings.cantidad === 'not_applicable' ? 0 : parseInt(item[mappings.cantidad]) || 0;
-          if (quantity <= 0) { stats.skipped++; continue; }
+          
+          // NOTA: Se eliminó el bloqueo "if (quantity <= 0) continue". 
+          // Ahora permitimos crear productos con stock 0 para fines de catálogo/cotización.
 
-          // 1. Asegurar Fabricante
+          // --- INSERCIONES EN CADENA ---
+
+          // A. Asegurar Fabricante
           let makerId;
           const makerRes = await client.query('SELECT id FROM manufacturers WHERE name = $1', [manufacturerName]);
           if (makerRes.rows.length > 0) makerId = makerRes.rows[0].id;
@@ -183,7 +201,7 @@ const ImportModel = {
             stats.created_manufacturers++;
           }
 
-          // 2. Asegurar Producto (Usamos SKU + Fabricante para evitar colisiones)
+          // B. Asegurar Producto (Usamos SKU + Fabricante para evitar colisiones globales)
           let productId;
           const prodRes = await client.query('SELECT id FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [sku, makerId]);
           if (prodRes.rows.length > 0) productId = prodRes.rows[0].id;
@@ -193,7 +211,7 @@ const ImportModel = {
             stats.created_products++;
           }
 
-          // 3. Vincular Proveedor (product_suppliers)
+          // C. Vincular Proveedor (product_suppliers)
           let psId;
           const psCheck = await client.query('SELECT id FROM product_suppliers WHERE supplier_id = $1 AND supplier_sku = $2', [upload.supplier_id, sku]);
           if (psCheck.rows.length > 0) psId = psCheck.rows[0].id;
@@ -206,8 +224,13 @@ const ImportModel = {
             psId = psInsert.rows[0].id;
           }
 
-          // 4. Crear el Lote (Final)
+          // D. Crear el Lote (Final)
           let lotStatus = upload.sales_category || 'available';
+          
+          // Si la cantidad es 0, el estado no puede ser 'available', forzamos lógica de negocio si es necesario,
+          // o dejamos que el frontend lo maneje (como ya lo hace con "Agotado").
+          // Dejaremos el status tal cual viene del upload para no interferir con la lógica de categorías.
+
           let expiryDate = null;
           if (mappings.fecha_caducidad !== 'not_applicable' && item[mappings.fecha_caducidad]) {
             const d = new Date(item[mappings.fecha_caducidad]);
@@ -217,7 +240,14 @@ const ImportModel = {
           await client.query(
             `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at) 
              VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-            [psId, `LOT-${Date.now()}-${Math.floor(Math.random()*1000)}`, quantity, priceUSD, lotStatus, expiryDate]
+            [
+              psId, 
+              `LOT-${Date.now()}-${Math.floor(Math.random()*10000)}`, // Generamos número de lote único
+              quantity, 
+              priceUSD, 
+              lotStatus, 
+              expiryDate
+            ]
           );
 
           stats.created_lots++;
@@ -229,8 +259,10 @@ const ImportModel = {
           stats.skipped++;
         }
       }
+      
       await client.query('COMMIT');
       return stats;
+
     } catch (e) {
       await client.query('ROLLBACK');
       throw e;
