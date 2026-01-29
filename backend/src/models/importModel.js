@@ -62,7 +62,6 @@ const ImportModel = {
       const upload = uploadRes.rows[0];
 
       // 1. OBTENER TASA ACTUAL (EL CORAZÓN)
-      // Se captura al inicio para garantizar consistencia en todo el lote
       const currencyData = await ImportModel.getSupplierExchangeRate(upload.supplier_id);
       
       // 2. FASE "PUENTE": Volcar Excel a raw_rows para manejar archivos de 35k+ sin saturar RAM
@@ -73,14 +72,13 @@ const ImportModel = {
       const rawData = XLSX.utils.sheet_to_json(sheet);
       const totalExcelRows = rawData.length;
 
-      // Limpieza de seguridad: borrar datos previos de este upload si hubo un reintento fallido
+      // Limpieza de seguridad
       await db.query("DELETE FROM raw_rows WHERE raw_upload_id = $1", [upload_id]);
 
-      // Insertar en raw_rows en batches (bloques) para velocidad
+      // Insertar en raw_rows en batches
       const bridgeBatchSize = 500;
       for (let i = 0; i < rawData.length; i += bridgeBatchSize) {
         const chunk = rawData.slice(i, i + bridgeBatchSize);
-        // Escapamos comillas simples en el JSON para evitar errores SQL
         const values = chunk.map((row, idx) => `('${upload_id}', ${i + idx}, '${JSON.stringify(row).replace(/'/g, "''")}')`).join(',');
         await db.query(`INSERT INTO raw_rows (raw_upload_id, row_index, raw_data) VALUES ${values}`);
       }
@@ -91,7 +89,7 @@ const ImportModel = {
       let processedCounter = 0;
       let globalStats = { created_lots: 0, created_products: 0, created_manufacturers: 0, skipped_rows: 0 };
       const allErrors = [];
-      const processingBatchSize = 100; // Procesamos de 100 en 100 para no bloquear la BD
+      const processingBatchSize = 100;
 
       while (processedCounter < totalExcelRows) {
         const rowsRes = await db.query(
@@ -121,14 +119,11 @@ const ImportModel = {
       }
 
       // 4. LIMPIEZA FINAL DEL PUENTE
-      // Borramos los datos temporales para no ocupar espacio en disco
       await db.query("DELETE FROM raw_rows WHERE raw_upload_id = $1", [upload_id]);
 
       const progressStatus = allErrors.length > 0 ? 'completed_with_errors' : 'completed';
-      // Si hubo errores pero se crearon lotes, es un éxito parcial. Solo fallamos si no se creó NADA.
       const uploadStatus = (allErrors.length > 0 && globalStats.created_lots === 0) ? 'failed' : 'finished';
       
-      // Guardamos solo los primeros 200 errores para no saturar el campo JSON
       const finalPayload = { errors: allErrors.slice(0, 200), stats: globalStats };
 
       await db.query(`UPDATE import_progress SET status = $1, current_operation = 'Finalizado', processed_rows = $2, error_messages = $3::jsonb, updated_at = NOW() WHERE upload_id = $4`, [progressStatus, totalExcelRows, JSON.stringify(finalPayload), upload_id]);
@@ -149,23 +144,22 @@ const ImportModel = {
       
       for (const rowObj of dbRows) {
         const item = rowObj.raw_data;
-        const rowIndex = rowObj.row_index + 2; // +2 porque Excel tiene header y empieza en 1
+        const rowIndex = rowObj.row_index + 2; 
 
         try {
           await client.query('SAVEPOINT row_processing');
 
           // --- LÓGICA DE MAPEOS FLEXIBLES (N/A) ---
           
-          // 1. Descripción (CORAZÓN): Es obligatoria para crear el producto
+          // 1. Descripción (CORAZÓN)
           const description = mappings.descripcion === 'not_applicable' ? null : item[mappings.descripcion];
           if (!description) {
             throw new Error(`Fila ${rowIndex}: La descripción es obligatoria.`);
           }
 
-          // 2. SKU Flexible: Si es 'not_applicable', generamos un SKU interno único
+          // 2. SKU Flexible
           let sku = mappings.codigo === 'not_applicable' ? null : String(item[mappings.codigo] || '').trim();
           if (!sku || mappings.codigo === 'not_applicable') {
-            // Generamos SKU basado en hash de descripción + timestamp para evitar colisiones
             sku = `GEN-${Buffer.from(description).toString('base64').substring(0, 6).toUpperCase()}-${Date.now().toString().slice(-6)}`;
           }
 
@@ -179,15 +173,11 @@ const ImportModel = {
             rawPrice = parseFloat(priceStr) || 0;
           }
           
-          // Conversión de Divisa (Trazabilidad)
           const exchangeRateUsed = currencyData.exchange_rate || 1;
           const priceUSD = rawPrice / exchangeRateUsed;
 
-          // 5. Cantidad (CORRECCIÓN APLICADA: PERMITIMOS 0)
+          // 5. Cantidad (PERMITIMOS 0 PARA COTIZACIÓN)
           const quantity = mappings.cantidad === 'not_applicable' ? 0 : parseInt(item[mappings.cantidad]) || 0;
-          
-          // NOTA: Se eliminó el bloqueo "if (quantity <= 0) continue". 
-          // Ahora permitimos crear productos con stock 0 para fines de catálogo/cotización.
 
           // --- INSERCIONES EN CADENA ---
 
@@ -201,7 +191,7 @@ const ImportModel = {
             stats.created_manufacturers++;
           }
 
-          // B. Asegurar Producto (Usamos SKU + Fabricante para evitar colisiones globales)
+          // B. Asegurar Producto
           let productId;
           const prodRes = await client.query('SELECT id FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [sku, makerId]);
           if (prodRes.rows.length > 0) productId = prodRes.rows[0].id;
@@ -211,7 +201,7 @@ const ImportModel = {
             stats.created_products++;
           }
 
-          // C. Vincular Proveedor (product_suppliers)
+          // C. Vincular Proveedor
           let psId;
           const psCheck = await client.query('SELECT id FROM product_suppliers WHERE supplier_id = $1 AND supplier_sku = $2', [upload.supplier_id, sku]);
           if (psCheck.rows.length > 0) psId = psCheck.rows[0].id;
@@ -225,11 +215,17 @@ const ImportModel = {
           }
 
           // D. Crear el Lote (Final)
-          let lotStatus = upload.sales_category || 'available';
-          
-          // Si la cantidad es 0, el estado no puede ser 'available', forzamos lógica de negocio si es necesario,
-          // o dejamos que el frontend lo maneje (como ya lo hace con "Agotado").
-          // Dejaremos el status tal cual viene del upload para no interferir con la lógica de categorías.
+          let lotStatus = upload.sales_category;
+
+          // ✅ [FIX CRÍTICO] TRADUCCIÓN DE ESTADO PARA LA DB
+          // La base de datos solo permite: 'available', 'near_expiry', 'expired'
+          // Si recibimos 'regular', lo cambiamos a 'available'.
+          if (lotStatus === 'regular') {
+            lotStatus = 'available';
+          } else if (!['available', 'near_expiry', 'expired'].includes(lotStatus)) {
+            // Fallback de seguridad
+            lotStatus = 'available';
+          }
 
           let expiryDate = null;
           if (mappings.fecha_caducidad !== 'not_applicable' && item[mappings.fecha_caducidad]) {
@@ -242,7 +238,7 @@ const ImportModel = {
              VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
             [
               psId, 
-              `LOT-${Date.now()}-${Math.floor(Math.random()*10000)}`, // Generamos número de lote único
+              `LOT-${Date.now()}-${Math.floor(Math.random()*10000)}`, 
               quantity, 
               priceUSD, 
               lotStatus, 
