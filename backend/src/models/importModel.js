@@ -1,10 +1,8 @@
-//backend/src/models/importModel.js
-
+// backend/src/models/importModel.js
 const db = require('../config/database');
 const XLSX = require('xlsx');
 
 const ImportModel = {
-
   createQuickSupplier: async (name, country_code) => {
     const query = `INSERT INTO suppliers (name, country_code, is_active) VALUES ($1, $2, true) RETURNING id, name, country_code`;
     const result = await db.query(query, [name, country_code]);
@@ -12,9 +10,14 @@ const ImportModel = {
   },
 
   getSupplierExchangeRate: async (supplier_id) => {
-    const query = `SELECT c.exchange_rate, c.currency_code FROM suppliers s JOIN countries c ON s.country_code = c.code WHERE s.id = $1`;
+    // Obtenemos la tasa y el código, pero ahora también el símbolo para reportes
+    const query = `
+      SELECT c.exchange_rate, c.currency_code, c.currency_symbol 
+      FROM suppliers s 
+      JOIN countries c ON s.country_code = c.code 
+      WHERE s.id = $1`;
     const result = await db.query(query, [supplier_id]);
-    return result.rows[0] || { exchange_rate: 1, currency_code: 'USD' };
+    return result.rows[0] || { exchange_rate: 1, currency_code: 'USD', currency_symbol: '$' };
   },
 
   createUploadRecord: async ({ filename, path, supplier_id, sales_category, user_id }) => {
@@ -47,196 +50,183 @@ const ImportModel = {
     return result.rowCount;
   },
 
+  // --- NUEVA LÓGICA DE PROCESAMIENTO MASIVO ---
+
   executeImportProcess: async (upload_id, mappings) => {
     try {
       await db.query("UPDATE raw_uploads SET status = 'processing' WHERE id = $1", [upload_id]);
-      
       const uploadRes = await db.query('SELECT * FROM raw_uploads WHERE id = $1', [upload_id]);
       const upload = uploadRes.rows[0];
-      const { exchange_rate } = await ImportModel.getSupplierExchangeRate(upload.supplier_id);
+
+      // 1. OBTENER TASA ACTUAL (EL CORAZÓN)
+      const currencyData = await ImportModel.getSupplierExchangeRate(upload.supplier_id);
       
-      const workbook = XLSX.readFile(upload.file_path);
+      // 2. FASE "PUENTE": Volcar Excel a raw_rows para manejar archivos de 35k+ sin saturar RAM
+      await ImportModel.updateProgress(upload_id, { current_operation: 'Leyendo archivo masivo...', status: 'processing' });
+      
+      const workbook = XLSX.readFile(upload.file_path, { cellDates: true });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rawData = XLSX.utils.sheet_to_json(sheet);
       const totalExcelRows = rawData.length;
 
-      await ImportModel.updateProgress(upload_id, { 
-        total_rows: totalExcelRows, 
-        current_operation: 'Analizando y validando...',
-        status: 'processing',
-        processed_rows: 0
-      });
+      // Limpiar rows previos si existen (seguridad)
+      await db.query("DELETE FROM raw_rows WHERE raw_upload_id = $1", [upload_id]);
 
-      const consolidatedData = new Map();
-      const validationErrors = [];
-      let skippedRowsCount = 0;
-
-      rawData.forEach((row, index) => {
-        const rowIndex = index + 2; 
-        const rawSku = row[mappings.codigo];
-        const rawDesc = row[mappings.descripcion];
-
-        if (!rawSku || !rawDesc) {
-            let missing = [];
-            if (!rawSku) missing.push('SKU');
-            if (!rawDesc) missing.push('Descripción');
-            validationErrors.push({ row_index: rowIndex, error: `Fila omitida: Falta ${missing.join(' y ')}`, data: row });
-            skippedRowsCount++;
-            return;
-        }
-
-        const sku = String(rawSku).trim();
-        const desc = String(rawDesc).trim();
-        let priceStr = String(row[mappings.precio] || '0').replace(/[^0-9.]/g, '');
-        const price = parseFloat(priceStr) || 0;
-        const qty = parseInt(row[mappings.cantidad]) || 0;
-        
-        if (qty <= 0) return; 
-
-        const maker = String(row[mappings.fabricante] || '').trim() || 'No disponible';
-        const expiry = row[mappings.fecha_caducidad]; 
-        const img = mappings.imagen_url ? String(row[mappings.imagen_url] || '').trim() : null;
-
-        const key = `${sku}|${desc}|${price}|${expiry}|${maker}`;
-
-        if (consolidatedData.has(key)) {
-          const existing = consolidatedData.get(key);
-          existing.quantity += qty;
-          existing.originalRowsCount += 1;
-        } else {
-          consolidatedData.set(key, {
-            sku, description: desc, price, quantity: qty, expiry, manufacturer: maker, image_url: img,
-            originalRowsCount: 1
-          });
-        }
-      });
-
-      let processedTotalCounter = skippedRowsCount;
-      const allErrors = [...validationErrors];
-      const batchSize = 50;
-      let batch = [];
-      
-      let globalStats = { 
-          created_lots: 0, 
-          created_products: 0, 
-          created_manufacturers: 0,
-          merged_rows: 0,
-          skipped_rows: skippedRowsCount 
-      };
-
-      const uniqueItems = Array.from(consolidatedData.values());
-
-      for (const item of uniqueItems) {
-        batch.push(item);
-        if (batch.length >= batchSize) {
-          const batchStats = await ImportModel.processBatch(batch, upload, exchange_rate, allErrors);
-          globalStats.created_lots += batchStats.created_lots;
-          globalStats.created_products += batchStats.created_products;
-          globalStats.created_manufacturers += batchStats.created_manufacturers;
-          const rowsInBatch = batch.reduce((sum, i) => sum + i.originalRowsCount, 0);
-          globalStats.merged_rows += (rowsInBatch - batch.length);
-          processedTotalCounter += rowsInBatch;
-          await ImportModel.updateProgress(upload_id, { 
-            processed_rows: processedTotalCounter, 
-            current_operation: `Procesando... (${Math.round((processedTotalCounter/totalExcelRows)*100)}%)`,
-            stats: globalStats
-          });
-          batch = [];
-        }
+      // Insertar en raw_rows en batches para velocidad de puente
+      const bridgeBatchSize = 500;
+      for (let i = 0; i < rawData.length; i += bridgeBatchSize) {
+        const chunk = rawData.slice(i, i + bridgeBatchSize);
+        const values = chunk.map((row, idx) => `('${upload_id}', ${i + idx}, '${JSON.stringify(row).replace(/'/g, "''")}')`).join(',');
+        await db.query(`INSERT INTO raw_rows (raw_upload_id, row_index, raw_data) VALUES ${values}`);
       }
 
-      if (batch.length > 0) {
-        const batchStats = await ImportModel.processBatch(batch, upload, exchange_rate, allErrors);
+      await ImportModel.updateProgress(upload_id, { total_rows: totalExcelRows, current_operation: 'Iniciando procesamiento de datos...' });
+
+      // 3. FASE PROCESAMIENTO: Consumir desde raw_rows
+      let processedCounter = 0;
+      let globalStats = { created_lots: 0, created_products: 0, created_manufacturers: 0, skipped_rows: 0 };
+      const allErrors = [];
+      const processingBatchSize = 100;
+
+      while (processedCounter < totalExcelRows) {
+        const rowsRes = await db.query(
+          `SELECT id, raw_data, row_index FROM raw_rows WHERE raw_upload_id = $1 ORDER BY row_index ASC LIMIT $2 OFFSET $3`,
+          [upload_id, processingBatchSize, processedCounter]
+        );
+
+        if (rowsRes.rows.length === 0) break;
+
+        const batchStats = await ImportModel.processBatch(rowsRes.rows, upload, currencyData, mappings, allErrors);
+        
         globalStats.created_lots += batchStats.created_lots;
         globalStats.created_products += batchStats.created_products;
         globalStats.created_manufacturers += batchStats.created_manufacturers;
-        const rowsInBatch = batch.reduce((sum, i) => sum + i.originalRowsCount, 0);
-        globalStats.merged_rows += (rowsInBatch - batch.length);
-        processedTotalCounter += rowsInBatch;
+        globalStats.skipped_rows += batchStats.skipped;
+
+        processedCounter += rowsRes.rows.length;
+
+        await ImportModel.updateProgress(upload_id, { 
+          processed_rows: processedCounter, 
+          current_operation: `Procesando... (${Math.round((processedCounter/totalExcelRows)*100)}%)`,
+          stats: globalStats
+        });
       }
 
-      const finalProcessedCount = totalExcelRows; 
+      // 4. LIMPIEZA FINAL DEL PUENTE (raw_rows)
+      await db.query("DELETE FROM raw_rows WHERE raw_upload_id = $1", [upload_id]);
+
       const progressStatus = allErrors.length > 0 ? 'completed_with_errors' : 'completed';
       const uploadStatus = (allErrors.length > 0 && globalStats.created_lots === 0) ? 'failed' : 'finished';
       const finalPayload = { errors: allErrors.slice(0, 200), stats: globalStats };
 
-      await db.query(`UPDATE import_progress SET status = $1, current_operation = 'Finalizado', processed_rows = $2, error_messages = $3::jsonb, updated_at = NOW() WHERE upload_id = $4`, [progressStatus, finalProcessedCount, JSON.stringify(finalPayload), upload_id]);
+      await db.query(`UPDATE import_progress SET status = $1, current_operation = 'Finalizado', processed_rows = $2, error_messages = $3::jsonb, updated_at = NOW() WHERE upload_id = $4`, [progressStatus, totalExcelRows, JSON.stringify(finalPayload), upload_id]);
       await db.query('UPDATE raw_uploads SET status = $1 WHERE id = $2', [uploadStatus, upload_id]);
 
     } catch (error) {
-      console.error("Fatal Error:", error);
+      console.error("❌ Fatal Error en ImportModel:", error);
       await ImportModel.logFatalError(upload_id, error.message);
     }
   },
 
-  processBatch: async (batch, upload, exchange_rate, errors) => {
+  processBatch: async (dbRows, upload, currencyData, mappings, errors) => {
     const client = await db.pool.connect();
-    let stats = { created_lots: 0, created_products: 0, created_manufacturers: 0 };
+    let stats = { created_lots: 0, created_products: 0, created_manufacturers: 0, skipped: 0 };
 
     try {
       await client.query('BEGIN');
-      for (const item of batch) {
+      for (const rowObj of dbRows) {
+        const item = rowObj.raw_data;
+        const rowIndex = rowObj.row_index + 2;
+
         try {
           await client.query('SAVEPOINT row_processing');
 
-          let makerId;
-          const makerRes = await client.query('SELECT id FROM manufacturers WHERE name = $1', [item.manufacturer]);
-          if (makerRes.rows.length > 0) makerId = makerRes.rows[0].id;
-          else {
-            try {
-                const newMaker = await client.query('INSERT INTO manufacturers (name) VALUES ($1) RETURNING id', [item.manufacturer]);
-                makerId = newMaker.rows[0].id;
-                stats.created_manufacturers++;
-            } catch (e) {
-                const existing = await client.query('SELECT id FROM manufacturers WHERE name = $1', [item.manufacturer]);
-                makerId = existing.rows[0]?.id;
-            }
+          // --- LÓGICA DE MAPEOS FLEXIBLES (N/A) ---
+          
+          // Descripción es el corazón. Si es N/A o vacío, no podemos crear lote.
+          const description = mappings.descripcion === 'not_applicable' ? null : item[mappings.descripcion];
+          if (!description) {
+            throw new Error(`Fila ${rowIndex}: La descripción es obligatoria para generar el inventario.`);
           }
 
-          let productId;
-          const prodRes = await client.query('SELECT id FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [item.sku, makerId]);
-          if (prodRes.rows.length > 0) productId = prodRes.rows[0].id;
-          else {
-             const newProd = await client.query('INSERT INTO products (description, global_sku, manufacturer_id) VALUES ($1, $2, $3) RETURNING id', [item.description, item.sku, makerId]);
-             productId = newProd.rows[0].id;
-             stats.created_products++;
+          // SKU Flexible: Si es 'not_applicable', generamos un SKU interno basado en hash o timestamp
+          let sku = mappings.codigo === 'not_applicable' ? null : String(item[mappings.codigo] || '').trim();
+          if (!sku || mappings.codigo === 'not_applicable') {
+            sku = `GEN-${Buffer.from(description).toString('base64').substring(0, 8)}-${Date.now()}`;
+          }
+
+          // Fabricante Flexible
+          let manufacturerName = mappings.fabricante === 'not_applicable' ? 'No especificado' : String(item[mappings.fabricante] || 'No especificado').trim();
+
+          // Precio y Divisas (El Corazón)
+          let rawPrice = 0;
+          if (mappings.precio !== 'not_applicable') {
+            const priceStr = String(item[mappings.precio] || '0').replace(/[^0-9.]/g, '');
+            rawPrice = parseFloat(priceStr) || 0;
           }
           
-          if (item.image_url) {
-             const imgCheck = await client.query('SELECT id FROM product_images WHERE product_id = $1 AND image_url = $2', [productId, item.image_url]);
-             if (imgCheck.rows.length === 0) {
-                await client.query('INSERT INTO product_images (product_id, image_url, is_primary) VALUES ($1, $2, true)', [productId, item.image_url]);
-             }
+          // Conversión usando la tasa del momento (Trazabilidad)
+          const exchangeRateUsed = currencyData.exchange_rate || 1;
+          const priceUSD = rawPrice / exchangeRateUsed;
+
+          // Cantidad
+          const quantity = mappings.cantidad === 'not_applicable' ? 0 : parseInt(item[mappings.cantidad]) || 0;
+          if (quantity <= 0) { stats.skipped++; continue; }
+
+          // 1. Asegurar Fabricante
+          let makerId;
+          const makerRes = await client.query('SELECT id FROM manufacturers WHERE name = $1', [manufacturerName]);
+          if (makerRes.rows.length > 0) makerId = makerRes.rows[0].id;
+          else {
+            const newMaker = await client.query('INSERT INTO manufacturers (name) VALUES ($1) RETURNING id', [manufacturerName]);
+            makerId = newMaker.rows[0].id;
+            stats.created_manufacturers++;
           }
 
+          // 2. Asegurar Producto (Usamos SKU + Fabricante para evitar colisiones)
+          let productId;
+          const prodRes = await client.query('SELECT id FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [sku, makerId]);
+          if (prodRes.rows.length > 0) productId = prodRes.rows[0].id;
+          else {
+            const newProd = await client.query('INSERT INTO products (description, global_sku, manufacturer_id) VALUES ($1, $2, $3) RETURNING id', [description, sku, makerId]);
+            productId = newProd.rows[0].id;
+            stats.created_products++;
+          }
+
+          // 3. Vincular Proveedor (product_suppliers)
           let psId;
-          const psCheck = await client.query('SELECT id FROM product_suppliers WHERE supplier_id = $1 AND supplier_sku = $2', [upload.supplier_id, item.sku]);
+          const psCheck = await client.query('SELECT id FROM product_suppliers WHERE supplier_id = $1 AND supplier_sku = $2', [upload.supplier_id, sku]);
           if (psCheck.rows.length > 0) psId = psCheck.rows[0].id;
           else {
-             const supNameRes = await client.query('SELECT name FROM suppliers WHERE id=$1', [upload.supplier_id]);
-             const supplierName = supNameRes.rows[0]?.name || 'Unknown';
-             const psInsert = await client.query(`INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name) VALUES ($1, $2, $3, $4) RETURNING id`, [productId, upload.supplier_id, item.sku, supplierName]);
-             psId = psInsert.rows[0].id;
+            const supNameRes = await client.query('SELECT name FROM suppliers WHERE id=$1', [upload.supplier_id]);
+            const psInsert = await client.query(
+              `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name) VALUES ($1, $2, $3, $4) RETURNING id`,
+              [productId, upload.supplier_id, sku, supNameRes.rows[0]?.name || 'Import']
+            );
+            psId = psInsert.rows[0].id;
           }
 
-          const priceUSD = item.price / (exchange_rate || 1); 
-          let finalDate = new Date();
-          if (item.expiry) {
-             if (typeof item.expiry === 'number') finalDate = new Date(Math.round((item.expiry - 25569)*86400*1000));
-             else { const parsed = new Date(item.expiry); if (!isNaN(parsed.getTime())) finalDate = parsed; }
+          // 4. Crear el Lote (Final)
+          let lotStatus = upload.sales_category || 'available';
+          let expiryDate = null;
+          if (mappings.fecha_caducidad !== 'not_applicable' && item[mappings.fecha_caducidad]) {
+            const d = new Date(item[mappings.fecha_caducidad]);
+            if (!isNaN(d.getTime())) expiryDate = d;
           }
-          let lotStatus = upload.sales_category === 'near_expiry' ? 'near_expiry' : (upload.sales_category === 'expired' ? 'expired' : 'available');
 
-          await client.query(`INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())`, [psId, `LOT-${Date.now()}-${Math.floor(Math.random()*100000)}`, item.quantity, priceUSD, lotStatus, finalDate]);
+          await client.query(
+            `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at) 
+             VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+            [psId, `LOT-${Date.now()}-${Math.floor(Math.random()*1000)}`, quantity, priceUSD, lotStatus, expiryDate]
+          );
+
           stats.created_lots++;
           await client.query('RELEASE SAVEPOINT row_processing');
 
         } catch (rowError) {
           await client.query('ROLLBACK TO SAVEPOINT row_processing');
-          let msg = rowError.message;
-          if (msg.includes('value too long')) msg = 'Dato demasiado largo';
-          if (msg.includes('syntax input')) msg = 'Formato inválido';
-          errors.push({ sku: item.sku, error: msg });
+          errors.push({ row: rowIndex, sku: item[mappings.codigo] || 'N/A', error: rowError.message });
+          stats.skipped++;
         }
       }
       await client.query('COMMIT');
@@ -266,24 +256,14 @@ const ImportModel = {
     return res.rows[0];
   },
 
-  // CORRECCIÓN CRÍTICA: CASTING UUID A TEXT
   getImportHistory: async () => {
     const query = `
-      SELECT 
-        u.id, u.created_at, u.status,
-        COALESCE(u.filename, 'Archivo desconocido') as filename,
-        COALESCE(s.name, 'Proveedor desconocido') as supplier, 
-        COALESCE(u.sales_category, 'regular') as sales_category,
-        COALESCE(ip.processed_rows, 0) as processed_rows,
-        COALESCE(ip.total_rows, 0) as total_rows,
-        ip.error_messages
+      SELECT u.id, u.created_at, u.status, u.filename, s.name as supplier, u.sales_category,
+             COALESCE(ip.processed_rows, 0) as processed_rows, COALESCE(ip.total_rows, 0) as total_rows, ip.error_messages
       FROM raw_uploads u
       LEFT JOIN suppliers s ON u.supplier_id = s.id
-      -- AQUÍ ESTÁ LA MAGIA: u.id::text cast para coincidir con upload_id varchar
       LEFT JOIN import_progress ip ON u.id::text = ip.upload_id
-      ORDER BY u.created_at DESC 
-      LIMIT 50
-    `;
+      ORDER BY u.created_at DESC LIMIT 50`;
     const res = await db.query(query);
     return res.rows;
   },
@@ -292,7 +272,6 @@ const ImportModel = {
     const today = await db.query("SELECT COUNT(*) FROM raw_uploads WHERE created_at::date = CURRENT_DATE");
     const total = await db.query("SELECT COUNT(*) FROM raw_uploads");
     const last = await db.query(`SELECT u.created_at, s.name as supplier, u.sales_category FROM raw_uploads u LEFT JOIN suppliers s ON u.supplier_id = s.id ORDER BY u.created_at DESC LIMIT 1`);
-    
     return {
       imports_today: parseInt(today.rows[0]?.count || 0),
       total_imports: parseInt(total.rows[0]?.count || 0),
@@ -303,7 +282,10 @@ const ImportModel = {
   },
 
   logFatalError: async (upload_id, message) => {
-    try { await db.query(`UPDATE import_progress SET status = 'error', error_messages = $1::jsonb WHERE upload_id = $2`, [JSON.stringify({ errors: [{ error: message }] }), upload_id]); } catch(e){}
+    try { 
+      await db.query(`UPDATE import_progress SET status = 'error', error_messages = $1::jsonb WHERE upload_id = $2`, 
+      [JSON.stringify({ errors: [{ error: message }] }), upload_id]); 
+    } catch(e){}
     await db.query("UPDATE raw_uploads SET status = 'failed' WHERE id = $1", [upload_id]);
   }
 };

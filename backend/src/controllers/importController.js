@@ -1,4 +1,4 @@
-//backend/src/controllers/importController.js
+// backend/src/controllers/importController.js
 
 const ImportModel = require('../models/importModel');
 const XLSX = require('xlsx');
@@ -27,13 +27,14 @@ const importController = {
       
       const { supplier_id, sales_category } = req.body;
       
-      // Leer solo las primeras filas para no saturar memoria en upload
+      // Optimizamos la lectura inicial: solo cargamos las primeras 10 filas
+      // Esto es solo para que el usuario vea sus columnas y haga el mapeo.
       const workbook = XLSX.readFile(req.file.path, { sheetRows: 10 });
       const sheetName = workbook.SheetNames[0];
       const previewData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
       const columns = previewData.length > 0 ? Object.keys(previewData[0]) : [];
 
-      // Registrar el upload en BD
+      // Registrar el upload en BD para tener seguimiento del archivo físico
       const uploadId = await ImportModel.createUploadRecord({
         filename: req.file.originalname,
         path: req.file.path,
@@ -47,22 +48,21 @@ const importController = {
         upload_id: uploadId,
         preview: previewData,
         columns: columns,
-        total_rows_estimate: 0 // Se calculará al procesar
+        total_rows_estimate: 0 // Se calculará con precisión en el executeImportProcess
       });
 
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Error al leer el archivo Excel' });
+      console.error('❌ Error en uploadFile:', error);
+      res.status(500).json({ error: 'Error al procesar el archivo Excel' });
     }
   },
 
-  // 3. Previsualización (Si se necesita recargar)
+  // 3. Previsualización (Mantenido por compatibilidad)
   getPreview: async (req, res) => {
-    // Implementación ligera si el frontend pierde el estado
     res.json({ message: "Usar datos retornados en upload" });
   },
 
-  // 4. Plantillas
+  // 4. Plantillas de Mapeo
   getMappingTemplate: async (req, res) => {
     try {
       const { supplier_id } = req.query;
@@ -88,33 +88,47 @@ const importController = {
     try {
       const { supplier_id, sales_category } = req.body;
       const deletedCount = await ImportModel.cleanSupplierInventory(supplier_id, sales_category);
-      res.json({ success: true, deleted: deletedCount, message: `Inventario ${sales_category} limpiado.` });
+      res.json({ 
+        success: true, 
+        deleted: deletedCount, 
+        message: `Inventario ${sales_category} limpiado exitosamente.` 
+      });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Error al limpiar inventario' });
+      console.error('❌ Error en cleanCatalog:', error);
+      res.status(500).json({ error: 'Error al limpiar el catálogo' });
     }
   },
 
-  // 6. PROCESAMIENTO PRINCIPAL
+  // 6. PROCESAMIENTO PRINCIPAL (MOTOR ASÍNCRONO)
   processImport: async (req, res) => {
-    // Respondemos rápido al cliente "Procesando..." y ejecutamos en background
     const { upload_id, mappings } = req.body;
     
-    // Validar que existan datos
-    if (!upload_id || !mappings) return res.status(400).json({ error: 'Datos incompletos' });
+    if (!upload_id || !mappings) {
+      return res.status(400).json({ error: 'La configuración de mapeo es necesaria.' });
+    }
 
-    res.json({ success: true, message: 'Procesamiento iniciado en segundo plano' });
+    // --- RESPUESTA INMEDIATA ---
+    // Liberamos al frontend para que muestre la barra de progreso
+    res.json({ 
+      success: true, 
+      message: 'El procesamiento masivo ha comenzado en segundo plano.' 
+    });
 
-    // Ejecución asíncrona (Background Job)
+    // --- PROCESO EN BACKGROUND ---
+    // Usamos el nuevo motor que creamos en el ImportModel para manejar las 35,000+ filas
+    // Este proceso ahora usa la tabla puente raw_rows para no saturar la RAM.
     try {
+      console.log(`🚀 Iniciando ejecución de importación ID: ${upload_id}`);
       await ImportModel.executeImportProcess(upload_id, mappings);
+      console.log(`✅ Importación ID: ${upload_id} finalizada.`);
     } catch (error) {
-      console.error("❌ Error CRÍTICO en background process:", error);
+      console.error("❌ Error CRÍTICO en el proceso de fondo:", error);
+      // Registramos el error en la tabla de progreso para que el usuario sepa qué falló
       await ImportModel.logFatalError(upload_id, error.message);
     }
   },
 
-  // 7. Monitoreo
+  // 7. Monitoreo y Estadísticas
   getProgress: async (req, res) => {
     try {
       const progress = await ImportModel.getImportProgress(req.params.upload_id);

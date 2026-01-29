@@ -1,9 +1,12 @@
 //frontend/src/components/features/import/ImportResults.tsx
-
 'use client';
 
 import React from 'react';
-import { CheckCircle, XCircle, Package, Users, Building, AlertTriangle, FileText, Download, Layers, FilterX } from 'lucide-react';
+import { 
+  CheckCircle, XCircle, Package, Users, Building, 
+  AlertTriangle, FileText, Download, Layers, FilterX, 
+  History, ArrowRight 
+} from 'lucide-react';
 import { ImportProgress as ImportProgressType } from '@/hooks/useImport';
 
 interface ImportResultsProps {
@@ -14,9 +17,20 @@ interface ImportResultsProps {
   onDownloadErrors?: () => void;
 }
 
-export const ImportResults: React.FC<ImportResultsProps> = ({ progressData, importResults, onRetry, onNewImport, onDownloadErrors }) => {
-  const { success, message, results } = importResults || {};
-  const finalSuccess = success ?? (progressData.status === 'completed' || progressData.status === 'finished');
+export const ImportResults: React.FC<ImportResultsProps> = ({ 
+  progressData, 
+  importResults, 
+  onNewImport, 
+  onDownloadErrors 
+}) => {
+  const { success, message } = importResults || {};
+  
+  // Determinamos el éxito basado en el estado del progreso asíncrono
+  const finalSuccess = success ?? (
+    progressData.status === 'completed' || 
+    progressData.status === 'finished' || 
+    progressData.status === 'completed_with_errors'
+  );
   
   const errorList = progressData.error_messages?.errors || [];
   const errorCount = errorList.length;
@@ -25,111 +39,135 @@ export const ImportResults: React.FC<ImportResultsProps> = ({ progressData, impo
   const lotsCreated = stats.created_lots || 0;
   const productsCreated = stats.created_products || 0;
   const manufacturersCreated = stats.created_manufacturers || 0;
-  const mergedRows = stats.merged_rows || 0;
   const skippedRows = stats.skipped_rows || 0;
 
   const totalRows = progressData.total_rows || 0;
-  const percentage = 100;
 
-  let finalMessage = message;
-  if (!finalMessage) {
-    if (finalSuccess) {
-       if (mergedRows > 0) finalMessage = `¡Completado! Se consolidaron ${mergedRows} filas repetidas.`;
-       else finalMessage = '¡Importación completada exitosamente!';
-    } else if (progressData.status === 'completed_with_errors') finalMessage = 'Importación finalizada con advertencias';
-    else finalMessage = 'Hubo problemas durante la importación';
-  }
-
+  // Formateador de errores amigable para MedBay
   const formatError = (error: any): string => {
-    let msg = typeof error === 'string' ? error : (error.fatal_error || error.message || 'Error desconocido');
-    if (msg.includes('Fila omitida:')) return msg.replace('Fila omitida:', '').trim();
-    if (msg.includes('unique constraint') || msg.includes('ON CONFLICT')) return 'Registro duplicado (ya existe)';
+    let msg = typeof error === 'string' ? error : (error.error || error.message || 'Error de validación');
+    if (msg.includes('unique constraint')) return 'El SKU ya existe para este proveedor';
+    if (msg.includes('value too long')) return 'Dato demasiado largo para el sistema';
     return msg;
   };
 
   return (
-    <div className="space-y-6">
-      <div className={`rounded-lg p-6 ${finalSuccess ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-        <div className="flex items-center space-x-3">
-          {finalSuccess ? <CheckCircle className="h-8 w-8 text-green-600" /> : <XCircle className="h-8 w-8 text-red-600" />}
-          <div className="flex-1">
-            <h3 className={`text-lg font-semibold ${finalSuccess ? 'text-green-900' : 'text-red-900'}`}>
-              {finalSuccess ? (errorCount > 0 ? '⚠️ Completado con Observaciones' : '✅ ¡Importación Exitosa!') : '❌ Error en la Importación'}
-            </h3>
-            <p className={finalSuccess ? 'text-green-700' : 'text-red-700'}>{finalMessage}</p>
+    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+      {/* Banner de Estado Principal */}
+      <div className={`rounded-2xl p-6 shadow-sm border-2 ${
+        finalSuccess 
+          ? (errorCount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200') 
+          : 'bg-red-50 border-red-200'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className={`p-3 rounded-full ${
+              finalSuccess 
+                ? (errorCount > 0 ? 'bg-amber-500 text-white' : 'bg-green-500 text-white') 
+                : 'bg-red-500 text-white'
+            }`}>
+              {finalSuccess 
+                ? (errorCount > 0 ? <AlertTriangle size={32} /> : <CheckCircle size={32} />) 
+                : <XCircle size={32} />
+              }
+            </div>
+            <div>
+              <h3 className="text-xl font-extrabold text-gray-900">
+                {finalSuccess 
+                  ? (errorCount > 0 ? 'Proceso Finalizado con Alertas' : '¡Importación Masiva Exitosa!') 
+                  : 'Fallo Crítico en la Importación'}
+              </h3>
+              <p className="text-gray-600 font-medium">
+                {message || (finalSuccess 
+                  ? `Se procesaron ${totalRows.toLocaleString()} registros correctamente.` 
+                  : 'El servidor no pudo completar la operación masiva.')}
+              </p>
+            </div>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-gray-900">{percentage}%</div>
-            <div className="text-sm text-gray-600">{totalRows} filas leídas</div>
-          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-          <div className="flex items-center justify-center space-x-2 mb-2"><Package className="h-5 w-5 text-green-600" /><span className="text-sm font-medium text-gray-700">Lotes</span></div>
-          <div className="text-2xl font-bold text-green-600">{lotsCreated}</div>
-          <p className="text-xs text-gray-500">creados</p>
+      {/* Grid de Estadísticas de Negocio */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow text-center">
+          <Package className="h-6 w-6 text-green-600 mx-auto mb-2" />
+          <div className="text-3xl font-black text-gray-900">{lotsCreated.toLocaleString()}</div>
+          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest">Lotes de Inventario</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-          <div className="flex items-center justify-center space-x-2 mb-2"><Users className="h-5 w-5 text-blue-600" /><span className="text-sm font-medium text-gray-700">Productos</span></div>
-          <div className="text-2xl font-bold text-blue-600">{productsCreated}</div>
-          <p className="text-xs text-gray-500">nuevos</p>
+        
+        <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow text-center">
+          <Users className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+          <div className="text-3xl font-black text-gray-900">{productsCreated.toLocaleString()}</div>
+          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest">Nuevos Catálogos</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-          <div className="flex items-center justify-center space-x-2 mb-2"><Building className="h-5 w-5 text-purple-600" /><span className="text-sm font-medium text-gray-700">Fabricantes</span></div>
-          <div className="text-2xl font-bold text-purple-600">{manufacturersCreated}</div>
-          <p className="text-xs text-gray-500">nuevos</p>
+
+        <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow text-center">
+          <Building className="h-6 w-6 text-purple-600 mx-auto mb-2" />
+          <div className="text-3xl font-black text-gray-900">{manufacturersCreated.toLocaleString()}</div>
+          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest">Fabricantes</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-          <div className="flex items-center justify-center space-x-2 mb-2"><Layers className="h-5 w-5 text-gray-600" /><span className="text-sm font-medium text-gray-700">Unificadas</span></div>
-          <div className="text-2xl font-bold text-gray-600">{mergedRows}</div>
-          <p className="text-xs text-gray-500">filas repetidas</p>
+
+        <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow text-center">
+          <FilterX className="h-6 w-6 text-orange-500 mx-auto mb-2" />
+          <div className="text-3xl font-black text-orange-500">{errorCount.toLocaleString()}</div>
+          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest">Filas Omitidas</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-         <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center space-x-2 mb-2"><FileText className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-700">Leídas Total</span></div>
-            <div className="text-2xl font-bold text-blue-500">{totalRows}</div>
-         </div>
-         <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center space-x-2 mb-2"><FilterX className="h-5 w-5 text-orange-500" /><span className="text-sm font-medium text-gray-700">Omitidas/Errores</span></div>
-            <div className="text-2xl font-bold text-orange-500">{errorCount}</div>
-         </div>
-      </div>
-
-      {errorList.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-start space-x-3 flex-1">
-              <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <h4 className="text-sm font-medium text-amber-900">{errorList.length} Filas requieren atención</h4>
-                <p className="text-sm text-amber-700 mt-1">Estas filas no se importaron (faltan datos obligatorios o formato inválido).</p>
-              </div>
+      {/* Sección de Errores y Advertencias */}
+      {errorCount > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              <h4 className="font-bold text-gray-800 text-sm">Detalle de Filas No Importadas</h4>
             </div>
             {onDownloadErrors && (
-              <button onClick={onDownloadErrors} className="flex items-center space-x-2 px-3 py-2 text-sm bg-amber-100 text-amber-700 rounded-md hover:bg-amber-200 transition-colors">
-                <Download className="h-4 w-4" /><span>Descargar Reporte</span>
+              <button 
+                onClick={onDownloadErrors}
+                className="flex items-center space-x-2 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <Download size={14} />
+                <span>Exportar Log de Errores</span>
               </button>
             )}
           </div>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {errorList.slice(0, 50).map((error: any, index: number) => (
-              <div key={index} className="text-sm bg-amber-100 rounded px-3 py-2">
-                <div className="font-medium text-amber-800">Fila Excel #{error.row_index || '?'}: <span className="font-normal text-amber-900">{formatError(error)}</span></div>
+          
+          <div className="p-4 max-h-72 overflow-y-auto space-y-2">
+            {errorList.slice(0, 100).map((err: any, index: number) => (
+              <div key={index} className="flex items-center justify-between text-xs p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="flex items-center space-x-4">
+                  <span className="font-bold text-gray-400 w-16">FILA #{err.row || err.row_index || '?'}</span>
+                  <span className="font-semibold text-gray-700">{formatError(err)}</span>
+                </div>
+                {err.sku && <span className="text-[10px] bg-gray-200 px-2 py-0.5 rounded font-mono text-gray-600">SKU: {err.sku}</span>}
               </div>
             ))}
-            {errorList.length > 50 && <div className="text-center text-amber-600 text-sm py-2">... y {errorList.length - 50} más</div>}
+            {errorCount > 100 && (
+              <div className="text-center py-4 text-gray-400 text-sm italic font-medium">
+                ... y {errorCount - 100} errores más. Descarga el reporte para ver la lista completa.
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <div className="flex justify-between items-center pt-4 border-t">
-        <div className="text-sm text-gray-500">{progressData.updated_at && <>Completado el {new Date(progressData.updated_at).toLocaleString()}</>}</div>
-        <div className="flex space-x-3">
-          {onNewImport && <button onClick={onNewImport} className="px-6 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Nueva Importación</button>}
+      {/* Footer de Acciones */}
+      <div className="flex flex-col sm:flex-row justify-between items-center pt-6 border-t gap-4">
+        <div className="flex items-center text-gray-400 text-xs font-medium uppercase tracking-tighter">
+          <History size={14} className="mr-2" />
+          Procesado el {progressData.updated_at ? new Date(progressData.updated_at).toLocaleString('es-MX') : '—'}
+        </div>
+        
+        <div className="flex space-x-4 w-full sm:w-auto">
+          {onNewImport && (
+            <button 
+              onClick={onNewImport}
+              className="flex-1 sm:flex-none flex items-center justify-center px-8 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-all shadow-lg hover:shadow-xl active:scale-95"
+            >
+              Nueva Importación <ArrowRight size={18} className="ml-2" />
+            </button>
+          )}
         </div>
       </div>
     </div>
