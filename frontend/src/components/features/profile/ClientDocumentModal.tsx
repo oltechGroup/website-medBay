@@ -1,4 +1,4 @@
-//frontend/src/components/features/profile/ClientDocumentModal.tsx
+// frontend/src/components/features/profile/ClientDocumentModal.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,21 +6,28 @@ import { createPortal } from "react-dom";
 import { 
   X, FileText, Download, ExternalLink, 
   ShieldCheck, CreditCard, Calendar, Clock, 
-  CheckCircle2, XCircle, AlertTriangle 
+  CheckCircle2, XCircle, AlertTriangle, FileWarning 
 } from "lucide-react";
 import { Document as DocumentData } from "@/hooks/useDocuments";
 import { OrderContext } from "@/components/features/documents/viewers/OrderContext";
 import { formatDate } from "@/lib/formatters";
 
-// --- HELPER PARA ARREGLAR URLS ---
+// --- HELPER ROBUSTO PARA URLS ---
 const getFileUrl = (path: string) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
 
-  // Ajusta esto a tu variable de entorno real
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-  const serverRoot = apiUrl.replace('/api', ''); // Quitamos /api para obtener la raíz
-  return `${serverRoot}${path}`;
+  // 1. Definir URL Base (Fallback a tu IP si no hay env var)
+  // NOTA: Asegúrate de que no tenga barra al final
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://54.159.31.18:4000/api';
+  
+  // 2. Limpiar '/api' si existe, para obtener la raíz (ej: http://54.159.31.18:4000)
+  const serverRoot = apiUrl.replace(/\/api\/?$/, ''); 
+
+  // 3. Asegurar que el path empiece con /
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  return `${serverRoot}${cleanPath}`;
 };
 
 interface ClientDocumentModalProps {
@@ -31,12 +38,15 @@ interface ClientDocumentModalProps {
 
 export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDocumentModalProps) => {
   const [mounted, setMounted] = useState(false);
+  const [hasError, setHasError] = useState(false); // Estado para controlar errores de carga
 
   useEffect(() => {
     setMounted(true);
     if (isOpen) document.body.style.overflow = 'hidden';
+    // Resetear error al abrir/cambiar documento
+    setHasError(false); 
     return () => { document.body.style.overflow = 'unset'; };
-  }, [isOpen]);
+  }, [isOpen, doc]);
 
   if (!isOpen || !mounted) return null;
 
@@ -61,6 +71,7 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
         
         {/* === COLUMNA IZQUIERDA: VISOR === */}
         <div className="flex-1 bg-slate-900 relative flex flex-col min-h-[50vh] lg:min-h-full">
+          
           {/* Toolbar Flotante */}
           <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-center pointer-events-none">
             <span className="bg-black/50 text-white backdrop-blur-md px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2 border border-white/10">
@@ -77,11 +88,50 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
           </div>
 
           {/* Area de Visualización */}
-          <div className="flex-1 flex items-center justify-center p-4 lg:p-8 overflow-hidden">
-            {isPdf ? (
-              <iframe src={fileUrl} className="w-full h-full rounded-xl bg-white shadow-2xl" title="Visor PDF" />
+          <div className="flex-1 flex items-center justify-center p-4 lg:p-8 overflow-hidden bg-slate-800/50">
+            
+            {hasError ? (
+              // 🔴 UI DE ERROR (FALLBACK)
+              <div className="text-center p-8 bg-white rounded-2xl max-w-sm mx-auto">
+                <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileWarning size={32}/>
+                </div>
+                <h3 className="text-slate-800 font-bold mb-2">No se pudo previsualizar</h3>
+                <p className="text-slate-500 text-xs mb-6">
+                  El navegador bloqueó la vista previa por seguridad (Mixed Content) o el archivo no existe.
+                </p>
+                <a 
+                  href={fileUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition flex items-center justify-center gap-2 w-full"
+                >
+                  <ExternalLink size={16}/> Abrir en nueva pestaña
+                </a>
+              </div>
             ) : (
-              <img src={fileUrl} alt="Documento" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+              // 🟢 VISUALIZADOR NORMAL
+              isPdf ? (
+                // Los IFRAMES a veces no disparan onError en mixed content, por eso ponemos un aviso abajo si falla visualmente
+                <div className="w-full h-full relative">
+                   <iframe 
+                     src={fileUrl} 
+                     className="w-full h-full rounded-xl bg-white shadow-2xl relative z-10" 
+                     title="Visor PDF"
+                     onError={() => setHasError(true)} 
+                   />
+                   <div className="absolute inset-0 flex items-center justify-center text-white/30 text-sm z-0">
+                      Cargando documento...
+                   </div>
+                </div>
+              ) : (
+                <img 
+                  src={fileUrl} 
+                  alt="Documento" 
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" 
+                  onError={() => setHasError(true)}
+                />
+              )
             )}
           </div>
         </div>
