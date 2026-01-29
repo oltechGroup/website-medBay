@@ -96,7 +96,7 @@ export default function Footer() {
           <div className="flex gap-8 opacity-40 grayscale hover:grayscale-0 transition-all">
             <img src="/icons/logomedblanco.png" alt="Icon" className="h-5" />
             <span className="text-white text-[10px] font-black border border-white px-2 py-0.5 rounded">
-              ISO 13485 CERTIFIED
+              MEDBAY
             </span>
           </div>
         </div>
