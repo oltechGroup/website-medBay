@@ -45,8 +45,11 @@ const ImportModel = {
 
   cleanSupplierInventory: async (supplier_id, sales_category) => {
     let statusFilter = 'available';
+    // Mapeamos también aquí por si acaso se usa 'regular' en el frontend para limpieza
+    if (sales_category === 'regular') statusFilter = 'available'; 
     if (sales_category === 'near_expiry') statusFilter = 'near_expiry';
     if (sales_category === 'expired') statusFilter = 'expired';
+    
     const query = `DELETE FROM product_lots WHERE product_supplier_id IN (SELECT id FROM product_suppliers WHERE supplier_id = $1) AND status = $2`;
     const result = await db.query(query, [supplier_id, statusFilter]);
     return result.rowCount;
@@ -85,7 +88,7 @@ const ImportModel = {
 
       await ImportModel.updateProgress(upload_id, { total_rows: totalExcelRows, current_operation: 'Iniciando procesamiento de datos...' });
 
-      // 3. FASE PROCESAMIENTO: Consumir desde la base de datos (raw_rows)
+      // 3. FASE PROCESAMIENTO: Consumir desde raw_rows
       let processedCounter = 0;
       let globalStats = { created_lots: 0, created_products: 0, created_manufacturers: 0, skipped_rows: 0 };
       const allErrors = [];
@@ -99,10 +102,8 @@ const ImportModel = {
 
         if (rowsRes.rows.length === 0) break;
 
-        // Procesamos el lote actual
         const batchStats = await ImportModel.processBatch(rowsRes.rows, upload, currencyData, mappings, allErrors);
         
-        // Actualizamos contadores globales
         globalStats.created_lots += batchStats.created_lots;
         globalStats.created_products += batchStats.created_products;
         globalStats.created_manufacturers += batchStats.created_manufacturers;
@@ -110,7 +111,6 @@ const ImportModel = {
 
         processedCounter += rowsRes.rows.length;
 
-        // Reportar progreso al frontend
         await ImportModel.updateProgress(upload_id, { 
           processed_rows: processedCounter, 
           current_operation: `Procesando... (${Math.round((processedCounter/totalExcelRows)*100)}%)`,
@@ -123,7 +123,6 @@ const ImportModel = {
 
       const progressStatus = allErrors.length > 0 ? 'completed_with_errors' : 'completed';
       const uploadStatus = (allErrors.length > 0 && globalStats.created_lots === 0) ? 'failed' : 'finished';
-      
       const finalPayload = { errors: allErrors.slice(0, 200), stats: globalStats };
 
       await db.query(`UPDATE import_progress SET status = $1, current_operation = 'Finalizado', processed_rows = $2, error_messages = $3::jsonb, updated_at = NOW() WHERE upload_id = $4`, [progressStatus, totalExcelRows, JSON.stringify(finalPayload), upload_id]);
@@ -144,12 +143,12 @@ const ImportModel = {
       
       for (const rowObj of dbRows) {
         const item = rowObj.raw_data;
-        const rowIndex = rowObj.row_index + 2; 
+        const rowIndex = rowObj.row_index + 2;
 
         try {
           await client.query('SAVEPOINT row_processing');
 
-          // --- LÓGICA DE MAPEOS FLEXIBLES (N/A) ---
+          // --- LÓGICA DE MAPEOS FLEXIBLES ---
           
           // 1. Descripción (CORAZÓN)
           const description = mappings.descripcion === 'not_applicable' ? null : item[mappings.descripcion];
@@ -176,12 +175,12 @@ const ImportModel = {
           const exchangeRateUsed = currencyData.exchange_rate || 1;
           const priceUSD = rawPrice / exchangeRateUsed;
 
-          // 5. Cantidad (PERMITIMOS 0 PARA COTIZACIÓN)
+          // 5. Cantidad (PERMITIMOS 0)
           const quantity = mappings.cantidad === 'not_applicable' ? 0 : parseInt(item[mappings.cantidad]) || 0;
 
-          // --- INSERCIONES EN CADENA ---
+          // --- INSERCIONES ---
 
-          // A. Asegurar Fabricante
+          // A. Fabricante
           let makerId;
           const makerRes = await client.query('SELECT id FROM manufacturers WHERE name = $1', [manufacturerName]);
           if (makerRes.rows.length > 0) makerId = makerRes.rows[0].id;
@@ -191,7 +190,7 @@ const ImportModel = {
             stats.created_manufacturers++;
           }
 
-          // B. Asegurar Producto
+          // B. Producto
           let productId;
           const prodRes = await client.query('SELECT id FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [sku, makerId]);
           if (prodRes.rows.length > 0) productId = prodRes.rows[0].id;
@@ -201,7 +200,7 @@ const ImportModel = {
             stats.created_products++;
           }
 
-          // C. Vincular Proveedor
+          // C. Proveedor
           let psId;
           const psCheck = await client.query('SELECT id FROM product_suppliers WHERE supplier_id = $1 AND supplier_sku = $2', [upload.supplier_id, sku]);
           if (psCheck.rows.length > 0) psId = psCheck.rows[0].id;
@@ -214,18 +213,11 @@ const ImportModel = {
             psId = psInsert.rows[0].id;
           }
 
-          // D. Crear el Lote (Final)
-          let lotStatus = upload.sales_category;
-
-          // ✅ [FIX CRÍTICO] TRADUCCIÓN DE ESTADO PARA LA DB
-          // La base de datos solo permite: 'available', 'near_expiry', 'expired'
-          // Si recibimos 'regular', lo cambiamos a 'available'.
-          if (lotStatus === 'regular') {
-            lotStatus = 'available';
-          } else if (!['available', 'near_expiry', 'expired'].includes(lotStatus)) {
-            // Fallback de seguridad
-            lotStatus = 'available';
-          }
+          // D. Crear el Lote (Final) - CON CORRECCIÓN DE ESTADO
+          
+          let rawStatus = upload.sales_category || 'available';
+          // ✅ FIX CRÍTICO: Traducir 'regular' a 'available' para cumplir CHECK Constraint de PostgreSQL
+          let lotStatus = rawStatus === 'regular' ? 'available' : rawStatus;
 
           let expiryDate = null;
           if (mappings.fecha_caducidad !== 'not_applicable' && item[mappings.fecha_caducidad]) {
