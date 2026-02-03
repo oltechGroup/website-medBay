@@ -22,7 +22,7 @@ const Product = {
     return result.rows[0];
   },
 
-  // ✅ FUNCION OPTIMIZADA: Ordenamiento por Precio corregido
+  // ✅ FUNCION OPTIMIZADA: Ordenamiento y Filtros Corregidos
   findPaginated: async ({ 
     page = 1, 
     limit = 20, 
@@ -79,13 +79,14 @@ const Product = {
 
     // --- 5. STATUS (Filtro Estricto) ---
     // Si status != 'all', el producto DEBE tener al menos un lote con ese status
+    // CORRECCIÓN: Permitimos quantity >= 0 para incluir productos bajo pedido
     if (status && status !== 'all') {
       whereConditions.push(`EXISTS (
         SELECT 1 FROM product_lots pl 
         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
         WHERE ps.product_id = p.id 
         AND pl.status = $${paramCount}
-        AND pl.quantity > 0
+        AND pl.quantity >= 0
       )`);
       params.push(status);
       paramCount++;
@@ -115,7 +116,7 @@ const Product = {
 
     // --- ORDENAMIENTO (CORREGIDO) ---
     // Calculamos el precio mínimo válido para ordenar
-    // Usamos COALESCE para evitar problemas con NULLs si no hay lotes
+    // CORRECCIÓN: quantity >= 0 en subconsulta de ordenamiento
     let orderByClause = 'ORDER BY p.created_at DESC'; 
 
     const priceSortColumn = `(
@@ -123,7 +124,7 @@ const Product = {
       FROM product_lots pl 
       JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
       WHERE ps.product_id = p.id 
-      AND pl.quantity > 0
+      AND pl.quantity >= 0
       ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
     )`;
 
@@ -153,6 +154,7 @@ const Product = {
     params.push(limit);
     params.push(offset);
 
+    // ✅ CONSULTA PRINCIPAL CORREGIDA (quantity >= 0)
     const dataQuery = `
       SELECT 
         p.id,
@@ -176,19 +178,22 @@ const Product = {
           JOIN categories c ON pc.category_id = c.id 
           WHERE pc.product_id = p.id) as category_names,
           
-        -- Precios (Respetando el filtro de status si existe)
+        -- Precios (CORREGIDO: quantity >= 0 para incluir referencia)
         (SELECT MIN(pl.price)::float FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
-          WHERE ps.product_id = p.id AND pl.quantity > 0
+          WHERE ps.product_id = p.id AND pl.quantity >= 0
           ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
         ) as min_price,
           
         (SELECT MAX(pl.price)::float FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
-          WHERE ps.product_id = p.id AND pl.quantity > 0
+          WHERE ps.product_id = p.id AND pl.quantity >= 0
           ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
         ) as max_price,
           
+        -- Lotes Activos (Aquí mantenemos > 0 porque 'active_lots' suele significar stock real para badges)
+        -- Si quieres que el badge diga "1 lote disponible" aunque sea stock 0, cámbialo a >= 0.
+        -- Por ahora lo dejo en > 0 para que el frontend distinga entre "Con Stock" y "Bajo Pedido".
         (SELECT COUNT(pl.id)::integer FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
           WHERE ps.product_id = p.id AND pl.quantity > 0
