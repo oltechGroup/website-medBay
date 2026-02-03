@@ -37,7 +37,6 @@ api.interceptors.response.use(
       if (typeof window !== 'undefined') {
         
         // 1. Si es INVITADO (no tiene token), no hacemos nada.
-        // Esto permite que vean el catálogo sin que los saque al login.
         const existingToken = Cookies.get('medbay_token');
         if (!existingToken) {
            return Promise.reject(error);
@@ -45,13 +44,33 @@ api.interceptors.response.use(
 
         // 2. Si tenía token y falló, limpiamos y redirigimos
         const currentPath = window.location.pathname;
+        
+        // Evitamos bucles si ya está en login
         if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
           
+          // --- FIX CRÍTICO: Matar la Cookie Zombie ---
+          // Debemos replicar la configuración exacta de dominio usada al crear la cookie
+          const isProduction = window.location.hostname.includes('medbaysupply.com');
+          
+          const cookieOptions: Cookies.CookieAttributes = { 
+            path: '/', 
+            domain: isProduction ? '.medbaysupply.com' : undefined,
+            secure: window.location.protocol === 'https:',
+            sameSite: 'Lax'
+          };
+
+          // 1. Intentamos borrar con el dominio específico (La forma correcta)
+          Cookies.remove('medbay_token', cookieOptions);
+          Cookies.remove('medbay_role', cookieOptions);
+
+          // 2. Intentamos borrar sin dominio (Backup por si quedó una cookie vieja en localhost o sin dominio)
           Cookies.remove('medbay_token', { path: '/' });
           Cookies.remove('medbay_role', { path: '/' });
+
           localStorage.removeItem('medbay_token');
           localStorage.removeItem('medbay_user');
           
+          // Forzamos la recarga en el login para limpiar cualquier estado en memoria
           window.location.href = '/login';
         }
       }

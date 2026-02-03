@@ -9,11 +9,10 @@ export const useAuth = () => {
   const { user, token, isAuthenticated, login, logout: storeLogout, updateUser } = useAuthStore();
   const router = useRouter();
 
-  // --- LOGOUT MEJORADO ---
+  // --- LOGOUT MEJORADO Y BLINDADO ---
   const logout = () => {
-    // 1. CONFIGURACIÓN DE LIMPIEZA DE COOKIES
-    // Debe coincidir EXACTAMENTE con la configuración de creación (useApi.ts)
-    // o el navegador no la borrará.
+    // 1. CONFIGURACIÓN DE LIMPIEZA PRIMARIA
+    // Replicamos la configuración exacta usada al crear la cookie
     const isProduction = typeof window !== 'undefined' && window.location.hostname.includes('medbaysupply.com');
     
     const cookieOptions: Cookies.CookieAttributes = { 
@@ -23,20 +22,25 @@ export const useAuth = () => {
         sameSite: 'Lax'
     };
 
-    // 2. Ejecutar limpieza con las opciones correctas
+    // 2. LIMPIEZA NIVEL 1: Borrar con la configuración de dominio
     Cookies.remove('medbay_token', cookieOptions);
     Cookies.remove('medbay_role', cookieOptions);
 
-    // 3. Limpiar LocalStorage
+    // 3. LIMPIEZA NIVEL 2 (FALLBACK): Borrar sin dominio
+    // Esto atrapa cookies "zombies" que pudieron quedar sin el dominio explícito
+    Cookies.remove('medbay_token', { path: '/' });
+    Cookies.remove('medbay_role', { path: '/' });
+
+    // 4. Limpiar LocalStorage
     if (typeof window !== 'undefined') {
         localStorage.removeItem('medbay_token');
         localStorage.removeItem('medbay_user');
     }
 
-    // 4. Limpiar Estado Global (Zustand)
+    // 5. Limpiar Estado Global (Zustand)
     storeLogout();
 
-    // 5. Redirigir y Refrescar
+    // 6. Redirigir y Refrescar para purgar memoria
     router.replace('/login');
     router.refresh();
   };

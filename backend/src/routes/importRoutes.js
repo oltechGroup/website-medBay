@@ -21,8 +21,14 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB límite para Excels grandes
 });
 
-// Middleware de Auth para todo el módulo
+// 1. Verificar que el usuario esté logueado (Cualquier rol)
 router.use(authMiddleware.verifyToken);
+
+// 2. 🛡️ BLINDAJE DE SEGURIDAD: Solo 'admin' puede pasar de aquí en adelante
+// Si un 'sales_agent' intenta entrar, recibirá un error 403 Forbidden automáticamente.
+router.use(authMiddleware.requireRole(['admin']));
+
+// --- RUTAS PROTEGIDAS (Solo Admins) ---
 
 // 1. Proveedor Rápido
 router.post('/quick-supplier', importController.createQuickSupplier);

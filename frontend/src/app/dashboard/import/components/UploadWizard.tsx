@@ -1,4 +1,4 @@
-//frontend/src/app/dashboard/import/components/UploadWizard.tsx
+// frontend/src/app/dashboard/import/components/UploadWizard.tsx
 
 'use client';
 
@@ -6,8 +6,9 @@ import { useState, useEffect } from 'react';
 import { useImport, ImportProgress } from '@/hooks/useImport';
 import { useSuppliersBasic } from '@/hooks/useSuppliers';
 import { useCountriesBasic } from '@/hooks/useCountries';
+import { useAuth } from '@/hooks/useAuth'; // ✅ IMPORTANTE: Hook de autenticación
 import { 
-  Building, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, Trash2, FileText
+  Building, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, Trash2, FileText, Lock
 } from 'lucide-react';
 import { FileUploadZone } from '@/components/features/import/FileUploadZone';
 import { ColumnMapper } from '@/components/features/import/ColumnMapper';
@@ -21,6 +22,7 @@ const CATEGORIES = [
 ];
 
 export const UploadWizard = () => {
+  const { user } = useAuth(); // ✅ Acceso al usuario actual
   const { suppliers } = useSuppliersBasic();
   const { data: countries } = useCountriesBasic();
   
@@ -52,6 +54,9 @@ export const UploadWizard = () => {
   
   const [localSuppliers, setLocalSuppliers] = useState<any[]>([]);
   
+  // ✅ Verificación de Rol de Administrador
+  const isAdmin = user?.verification_level === 'admin';
+
   // CORRECCIÓN: Resetear estado de limpieza cuando cambia la categoría
   useEffect(() => {
      setCleaned(false);
@@ -144,7 +149,13 @@ export const UploadWizard = () => {
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
               <span className="flex items-center"><Building className="mr-2 h-5 w-5 text-blue-600"/> Proveedor</span>
-              <button onClick={() => setShowCreateModal(true)} className="text-sm text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-3 py-1 rounded-full transition-colors">+ Nuevo Proveedor</button>
+              
+              {/* ✅ BLINDAJE VISUAL: Solo el admin ve el botón de crear */}
+              {isAdmin && (
+                <button onClick={() => setShowCreateModal(true)} className="text-sm text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-3 py-1 rounded-full transition-colors">
+                  + Nuevo Proveedor
+                </button>
+              )}
             </h3>
             
             <select 
@@ -169,10 +180,22 @@ export const UploadWizard = () => {
                   <button key={cat.id} onClick={() => setCategory(cat.id)} className={`p-3 rounded-lg border-2 text-sm font-bold transition-all ${category === cat.id ? `${cat.color} ring-2 ring-offset-1` : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}>{cat.label}</button>
                 ))}
               </div>
+              
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center justify-between">
                 <div className="flex flex-col"><span className="text-sm text-orange-900 font-bold">Limpieza de Inventario</span><span className="text-xs text-orange-700 mt-1">¿Borrar stock anterior de esta categoría?</span></div>
-                {cleaned ? <span className="flex items-center text-green-700 font-bold text-sm bg-green-100 px-4 py-2 rounded-lg border border-green-200 shadow-sm"><CheckCircle2 className="w-4 h-4 mr-2"/> Listo</span> : 
-                  <button onClick={() => setShowCleanModal(true)} className="flex items-center bg-white border border-orange-300 text-orange-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors shadow-sm"><Trash2 className="w-4 h-4 mr-2"/> Limpiar Ahora</button>}
+                
+                {cleaned ? (
+                  <span className="flex items-center text-green-700 font-bold text-sm bg-green-100 px-4 py-2 rounded-lg border border-green-200 shadow-sm"><CheckCircle2 className="w-4 h-4 mr-2"/> Listo</span>
+                ) : (
+                  // ✅ BLINDAJE VISUAL: Solo el admin puede borrar
+                  isAdmin ? (
+                    <button onClick={() => setShowCleanModal(true)} className="flex items-center bg-white border border-orange-300 text-orange-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors shadow-sm"><Trash2 className="w-4 h-4 mr-2"/> Limpiar Ahora</button>
+                  ) : (
+                    <span className="flex items-center text-gray-400 text-xs bg-gray-100 px-3 py-1 rounded border border-gray-200">
+                      <Lock className="w-3 h-3 mr-1"/> Solo Admin
+                    </span>
+                  )
+                )}
               </div>
             </div>
           )}
@@ -186,8 +209,8 @@ export const UploadWizard = () => {
         <div className="max-w-xl mx-auto animate-in fade-in zoom-in-95 duration-300 space-y-6">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
              <div className="flex items-center space-x-3">
-                <div className="bg-white p-2 rounded-full shadow-sm"><FileText className="w-5 h-5 text-blue-600" /></div>
-                <div><div className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Importando para</div><div className="text-gray-900 font-bold">{selectedSupplierData?.name}</div></div>
+               <div className="bg-white p-2 rounded-full shadow-sm"><FileText className="w-5 h-5 text-blue-600" /></div>
+               <div><div className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Importando para</div><div className="text-gray-900 font-bold">{selectedSupplierData?.name}</div></div>
              </div>
              <div className="text-right"><div className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Categoría</div><div className="text-gray-900 font-bold">{selectedCategoryLabel}</div></div>
           </div>
@@ -208,7 +231,7 @@ export const UploadWizard = () => {
         <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in zoom-in-95">
            <ImportProgressComponent uploadId={uploadId} onComplete={(data) => setProgress(data)} />
            {progress && ['completed', 'completed_with_errors'].includes(progress.status) && (
-              <ImportResults progressData={progress} onNewImport={handleReset} />
+             <ImportResults progressData={progress} onNewImport={handleReset} />
            )}
         </div>
       )}
