@@ -109,7 +109,6 @@ const ProductLot = {
   },
 
   // ✅ [ACTUALIZADO] OBTENER LOTES POR PRODUCTO + FILTRO STATUS
-  // Ahora acepta statusFilter (ej: 'expired') para cumplir tu requerimiento
   findByProductId: async (productId, statusFilter = 'all') => {
     let statusCondition = "AND pl.status IN ('available', 'near_expiry', 'expired')";
     let params = [productId];
@@ -130,10 +129,13 @@ const ProductLot = {
       LEFT JOIN suppliers s ON ps.supplier_id = s.id
       WHERE ps.product_id = $1
       ${statusCondition}
-      AND pl.quantity > 0
+      AND pl.quantity >= 0 
       ORDER BY pl.expiry_date ASC
     `;
     
+    // 👆 NOTA: Cambié "pl.quantity > 0" a ">= 0" para permitir lotes 
+    // bajo pedido (sin stock físico pero con precio de referencia).
+
     try {
       const result = await db.query(query, params);
       return result.rows;
@@ -231,7 +233,7 @@ const ProductLot = {
     `;
     
     const result = await db.query(query);
-    return result.rows;
+    return result.rows[0] ? result.rows : []; // Aseguramos devolver array
   }
 };
 

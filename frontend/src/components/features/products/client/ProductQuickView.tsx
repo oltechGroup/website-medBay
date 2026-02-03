@@ -18,13 +18,18 @@ interface LotItemProps {
   lot: any;
   onAddToCart: (lotId: string, quantity: number, redirect?: boolean) => Promise<void>;
   isAdding: boolean;
+  onQuote: () => void; // ✅ NUEVO: Handler para cotizar
 }
 
-const LotItem = ({ lot, onAddToCart, isAdding }: LotItemProps) => {
+const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
   const [quantity, setQuantity] = useState(1);
   const config = getLotStatusConfig(lot.status, lot.expiry_date);
   const price = lot.discount_price_amount || lot.price_amount || lot.price;
   
+  // Validaciones
+  const hasPrice = price && parseFloat(price) > 0;
+  const hasStock = lot.quantity > 0;
+
   return (
     <div className="border border-gray-200 rounded-xl p-3 md:p-4 hover:border-blue-400 hover:shadow-lg transition-all bg-white group">
       {/* Encabezado del Lote */}
@@ -38,8 +43,12 @@ const LotItem = ({ lot, onAddToCart, isAdding }: LotItemProps) => {
           </p>
         </div>
         <div className="text-right">
-           <p className="text-xl md:text-2xl font-black text-blue-700">{formatCurrency(price)}</p>
-           <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">Disponible: {lot.quantity}</p>
+           <p className="text-xl md:text-2xl font-black text-blue-700">
+             {hasPrice ? formatCurrency(price) : <span className="text-gray-400 text-sm italic">A Cotizar</span>}
+           </p>
+           <p className={`text-[10px] uppercase font-bold tracking-wide ${hasStock ? 'text-gray-400' : 'text-blue-600'}`}>
+             {hasStock ? `Disponible: ${lot.quantity}` : 'Bajo Pedido'}
+           </p>
         </div>
       </div>
 
@@ -49,36 +58,50 @@ const LotItem = ({ lot, onAddToCart, isAdding }: LotItemProps) => {
         <span>Vence: <strong className="text-slate-800">{formatDate(lot.expiry_date)}</strong></span>
       </div>
 
-      {/* Controles de Compra */}
+      {/* Controles de Compra (INTELIGENTE) */}
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-           <span className="text-xs font-bold text-slate-400 uppercase">Cantidad</span>
-           <QuantitySelector 
-             quantity={quantity}
-             max={lot.quantity}
-             onIncrease={() => setQuantity(q => q + 1)}
-             onDecrease={() => setQuantity(q => q - 1)}
-             disabled={isAdding}
-             size="sm"
-           />
-        </div>
+        
+        {hasPrice && hasStock ? (
+          // CASO A: COMPRA DIRECTA
+          <>
+            <div className="flex items-center justify-between">
+               <span className="text-xs font-bold text-slate-400 uppercase">Cantidad</span>
+               <QuantitySelector 
+                 quantity={quantity}
+                 max={lot.quantity}
+                 onIncrease={() => setQuantity(q => q + 1)}
+                 onDecrease={() => setQuantity(q => q - 1)}
+                 disabled={isAdding}
+                 size="sm"
+               />
+            </div>
 
-        <div className="grid grid-cols-2 gap-2 md:gap-3 mt-1">
+            <div className="grid grid-cols-2 gap-2 md:gap-3 mt-1">
+              <button 
+                onClick={() => onAddToCart(lot.id, quantity, false)}
+                disabled={isAdding}
+                className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 hover:text-blue-600 transition-colors text-xs active:scale-95"
+              >
+                <ShoppingCart size={16}/> Agregar
+              </button>
+              <button 
+                onClick={() => onAddToCart(lot.id, quantity, true)}
+                disabled={isAdding}
+                className="bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-colors text-xs shadow-lg shadow-blue-600/20 active:scale-95"
+              >
+                Comprar Ahora
+              </button>
+            </div>
+          </>
+        ) : (
+          // CASO B: COTIZACIÓN
           <button 
-            onClick={() => onAddToCart(lot.id, quantity, false)}
-            disabled={isAdding}
-            className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 hover:text-blue-600 transition-colors text-xs active:scale-95"
+            onClick={onQuote}
+            className="w-full bg-white border-2 border-blue-100 text-blue-600 py-2.5 rounded-xl font-bold hover:bg-blue-50 transition-colors text-xs flex items-center justify-center gap-2 shadow-sm"
           >
-            <ShoppingCart size={16}/> Agregar
+            <FileText size={16}/> Solicitar Cotización
           </button>
-          <button 
-            onClick={() => onAddToCart(lot.id, quantity, true)}
-            disabled={isAdding}
-            className="bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-colors text-xs shadow-lg shadow-blue-600/20 active:scale-95"
-          >
-            Comprar Ahora
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -118,7 +141,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
     };
   }, [isOpen]);
 
-  // --- LÓGICA DE ESTADOS (Igual que en Card) ---
+  // --- LÓGICA DE ESTADOS ---
   const hasActiveLots = product.active_lots && product.active_lots > 0;
   const hasReferencePrice = product.min_price && parseFloat(product.min_price.toString()) > 0;
 
@@ -243,7 +266,6 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
                     <Package size={20} className="text-blue-600"/> Inventario Disponible
                   </h3>
                   
-                  {/* Botón extra de cotización */}
                   <button 
                     onClick={() => setIsQuoteOpen(true)}
                     className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
@@ -262,10 +284,11 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
                           lot={lot}
                           onAddToCart={handleAddToCart}
                           isAdding={isAdding}
+                          onQuote={() => setIsQuoteOpen(true)} // ✅ PASAMOS EL HANDLER
                         />
                       ))
                   ) : hasReferencePrice ? (
-                      // ESTADO: BAJO PEDIDO CON PRECIO (Nuevo)
+                      // ESTADO: BAJO PEDIDO CON PRECIO
                       <div className="text-center py-8 md:py-12 bg-blue-50 rounded-[2rem] border-2 border-blue-100">
                         <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-blue-600">
                           <Info size={32} />

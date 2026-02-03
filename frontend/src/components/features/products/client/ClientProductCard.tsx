@@ -22,12 +22,15 @@ interface LotRowProps {
   lot: any;
   onAddToCart: (lotId: string, quantity: number, redirect?: boolean) => Promise<void>;
   isAdding: boolean;
+  onQuote: () => void; // ✅ NUEVO: Recibimos la función para cotizar
 }
 
-const LotRow = ({ lot, onAddToCart, isAdding }: LotRowProps) => {
+const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
   const [quantity, setQuantity] = useState(1);
   const config = getLotStatusConfig(lot.status, lot.expiry_date);
   const price = lot.discount_price_amount || lot.price_amount || lot.price;
+  
+  // Validaciones clave
   const hasPrice = price && parseFloat(price) > 0;
   const hasStock = lot.quantity > 0;
 
@@ -59,16 +62,18 @@ const LotRow = ({ lot, onAddToCart, isAdding }: LotRowProps) => {
       <div className="col-span-6 md:col-span-3 text-right md:text-left flex flex-col">
         <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide mb-0.5">Precio Unitario</span>
         <span className="font-black text-blue-700 text-lg">
-            {hasPrice ? formatCurrency(price) : <span className="text-gray-400 italic text-sm">Cotizar</span>}
+            {/* Si el precio es 0, mostramos texto 'A Cotizar', si no, el precio formateado */}
+            {hasPrice ? formatCurrency(price) : <span className="text-slate-400 italic text-sm font-bold">A Cotizar</span>}
         </span>
-        <span className={`text-[10px] mt-0.5 font-bold ${hasStock ? 'text-green-600' : 'text-amber-600'}`}>
-            {hasStock ? `Stock: ${lot.quantity} pzas` : 'Bajo Pedido'}
+        <span className={`text-[10px] mt-0.5 font-bold ${hasStock ? 'text-green-600' : 'text-blue-600'}`}>
+            {hasStock ? `Stock: ${lot.quantity} pzas` : 'Disponible bajo pedido'}
         </span>
       </div>
 
-      {/* 4. Controles de Acción */}
+      {/* 4. Controles de Acción (INTELIGENTE) */}
       <div className="col-span-12 md:col-span-3 flex flex-col gap-2">
         {hasPrice && hasStock ? (
+          // CASO A: TODO COMPLETO -> Botones de Compra
           <>
             <div className="flex justify-end w-full">
               <QuantitySelector 
@@ -88,7 +93,7 @@ const LotRow = ({ lot, onAddToCart, isAdding }: LotRowProps) => {
                 className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 text-xs font-bold"
                 title="Añadir al carrito"
               >
-                <ShoppingCart size={14} /> Añadir
+                <ShoppingCart size={14} />
               </button>
               <button 
                 onClick={() => onAddToCart(lot.id, quantity, true)} 
@@ -100,10 +105,14 @@ const LotRow = ({ lot, onAddToCart, isAdding }: LotRowProps) => {
             </div>
           </>
         ) : (
-          <div className="w-full">
-             <div className="text-right text-xs font-bold text-gray-400 italic py-2 bg-gray-50 rounded px-2">
-               {hasPrice ? "Stock Agotado - Cotizar" : "Precio bajo cotización"}
-             </div>
+          // CASO B: FALTA STOCK O PRECIO -> Botón Cotizar
+          <div className="w-full flex items-center h-full">
+             <button
+               onClick={onQuote}
+               className="w-full group-hover:bg-blue-600 group-hover:text-white bg-white border-2 border-blue-100 text-blue-600 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-bold shadow-sm"
+             >
+               <FileText size={14} /> Solicitar Cotización
+             </button>
           </div>
         )}
       </div>
@@ -147,9 +156,6 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
   // Detectar si hay un precio válido mayor a 0 (aunque no haya stock)
   const hasReferencePrice = product.min_price && parseFloat(product.min_price.toString()) > 0;
   
-  // Si no hay stock pero hay precio, es "Bajo Pedido / Referencia"
-  const isBackorderWithPrice = !hasActiveLots && hasReferencePrice;
-
   const handleMainAction = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (hasActiveLots) {
@@ -298,7 +304,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                )}
             </div>
             
-            {/* BOTÓN DE ACCIÓN INTELIGENTE */}
+            {/* BOTÓN DE ACCIÓN INTELIGENTE (COLUMNA DERECHA) */}
             <button 
               onClick={handleMainAction}
               className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all text-xs uppercase tracking-wide
@@ -332,7 +338,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                     : 'Selecciona un lote'}
                 </h4>
                 
-                {/* Botón extra de cotización por si el usuario quiere negociar aunque haya stock */}
+                {/* Botón extra de cotización */}
                 <button 
                   onClick={() => setIsQuoteOpen(true)}
                   className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
@@ -353,11 +359,12 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                       lot={lot} 
                       onAddToCart={handleAddToCart}
                       isAdding={isAdding}
+                      onQuote={() => setIsQuoteOpen(true)} // ✅ PASAMOS EL HANDLER DE COTIZACIÓN
                     />
                   ))}
                 </div>
             ) : (
-                // SIN LOTES (Fallback por si se expandió sin querer)
+                // SIN LOTES (Fallback)
                 <div className="text-center py-8 bg-white rounded-xl border border-dashed border-slate-300">
                   <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
                     <AlertTriangle className="text-amber-400" size={24} />
