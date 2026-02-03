@@ -1,5 +1,4 @@
 //frontend/src/app/dashboard/import/components/ImportHistory.tsx
-
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
