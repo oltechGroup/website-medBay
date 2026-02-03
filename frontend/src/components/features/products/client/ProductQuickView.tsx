@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom"; 
 import { useRouter } from "next/navigation";
-import { X, ChevronLeft, ChevronRight, Package, Calendar, ShoppingCart, FileText, AlertCircle } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Package, Calendar, ShoppingCart, FileText, AlertCircle, Info } from "lucide-react";
 import { Product } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth"; 
 import { getImageUrl, formatCurrency, formatDate, getLotStatusConfig } from "@/lib/formatters";
@@ -51,7 +51,6 @@ const LotItem = ({ lot, onAddToCart, isAdding }: LotItemProps) => {
 
       {/* Controles de Compra */}
       <div className="flex flex-col gap-3">
-        {/* Selector de Cantidad */}
         <div className="flex items-center justify-between">
            <span className="text-xs font-bold text-slate-400 uppercase">Cantidad</span>
            <QuantitySelector 
@@ -102,7 +101,6 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
   const router = useRouter();
   const { addToCart, isAdding } = useCart();
 
-  // Cargamos lotes siempre (sin restricción de login)
   const { lots, categories, images, isLoadingDetails } = useProductDetails(product.id, isOpen);
 
   const allImages = [
@@ -120,7 +118,10 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
     };
   }, [isOpen]);
 
-  // Si no está abierto o no está montado (SSR), no renderizamos nada
+  // --- LÓGICA DE ESTADOS (Igual que en Card) ---
+  const hasActiveLots = product.active_lots && product.active_lots > 0;
+  const hasReferencePrice = product.min_price && parseFloat(product.min_price.toString()) > 0;
+
   if (!isOpen || !mounted) return null;
 
   const handleNextImage = () => {
@@ -131,7 +132,6 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
     setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
   };
 
-  // Handler de compra con redirección
   const handleAddToCart = async (lotId: string, quantity: number, redirect: boolean = false) => {
     if (!isAuthenticated) {
       router.push('/login');
@@ -150,7 +150,6 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
     }
   };
 
-  // Definimos el contenido del modal en una variable para asegurar limpieza en el createPortal
   const modalContent = (
     <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
         
@@ -170,7 +169,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
           <X size={20} className="text-slate-500"/>
         </button>
 
-        {/* === COLUMNA IZQ: IMÁGENES (Pública) === */}
+        {/* === COLUMNA IZQ: IMÁGENES === */}
         <div className="w-full md:w-1/2 bg-slate-50/50 p-4 md:p-8 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 flex-shrink-0">
           <div className="relative w-full h-[200px] md:h-[450px] mb-4 md:mb-8 bg-white rounded-2xl md:rounded-3xl shadow-sm p-4 flex items-center justify-center border border-white">
             <img 
@@ -243,11 +242,13 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
                   <h3 className="font-black text-slate-800 flex items-center gap-2 text-base md:text-lg">
                     <Package size={20} className="text-blue-600"/> Inventario Disponible
                   </h3>
+                  
+                  {/* Botón extra de cotización */}
                   <button 
                     onClick={() => setIsQuoteOpen(true)}
-                    className="text-xs font-bold text-slate-400 hover:text-blue-600 flex items-center gap-1 transition-colors"
+                    className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
                   >
-                    <FileText size={14} /> Solicitar Cotización
+                    <FileText size={12}/> Cotización Personalizada
                   </button>
                 </div>
 
@@ -263,20 +264,46 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
                           isAdding={isAdding}
                         />
                       ))
+                  ) : hasReferencePrice ? (
+                      // ESTADO: BAJO PEDIDO CON PRECIO (Nuevo)
+                      <div className="text-center py-8 md:py-12 bg-blue-50 rounded-[2rem] border-2 border-blue-100">
+                        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-blue-600">
+                          <Info size={32} />
+                        </div>
+                        <h4 className="text-blue-900 font-bold mb-1 text-lg">Disponible bajo pedido</h4>
+                        <p className="text-blue-600 text-sm mb-4 max-w-xs mx-auto font-medium">
+                          Este producto se importa bajo solicitud.
+                        </p>
+                        
+                        <div className="mb-6 p-4 bg-white rounded-xl inline-block shadow-sm border border-blue-100">
+                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">Precio Referencia</p>
+                            <p className="text-2xl font-black text-gray-800">{formatCurrency(product.min_price)}</p>
+                        </div>
+
+                        <div className="block">
+                            <button 
+                              onClick={() => setIsQuoteOpen(true)}
+                              className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all text-sm"
+                            >
+                              Iniciar Pedido / Cotización
+                            </button>
+                        </div>
+                      </div>
                   ) : (
+                      // ESTADO: AGOTADO / SIN PRECIO
                       <div className="text-center py-8 md:py-12 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
                         <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
                           <AlertCircle className="text-amber-400" size={32} />
                         </div>
-                        <h4 className="text-slate-800 font-bold mb-1">Producto bajo pedido</h4>
+                        <h4 className="text-slate-800 font-bold mb-1">Producto agotado</h4>
                         <p className="text-slate-500 text-sm mb-6 max-w-xs mx-auto font-medium">
-                          Actualmente no tenemos lotes publicados para venta directa.
+                          Actualmente no tenemos stock ni precio de referencia.
                         </p>
                         <button 
                           onClick={() => setIsQuoteOpen(true)}
                           className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all text-sm"
                         >
-                          Solicitar Cotización
+                          Solicitar Búsqueda
                         </button>
                       </div>
                   )}
