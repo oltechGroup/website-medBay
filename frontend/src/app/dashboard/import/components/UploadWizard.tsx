@@ -1,5 +1,4 @@
 // frontend/src/app/dashboard/import/components/UploadWizard.tsx
-
 'use client';
 
 import { useState, useEffect } from 'react';
