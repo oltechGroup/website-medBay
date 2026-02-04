@@ -91,7 +91,7 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
     }
   };
 
-  // ✅ NUEVO: Función para eliminar cotización
+  // Función para eliminar cotización
   const handleDelete = async () => {
     if (confirm("¿Estás seguro de que deseas eliminar esta cotización? Esta acción no se puede deshacer.")) {
         try {
@@ -107,7 +107,9 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
   // Helper para mostrar info del cliente
   const clientName = quote.user_name || quote.guest_info?.name || "Cliente Invitado";
   const clientEmail = quote.user_email || quote.guest_info?.email || "Sin email";
-  const clientPhone = (quote as any).user_phone || quote.guest_info?.phone || "Sin teléfono";
+  
+  // ✅ CORRECCIÓN 1: Aseguramos que el teléfono se extraiga correctamente de cualquier fuente posible
+  const clientPhone = (quote as any).user_phone || quote.guest_info?.phone || "Sin teléfono registrado";
   
   const context = (quote.product_request as any).quote_context;
 
@@ -239,7 +241,7 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-black text-slate-800">Generar Propuesta</h2>
             <div className="flex items-center gap-2">
-                {/* ✅ BOTÓN ELIMINAR (Solo visible si no está aceptada) */}
+                {/* Botón Eliminar (Solo visible si no está aceptada) */}
                 {!isAccepted && (
                     <button 
                         onClick={handleDelete}
@@ -285,11 +287,13 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
                             <p className="text-xs text-slate-400 font-bold uppercase mb-2">Detalles Acordados</p>
                             <div className="flex justify-between mb-1">
                                 <span className="text-sm text-slate-600">Precio:</span>
-                                <span className="font-bold">{formatCurrency(quote.admin_proposal?.unit_price || 0)}</span>
+                                {/* ✅ CORRECCIÓN 2: Texto en negro (text-slate-900) para que no se vea transparente */}
+                                <span className="font-bold text-slate-900">{formatCurrency(quote.admin_proposal?.unit_price || 0)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-sm text-slate-600">Cantidad:</span>
-                                <span className="font-bold">{quote.admin_proposal?.quantity_found}</span>
+                                {/* ✅ CORRECCIÓN 2: Texto en negro para cantidad también */}
+                                <span className="font-bold text-slate-900">{quote.admin_proposal?.quantity_found}</span>
                             </div>
                         </div>
                     </>
