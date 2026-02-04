@@ -16,7 +16,7 @@ const Quote = {
       RETURNING *
     `;
     
-    // productRequest debe ser objeto: { product_name, sku, quantity_asked, notes }
+    // productRequest debe ser objeto: { product_name, sku, quantity_asked, notes, quote_context }
     const values = [userId, guestInfo, productRequest];
     
     try {
@@ -57,7 +57,8 @@ const Quote = {
     const query = `
       SELECT q.*, 
              u.email as registered_email, 
-             u.full_name as registered_name
+             u.full_name as registered_name,
+             u.phone as user_phone
       FROM quotes q
       LEFT JOIN users u ON q.user_id = u.id
       WHERE q.id = $1
@@ -93,6 +94,13 @@ const Quote = {
       RETURNING *
     `;
     const result = await db.query(query, [status, id]);
+    return result.rows[0];
+  },
+
+  // 7. ✅ Eliminar Cotización (Admin limpia)
+  delete: async (id) => {
+    const query = 'DELETE FROM quotes WHERE id = $1 RETURNING *';
+    const result = await db.query(query, [id]);
     return result.rows[0];
   }
 };

@@ -10,6 +10,15 @@ export interface ProductRequest {
   sku: string;
   quantity_asked: number;
   notes?: string;
+  // Contexto opcional por si lo necesitas tipar aquí también
+  quote_context?: {
+    lotId?: string;
+    lotNumber?: string;
+    referencePrice?: number;
+    expiryDate?: string;
+    stockAvailable?: number;
+    supplierName?: string;
+  };
 }
 
 export interface AdminProposal {
@@ -32,6 +41,7 @@ export interface Quote {
   user_id: string | null;
   user_name?: string; // Viene del JOIN en backend
   user_email?: string;
+  user_phone?: string; // Agregado para mostrar teléfono
   guest_info?: GuestInfo;
   
   product_request: ProductRequest;
@@ -68,6 +78,18 @@ export const useAdminQuotes = () => {
     },
   });
 
+  // 3. ✅ ELIMINAR COTIZACIÓN (NUEVO)
+  const deleteQuoteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.delete(`/quotes/${id}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      // Recargar la lista automáticamente tras borrar
+      queryClient.invalidateQueries({ queryKey: ['admin-quotes'] });
+    },
+  });
+
   // --- HELPERS PARA UI ---
 
   const getStatusLabel = (status: string) => {
@@ -95,8 +117,13 @@ export const useAdminQuotes = () => {
     quotes,
     isLoading,
     error,
+    // Acciones Propuesta
     sendProposal: sendProposalMutation.mutateAsync,
     isSending: sendProposalMutation.isPending,
+    // Acciones Eliminar
+    deleteQuote: deleteQuoteMutation.mutateAsync,
+    isDeleting: deleteQuoteMutation.isPending,
+    // UI Helpers
     getStatusLabel,
     getStatusColor
   };

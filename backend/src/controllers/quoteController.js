@@ -9,7 +9,6 @@ const quoteController = {
   createRequest: async (req, res) => {
     try {
       // 🔒 VALIDACIÓN ESTRICTA: Solo usuarios logueados
-      // Aunque el middleware lo protege, aseguramos que tengamos el ID.
       if (!req.user || !req.user.id) {
         return res.status(401).json({ error: 'Debes iniciar sesión para solicitar una cotización.' });
       }
@@ -21,7 +20,7 @@ const quoteController = {
         sku, 
         quantity_asked, 
         notes,
-        quote_context // ✅ NUEVO: Recibimos el contexto inteligente del frontend
+        quote_context // Recibimos el contexto inteligente del frontend
       } = req.body;
 
       // Estructuramos lo que pidió el cliente para guardarlo en la BD (JSONB)
@@ -30,17 +29,12 @@ const quoteController = {
         sku,
         quantity_asked,
         notes,
-        // ✅ Guardamos el contexto técnico. 
-        // Esto permitirá al Admin ver: "El cliente estaba viendo el Lote X con precio Y"
         quote_context: quote_context || null 
       };
 
-      // Como la regla es solo usuarios logueados, guest_info se va como null
       const newQuote = await Quote.create(userId, null, productRequest);
 
       // 🔔 Notificar (Async)
-      // "Tu solicitud fue recibida" -> Cliente
-      // "Nueva cotización pendiente" -> Admin
       NotificationService.notifyQuoteCreated(newQuote.id).catch(err => 
         console.error('Error enviando notificación cotización:', err)
       );
@@ -113,10 +107,25 @@ const quoteController = {
       }
 
       const { id } = req.params;
+      
+      // ✅ VALIDACIÓN DE ESTADO: Evitar sobreescribir propuestas
+      const currentQuote = await Quote.findById(id);
+      if (!currentQuote) return res.status(404).json({ error: 'Cotización no encontrada' });
+
+      if (currentQuote.status === 'accepted') {
+        return res.status(400).json({ error: 'No puedes modificar una cotización que ya fue aceptada.' });
+      }
+      
+      // Si ya enviaste una propuesta y no ha sido respondida (sigue en 'proposal_sent'), bloqueamos.
+      // Solo permitimos reenviar si estaba 'pending' o si fue 'rejected' (contraoferta).
+      if (currentQuote.status === 'proposal_sent') {
+        return res.status(400).json({ error: 'Ya enviaste una propuesta. Espera la respuesta del cliente.' });
+      }
+
       const { 
         quantity_found, 
         expiry_date, 
-        lot_type, // 'in_date', 'short_date', 'expired'
+        lot_type, 
         unit_price,
         admin_notes 
       } = req.body;
@@ -162,8 +171,15 @@ const quoteController = {
 
       // Validar que sea el dueño
       const quote = await Quote.findById(id);
+      if (!quote) return res.status(404).json({ error: 'Cotización no encontrada' });
+      
       if (quote.user_id !== req.user.id) {
         return res.status(403).json({ error: 'No autorizado' });
+      }
+
+      // ✅ VALIDACIÓN DE ESTADO: No permitir cambiar decisión final
+      if (['accepted', 'rejected'].includes(quote.status)) {
+        return res.status(400).json({ error: `Esta cotización ya fue ${quote.status === 'accepted' ? 'aceptada' : 'rechazada'}.` });
       }
 
       const updatedQuote = await Quote.updateStatus(id, action);
@@ -171,9 +187,6 @@ const quoteController = {
       // 🔔 Notificar al Admin de la decisión del cliente
       if (action === 'accepted') {
         NotificationService.notifyQuoteAccepted(id).catch(err => console.error(err));
-        
-        // TODO: Aquí podríamos llamar a una función para convertir esto automáticamente
-        // en una Orden en estado 'pending_payment' si quisieras automatizarlo al 100%.
       } else {
         NotificationService.notifyQuoteRejected(id).catch(err => console.error(err));
       }
@@ -186,6 +199,32 @@ const quoteController = {
 
     } catch (error) {
       console.error('Error respondiendo propuesta:', error);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  },
+
+  // 7. ✅ ELIMINAR COTIZACIÓN (Admin)
+  delete: async (req, res) => {
+    try {
+      // Verificar permisos de admin
+      if (req.user.verification_level !== 'admin') {
+        return res.status(403).json({ error: 'Acceso denegado' });
+      }
+
+      const { id } = req.params;
+      const deletedQuote = await Quote.delete(id);
+
+      if (!deletedQuote) {
+        return res.status(404).json({ error: 'Cotización no encontrada' });
+      }
+
+      res.json({ 
+        success: true, 
+        message: 'Cotización eliminada correctamente' 
+      });
+
+    } catch (error) {
+      console.error('Error eliminando cotización:', error);
       res.status(500).json({ error: 'Error interno' });
     }
   }
