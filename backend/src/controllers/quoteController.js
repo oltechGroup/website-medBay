@@ -8,24 +8,35 @@ const quoteController = {
   // 1. CREAR SOLICITUD (Cliente)
   createRequest: async (req, res) => {
     try {
-      const userId = req.user ? req.user.id : null;
+      // 🔒 VALIDACIÓN ESTRICTA: Solo usuarios logueados
+      // Aunque el middleware lo protege, aseguramos que tengamos el ID.
+      if (!req.user || !req.user.id) {
+        return res.status(401).json({ error: 'Debes iniciar sesión para solicitar una cotización.' });
+      }
+
+      const userId = req.user.id;
+      
       const { 
         product_name, 
         sku, 
         quantity_asked, 
         notes,
-        guest_info // { name, email, phone } si no está logueado
+        quote_context // ✅ NUEVO: Recibimos el contexto inteligente del frontend
       } = req.body;
 
-      // Estructuramos lo que pidió el cliente
+      // Estructuramos lo que pidió el cliente para guardarlo en la BD (JSONB)
       const productRequest = {
         product_name,
         sku,
         quantity_asked,
-        notes
+        notes,
+        // ✅ Guardamos el contexto técnico. 
+        // Esto permitirá al Admin ver: "El cliente estaba viendo el Lote X con precio Y"
+        quote_context: quote_context || null 
       };
 
-      const newQuote = await Quote.create(userId, guest_info, productRequest);
+      // Como la regla es solo usuarios logueados, guest_info se va como null
+      const newQuote = await Quote.create(userId, null, productRequest);
 
       // 🔔 Notificar (Async)
       // "Tu solicitud fue recibida" -> Cliente

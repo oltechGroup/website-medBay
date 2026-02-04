@@ -14,7 +14,7 @@ import { useProductDetails } from "@/hooks/useProductDetails";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 import { ProductQuickView } from "./ProductQuickView";
-import QuoteModal from "./QuoteModal";
+import QuoteModal, { QuoteContext } from "./QuoteModal"; // ✅ Importamos el tipo QuoteContext
 import { QuantitySelector } from "@/components/ui/QuantitySelector";
 
 // --- SUB-COMPONENTE: FILA DE LOTE ---
@@ -22,7 +22,7 @@ interface LotRowProps {
   lot: any;
   onAddToCart: (lotId: string, quantity: number, redirect?: boolean) => Promise<void>;
   isAdding: boolean;
-  onQuote: () => void; // ✅ NUEVO: Recibimos la función para cotizar
+  onQuote: (lot: any) => void; // ✅ Modificado para recibir el lote completo
 }
 
 const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
@@ -108,7 +108,7 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
           // CASO B: FALTA STOCK O PRECIO -> Botón Cotizar
           <div className="w-full flex items-center h-full">
              <button
-               onClick={onQuote}
+               onClick={() => onQuote(lot)}
                className="w-full group-hover:bg-blue-600 group-hover:text-white bg-white border-2 border-blue-100 text-blue-600 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-bold shadow-sm"
              >
                <FileText size={14} /> Solicitar Cotización
@@ -131,6 +131,10 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
+  
+  // ✅ NUEVO: Estado para guardar el contexto de la cotización
+  const [quoteContext, setQuoteContext] = useState<QuoteContext | undefined>(undefined);
+  
   const [mounted, setMounted] = useState(false);
   
   const { isAuthenticated } = useAuth();
@@ -154,15 +158,32 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
   const hasActiveLots = product.active_lots && product.active_lots > 0;
   
   // Detectar si hay un precio válido mayor a 0 (aunque no haya stock)
-  const hasReferencePrice = product.min_price && parseFloat(product.min_price.toString()) > 0;
+  // Usamos conversión segura a número
+  const minPrice = product.min_price ? Number(product.min_price) : 0;
+  const hasReferencePrice = minPrice > 0;
   
+  // Función centralizada para abrir cotización con contexto
+  const handleOpenQuote = (context?: QuoteContext) => {
+    setQuoteContext(context);
+    setIsQuoteOpen(true);
+  };
+
   const handleMainAction = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (hasActiveLots) {
         setIsExpanded(!isExpanded);
     } else {
-        // Si no hay lotes activos, la acción principal es abrir cotización directamente
-        setIsQuoteOpen(true);
+        // Si no hay lotes activos pero hay precio de referencia, pasamos ese precio al contexto
+        if (hasReferencePrice) {
+            handleOpenQuote({
+                // ✅ CORRECCIÓN AQUÍ: Verificamos existencia antes de pasar
+                referencePrice: product.min_price ? Number(product.min_price) : 0,
+                // No tenemos lote ID específico aquí, es genérico
+            });
+        } else {
+            // Cotización totalmente genérica (sin precio ni stock)
+            handleOpenQuote();
+        }
     }
   };
 
@@ -340,7 +361,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                 
                 {/* Botón extra de cotización */}
                 <button 
-                  onClick={() => setIsQuoteOpen(true)}
+                  onClick={() => handleOpenQuote()}
                   className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
                 >
                   <FileText size={12}/> Cotización Personalizada
@@ -359,7 +380,14 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                       lot={lot} 
                       onAddToCart={handleAddToCart}
                       isAdding={isAdding}
-                      onQuote={() => setIsQuoteOpen(true)} // ✅ PASAMOS EL HANDLER DE COTIZACIÓN
+                      // ✅ PASAMOS LOS DATOS DEL LOTE AL CONTEXTO
+                      onQuote={(loteData) => handleOpenQuote({
+                          lotId: loteData.id,
+                          lotNumber: loteData.lot_number,
+                          referencePrice: parseFloat(loteData.price),
+                          expiryDate: loteData.expiry_date,
+                          stockAvailable: loteData.quantity
+                      })}
                     />
                   ))}
                 </div>
@@ -372,7 +400,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                   <p className="text-slate-600 font-bold text-sm mb-1">Agotado temporalmente</p>
                   <p className="text-slate-400 text-xs mb-4">No hay lotes disponibles bajo este criterio.</p>
                   <button 
-                    onClick={() => setIsQuoteOpen(true)}
+                    onClick={() => handleOpenQuote()}
                     className="text-blue-600 font-bold hover:bg-blue-50 px-4 py-2 rounded-lg text-xs transition-colors border border-blue-100"
                   >
                     Solicitar búsqueda de producto
@@ -391,10 +419,15 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
         onClose={() => setIsModalOpen(false)} 
       />
       
+      {/* ✅ PASAMOS EL CONTEXTO AL MODAL DE COTIZACIÓN */}
       <QuoteModal 
         isOpen={isQuoteOpen}
-        onClose={() => setIsQuoteOpen(false)}
+        onClose={() => {
+            setIsQuoteOpen(false);
+            setQuoteContext(undefined); // Limpiamos contexto al cerrar
+        }}
         product={product}
+        initialContext={quoteContext}
       />
     </>
   );

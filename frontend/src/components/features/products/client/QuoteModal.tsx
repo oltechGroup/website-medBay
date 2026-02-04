@@ -1,22 +1,32 @@
-//frontend/src/components/features/products/client/QuoteModal.tsx
+// frontend/src/components/features/products/client/QuoteModal.tsx
 "use client";
 
-import { useState } from "react";
-import { X, FileText, CheckCircle2, AlertCircle, ArrowRight, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, FileText, CheckCircle2, AlertCircle, ArrowRight, Loader2, Package, Tag, Calendar } from "lucide-react";
 import { Product } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
-import { api } from "@/lib/api"; // Usamos tu instancia de axios configurada
-import { getImageUrl } from "@/lib/formatters";
+import { api } from "@/lib/api";
+import { getImageUrl, formatCurrency, formatDate } from "@/lib/formatters";
+
+// ✅ NUEVO: Definimos la estructura del contexto inteligente
+export interface QuoteContext {
+  lotId?: string;
+  lotNumber?: string;
+  referencePrice?: number;
+  expiryDate?: string;
+  stockAvailable?: number;
+}
 
 interface QuoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product;
+  initialContext?: QuoteContext; // ✅ Recibimos el contexto opcional
 }
 
 type QuoteType = "En Fecha (Estándar)" | "Fecha Corta (Descuento)" | "Caducado (Prácticas/Merma)";
 
-export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps) {
+export default function QuoteModal({ isOpen, onClose, product, initialContext }: QuoteModalProps) {
   const { user, isAuthenticated } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
@@ -27,6 +37,34 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
   const [type, setType] = useState<QuoteType>("En Fecha (Estándar)");
   const [notes, setNotes] = useState("");
 
+  // 🧠 LÓGICA INTELIGENTE: Pre-llenado basado en contexto
+  useEffect(() => {
+    if (isOpen && initialContext) {
+      // 1. Si hay stock disponible en ese lote, sugerimos esa cantidad (máximo 10 para no asustar, o 1)
+      // Opcional: setQuantity(1); 
+
+      // 2. Si hay fecha de caducidad, determinamos el TIPO automáticamente
+      if (initialContext.expiryDate) {
+        const expiry = new Date(initialContext.expiryDate);
+        const now = new Date();
+        const monthsDiff = (expiry.getFullYear() - now.getFullYear()) * 12 + (expiry.getMonth() - now.getMonth());
+
+        if (expiry < now) {
+          setType("Caducado (Prácticas/Merma)");
+        } else if (monthsDiff <= 6) {
+          setType("Fecha Corta (Descuento)");
+        } else {
+          setType("En Fecha (Estándar)");
+        }
+      }
+    } else if (isOpen) {
+        // Reset si se abre limpio
+        setQuantity(1);
+        setType("En Fecha (Estándar)");
+        setNotes("");
+    }
+  }, [isOpen, initialContext]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
@@ -34,36 +72,36 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
     setError("");
 
     try {
-      // ✅ CAMBIO CLAVE: Usamos el nuevo endpoint de Cotizaciones
-      // Combinamos la nota del usuario con el tipo de producto seleccionado para que el admin lo vea claro
-      const fullNotes = `[Preferencia: ${type}] - ${notes}`;
+      // Construimos una nota técnica para el admin
+      let contextNote = `[Preferencia: ${type}]`;
+      
+      if (initialContext) {
+        contextNote += `\n--- CONTEXTO DE ORIGEN ---`;
+        if (initialContext.lotNumber) contextNote += `\nLote Específico: ${initialContext.lotNumber}`;
+        if (initialContext.referencePrice) contextNote += `\nPrecio Visto: ${formatCurrency(initialContext.referencePrice)}`;
+        if (initialContext.stockAvailable !== undefined) contextNote += `\nStock en sistema: ${initialContext.stockAvailable}`;
+      }
+      
+      const finalNotes = `${contextNote}\n\nNota del Cliente: ${notes}`;
 
       const payload = {
         product_name: product.description,
-        sku: product.global_sku || 'S/N', // Fallback si no hay SKU
+        sku: product.global_sku || 'S/N',
         quantity_asked: quantity,
-        notes: fullNotes,
-        // Si el usuario no está logueado, mandamos info de invitado (si tu backend lo permite)
-        // Ojo: Tu quoteController actual espera token para guardar user_id.
-        // Si no está logueado, el backend debería manejar guest_info. 
-        // Por ahora asumiremos que si no hay user, enviamos guest_info genérico o requerimos login.
+        notes: finalNotes,
+        // Enviamos el contexto estructurado por si el backend evoluciona para guardarlo en columnas separadas
+        quote_context: initialContext, 
         guest_info: !isAuthenticated ? {
             name: "Invitado Web",
-            email: "invitado@pendiente.com", // Esto deberíamos pedirlo en un input si no está logueado
+            email: "invitado@pendiente.com", 
             phone: ""
         } : undefined
       };
 
-      // Nota: Si requieres login forzoso, el backend rechazará esto si no hay token.
-      // Si permitimos invitados, asegúrate de pedir nombre/email en el paso 1 del formulario.
-      // Por ahora, enviaremos la petición tal cual:
-      
       await api.post('/quotes', payload);
-
-      setStep(3); // Ir a éxito
+      setStep(3);
     } catch (err: any) {
       console.error(err);
-      // Mensaje de error amigable
       if (err.response?.status === 401) {
         setError("Por favor inicia sesión para cotizar.");
       } else {
@@ -72,6 +110,40 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper para renderizar el badge de contexto
+  const renderContextBadge = () => {
+    if (!initialContext) return null;
+    return (
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 flex flex-col gap-2 animate-in fade-in">
+            <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1">
+                    <CheckCircle2 size={12}/> Cotizando Lote Específico
+                </span>
+                {initialContext.lotNumber && (
+                    <span className="text-[10px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-blue-100">
+                        {initialContext.lotNumber}
+                    </span>
+                )}
+            </div>
+            
+            <div className="flex gap-3 text-xs text-slate-700 font-medium">
+                {initialContext.referencePrice && (
+                    <span className="flex items-center gap-1">
+                        <Tag size={12} className="text-blue-500"/> 
+                        Ref: {formatCurrency(initialContext.referencePrice)}
+                    </span>
+                )}
+                {initialContext.expiryDate && (
+                    <span className="flex items-center gap-1">
+                        <Calendar size={12} className="text-blue-500"/> 
+                        Vence: {formatDate(initialContext.expiryDate)}
+                    </span>
+                )}
+            </div>
+        </div>
+    );
   };
 
   return (
@@ -88,7 +160,9 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
           <div className="flex items-center gap-2 text-slate-800">
             <FileText className="text-blue-600" size={20} />
-            <h3 className="font-bold">Solicitar Cotización</h3>
+            <h3 className="font-bold">
+                {initialContext ? "Cotización de Lote" : "Solicitar Cotización"}
+            </h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
             <X size={20} />
@@ -101,6 +175,7 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
           {/* PASO 1: CONFIGURACIÓN */}
           {step === 1 && (
             <div className="space-y-5 animate-in slide-in-from-right-4">
+              
               {/* Resumen Producto */}
               <div className="flex gap-4 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <div className="w-12 h-12 bg-white rounded-lg p-1 border border-slate-200 flex-shrink-0">
@@ -116,6 +191,9 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
                   <p className="text-xs text-slate-500 font-mono">SKU: {product.global_sku}</p>
                 </div>
               </div>
+
+              {/* ✅ ZONA INTELIGENTE: Contexto del Lote */}
+              {renderContextBadge()}
 
               {/* Formulario */}
               <div>
@@ -180,7 +258,7 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
               <div>
                 <h4 className="text-xl font-bold text-slate-800">Confirma tu solicitud</h4>
                 <p className="text-sm text-slate-500 mt-1">
-                  Enviaremos esta petición al equipo de ventas para buscar stock con nuestros proveedores.
+                  Enviaremos esta petición al equipo de ventas para confirmar disponibilidad.
                 </p>
               </div>
 
@@ -189,6 +267,15 @@ export default function QuoteModal({ isOpen, onClose, product }: QuoteModalProps
                   <span className="text-slate-500">Producto:</span>
                   <span className="font-bold text-slate-800 text-right w-1/2 truncate">{product.description}</span>
                 </div>
+                
+                {/* Resumen de Contexto en Confirmación */}
+                {initialContext && initialContext.referencePrice && (
+                    <div className="flex justify-between text-blue-600 bg-blue-50/50 p-1 rounded">
+                        <span className="text-blue-500 font-medium">Ref. Precio:</span>
+                        <span className="font-bold">{formatCurrency(initialContext.referencePrice)}</span>
+                    </div>
+                )}
+
                 <div className="flex justify-between">
                   <span className="text-slate-500">Cantidad:</span>
                   <span className="font-bold text-slate-800">{quantity} unidades</span>

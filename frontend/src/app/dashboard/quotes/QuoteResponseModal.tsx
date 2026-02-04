@@ -1,10 +1,10 @@
-//frontend/src/app/dashboard/quotes/QuoteResponseModal.tsx
+// frontend/src/app/dashboard/quotes/QuoteResponseModal.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { 
   X, Package, User, Calendar, DollarSign, 
-  FileText, CheckCircle2, AlertTriangle, Send 
+  FileText, CheckCircle2, AlertTriangle, Send, Tag, Info
 } from "lucide-react";
 import { useAdminQuotes, Quote } from "@/hooks/useAdminQuotes";
 import { formatCurrency } from "@/lib/formatters";
@@ -68,6 +68,9 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
   // Helper para mostrar info del cliente
   const clientName = quote.user_name || quote.guest_info?.name || "Cliente Invitado";
   const clientEmail = quote.user_email || quote.guest_info?.email || "Sin email";
+  
+  // Extraer el contexto si existe (ahora guardado en product_request.quote_context)
+  const context = (quote.product_request as any).quote_context;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -78,10 +81,10 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
       ></div>
 
       {/* Modal Content */}
-      <div className="relative bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-200">
+      <div className="relative bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-200 h-[90vh] md:h-auto">
         
         {/* === COLUMNA IZQUIERDA: RESUMEN DE SOLICITUD === */}
-        <div className="w-full md:w-2/5 bg-slate-50 p-8 border-r border-slate-100 flex flex-col">
+        <div className="w-full md:w-2/5 bg-slate-50 p-8 border-r border-slate-100 flex flex-col overflow-y-auto custom-scrollbar">
           <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
             <FileText size={16}/> Solicitud Original
           </h3>
@@ -97,6 +100,37 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
                 SKU: {quote.product_request.sku}
               </p>
             </div>
+
+            {/* ✅ BLOQUE DE CONTEXTO INTELIGENTE (NUEVO) */}
+            {context && (
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
+                    <div className="flex items-center gap-2 mb-2 text-blue-700">
+                        <Info size={16}/>
+                        <span className="text-xs font-bold uppercase">Contexto del Cliente</span>
+                    </div>
+                    
+                    <div className="space-y-2 text-sm">
+                        {context.lotNumber && (
+                            <div className="flex justify-between border-b border-blue-100 pb-1">
+                                <span className="text-slate-500">Lote Visto:</span>
+                                <span className="font-mono font-bold text-slate-700">{context.lotNumber}</span>
+                            </div>
+                        )}
+                        {context.referencePrice && (
+                            <div className="flex justify-between border-b border-blue-100 pb-1">
+                                <span className="text-slate-500">Precio Ref:</span>
+                                <span className="font-bold text-slate-700">{formatCurrency(context.referencePrice)}</span>
+                            </div>
+                        )}
+                        {context.stockAvailable !== undefined && (
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Stock Sistema:</span>
+                                <span className="font-bold text-slate-700">{context.stockAvailable}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Cantidad */}
             <div className="flex items-center gap-4">
@@ -124,14 +158,14 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
                 <p className="text-xs font-bold text-amber-700 mb-1 flex items-center gap-1">
                   <AlertTriangle size={12}/> Notas del Cliente:
                 </p>
-                <p className="text-xs text-amber-800 italic">"{quote.product_request.notes}"</p>
+                <p className="text-xs text-amber-800 italic whitespace-pre-wrap">"{quote.product_request.notes}"</p>
               </div>
             )}
           </div>
         </div>
 
         {/* === COLUMNA DERECHA: FORMULARIO DE PROPUESTA === */}
-        <div className="w-full md:w-3/5 p-8 bg-white flex flex-col">
+        <div className="w-full md:w-3/5 p-8 bg-white flex flex-col overflow-y-auto custom-scrollbar">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-black text-slate-800">Generar Propuesta</h2>
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">

@@ -169,13 +169,23 @@ const generateOrderShippedTemplate = (data) => {
 };
 
 // 5. CLIENTE: CONFIRMACIÓN DE COTIZACIÓN CREADA (Nuevo)
+// ✅ ACTUALIZADO: Muestra contexto si existe (Lote específico)
 const generateQuoteCreatedClientTemplate = (data) => {
+  // Verificamos si hay contexto inteligente
+  const contextHtml = data.context && data.context.lotNumber ? `
+    <div style="margin-top:10px; padding-top:10px; border-top: 1px dashed #e2e8f0; font-size: 11px; color: #64748b;">
+      <strong>Referencia Específica:</strong><br>
+      Solicitud ligada al Lote: <span style="font-family: monospace; color: ${theme.colors.primary};">${data.context.lotNumber}</span>
+    </div>
+  ` : '';
+
   const content = `
     <p class="subtitle">Hemos recibido tu solicitud de cotización.</p>
     
     <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
       <div style="font-size: 14px; font-weight: bold; color: ${theme.colors.secondary};">${data.productName}</div>
       <div style="font-size: 12px; color: #64748b; margin-top: 5px;">SKU: ${data.sku} | Cantidad: ${data.quantity}</div>
+      ${contextHtml}
     </div>
 
     <div class="message-box">
@@ -341,6 +351,19 @@ const generateDocumentUpdateTemplate = (data) => {
 // ==========================================
 
 const generateQuoteTemplate = (data) => {
+  // ✅ ACTUALIZADO: Bloque Inteligente para el ADMIN
+  // Si viene con contexto (Lote, Precio Ref), lo mostramos destacado.
+  const contextHtml = data.context ? `
+    <div style="background: #eff6ff; padding: 15px; border-radius: 8px; border: 1px solid #bfdbfe; margin: 20px 0;">
+      <div style="font-size: 11px; font-weight: bold; color: #1e40af; text-transform: uppercase; margin-bottom: 8px;">Contexto Técnico (Origen)</div>
+      <table style="width: 100%; border-collapse: collapse;">
+        ${data.context.lotNumber ? `<tr><td style="font-size: 13px; color: #64748b; padding: 2px 0;">Lote Visto:</td><td style="font-size: 13px; font-weight: bold; color: #1e3a8a; text-align: right;">${data.context.lotNumber}</td></tr>` : ''}
+        ${data.context.referencePrice ? `<tr><td style="font-size: 13px; color: #64748b; padding: 2px 0;">Precio Referencia:</td><td style="font-size: 13px; font-weight: bold; color: #1e3a8a; text-align: right;">$${data.context.referencePrice} USD</td></tr>` : ''}
+        ${data.context.expiryDate ? `<tr><td style="font-size: 13px; color: #64748b; padding: 2px 0;">Caducidad:</td><td style="font-size: 13px; font-weight: bold; color: #1e3a8a; text-align: right;">${data.context.expiryDate.split('T')[0]}</td></tr>` : ''}
+      </table>
+    </div>
+  ` : '';
+
   const content = `
     <p class="subtitle">Nueva solicitud de cotización (Entrante).</p>
     <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 25px;">
@@ -350,6 +373,9 @@ const generateQuoteTemplate = (data) => {
         <tr><td class="label">SKU Global</td><td class="value" style="font-family: monospace;">${data.sku}</td></tr>
         <tr><td class="label">Cantidad</td><td class="value" style="color: ${theme.colors.primary}; font-size: 16px;">${data.quantity} Unidades</td></tr>
       </table>
+      
+      ${contextHtml}
+
     </div>
     <div class="label" style="margin-top: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Datos del Solicitante</div>
     <table class="info-table">

@@ -11,14 +11,14 @@ import { getImageUrl, formatCurrency, formatDate, getLotStatusConfig } from "@/l
 import { useProductDetails } from "@/hooks/useProductDetails"; 
 import { useCart } from "@/hooks/useCart";
 import { QuantitySelector } from "@/components/ui/QuantitySelector";
-import QuoteModal from "./QuoteModal"; 
+import QuoteModal, { QuoteContext } from "./QuoteModal"; // ✅ Importamos QuoteContext
 
 // --- SUB-COMPONENTE: ÍTEM DE LOTE EN MODAL ---
 interface LotItemProps {
   lot: any;
   onAddToCart: (lotId: string, quantity: number, redirect?: boolean) => Promise<void>;
   isAdding: boolean;
-  onQuote: () => void; // ✅ NUEVO: Handler para cotizar
+  onQuote: (lot: any) => void; // ✅ Recibimos el lote completo
 }
 
 const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
@@ -94,9 +94,9 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
             </div>
           </>
         ) : (
-          // CASO B: COTIZACIÓN
+          // CASO B: COTIZACIÓN CONTEXTUAL
           <button 
-            onClick={onQuote}
+            onClick={() => onQuote(lot)}
             className="w-full bg-white border-2 border-blue-100 text-blue-600 py-2.5 rounded-xl font-bold hover:bg-blue-50 transition-colors text-xs flex items-center justify-center gap-2 shadow-sm"
           >
             <FileText size={16}/> Solicitar Cotización
@@ -120,6 +120,9 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
   const [mounted, setMounted] = useState(false);
   const [isQuoteOpen, setIsQuoteOpen] = useState(false); 
   
+  // ✅ Estado para el contexto de la cotización
+  const [quoteContext, setQuoteContext] = useState<QuoteContext | undefined>(undefined);
+
   const { isAuthenticated } = useAuth();
   const router = useRouter();
   const { addToCart, isAdding } = useCart();
@@ -143,7 +146,10 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
 
   // --- LÓGICA DE ESTADOS ---
   const hasActiveLots = product.active_lots && product.active_lots > 0;
-  const hasReferencePrice = product.min_price && parseFloat(product.min_price.toString()) > 0;
+  
+  // Conversión segura de precio
+  const minPrice = product.min_price ? Number(product.min_price) : 0;
+  const hasReferencePrice = minPrice > 0;
 
   if (!isOpen || !mounted) return null;
 
@@ -171,6 +177,12 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
     } catch (error) {
       console.error("Error agregando al carrito", error);
     }
+  };
+
+  // ✅ Función para abrir el modal con contexto
+  const handleOpenQuote = (context?: QuoteContext) => {
+    setQuoteContext(context);
+    setIsQuoteOpen(true);
   };
 
   const modalContent = (
@@ -267,7 +279,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
                   </h3>
                   
                   <button 
-                    onClick={() => setIsQuoteOpen(true)}
+                    onClick={() => handleOpenQuote()}
                     className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
                   >
                     <FileText size={12}/> Cotización Personalizada
@@ -284,7 +296,14 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
                           lot={lot}
                           onAddToCart={handleAddToCart}
                           isAdding={isAdding}
-                          onQuote={() => setIsQuoteOpen(true)} // ✅ PASAMOS EL HANDLER
+                          // ✅ PASAMOS LOS DATOS DEL LOTE
+                          onQuote={(loteData) => handleOpenQuote({
+                              lotId: loteData.id,
+                              lotNumber: loteData.lot_number,
+                              referencePrice: parseFloat(loteData.price),
+                              expiryDate: loteData.expiry_date,
+                              stockAvailable: loteData.quantity
+                          })}
                         />
                       ))
                   ) : hasReferencePrice ? (
@@ -305,7 +324,10 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
 
                         <div className="block">
                             <button 
-                              onClick={() => setIsQuoteOpen(true)}
+                              // ✅ BOTÓN GRANDE CON PRECIO DE REFERENCIA
+                              onClick={() => handleOpenQuote({
+                                  referencePrice: minPrice,
+                              })}
                               className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all text-sm"
                             >
                               Iniciar Pedido / Cotización
@@ -323,7 +345,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
                           Actualmente no tenemos stock ni precio de referencia.
                         </p>
                         <button 
-                          onClick={() => setIsQuoteOpen(true)}
+                          onClick={() => handleOpenQuote()}
                           className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all text-sm"
                         >
                           Solicitar Búsqueda
@@ -338,13 +360,15 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
       </div>
       
       {/* Modal de Cotización separado del Portal Principal */}
-      {isQuoteOpen && (
-        <QuoteModal 
-          isOpen={isQuoteOpen}
-          onClose={() => setIsQuoteOpen(false)}
-          product={product}
-        />
-      )}
+      <QuoteModal 
+        isOpen={isQuoteOpen}
+        onClose={() => {
+            setIsQuoteOpen(false);
+            setQuoteContext(undefined); // Limpiar contexto al cerrar
+        }}
+        product={product}
+        initialContext={quoteContext} // ✅ Inyectar contexto
+      />
     </div>
   );
   return createPortal(modalContent, document.body);

@@ -279,6 +279,8 @@ const NotificationService = {
     try {
       const data = await getFullQuoteData(quoteId);
       const req = data.product_request;
+      // ✅ EXTRAEMOS EL CONTEXTO INTELIGENTE DE LA DB
+      const context = req.quote_context || null;
 
       // A) Email Admin
       const htmlAdmin = generateQuoteTemplate({
@@ -288,7 +290,9 @@ const NotificationService = {
         productName: req.product_name,
         sku: req.sku,
         quantity: req.quantity_asked,
-        message: req.notes
+        message: req.notes,
+        // ✅ PASAMOS EL CONTEXTO AL TEMPLATE ADMIN
+        context: context 
       });
 
       await transporter.sendMail({
@@ -303,7 +307,9 @@ const NotificationService = {
       const htmlClient = generateQuoteCreatedClientTemplate({
         productName: req.product_name,
         sku: req.sku,
-        quantity: req.quantity_asked
+        quantity: req.quantity_asked,
+        // ✅ PASAMOS EL CONTEXTO AL TEMPLATE CLIENTE
+        context: context 
       });
 
       await transporter.sendMail({
@@ -325,7 +331,9 @@ const NotificationService = {
         content: {
           product_name: req.product_name,
           quantity: req.quantity_asked,
-          sku: req.sku
+          sku: req.sku,
+          // ✅ GUARDAMOS EL CONTEXTO EN LA NOTIFICACIÓN INTERNA TAMBIÉN
+          context: context
         }
       });
 
@@ -346,7 +354,7 @@ const NotificationService = {
         productName: req.product_name,
         sku: req.sku,
         quantity: req.quantity_asked,
-        message: prop.admin_notes || 'Propuesta adjunta.' // Simplificado para ejemplo
+        message: prop.admin_notes || 'Propuesta adjunta.' 
       });
 
       await transporter.sendMail({
