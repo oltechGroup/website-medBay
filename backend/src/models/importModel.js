@@ -7,6 +7,9 @@ const path = require('path');
 const https = require('https');
 const http = require('http');
 
+// Configuración de concurrencia para imágenes
+const IMAGE_DOWNLOAD_CONCURRENCY = 5; // Descargar 5 imágenes simultáneamente
+
 const ImportModel = {
 
   createQuickSupplier: async (name, country_code) => {
@@ -57,7 +60,7 @@ const ImportModel = {
     return result.rowCount;
   },
 
-  // --- LÓGICA DE PROCESAMIENTO MASIVO (MOTOR ASÍNCRONO) ---
+  // --- LÓGICA DE PROCESAMIENTO MASIVO (MOTOR ASÍNCRONO OPTIMIZADO) ---
 
   executeImportProcess: async (upload_id, mappings) => {
     try {
@@ -80,21 +83,24 @@ const ImportModel = {
       // Limpieza de seguridad
       await db.query("DELETE FROM raw_rows WHERE raw_upload_id = $1", [upload_id]);
 
-      // Insertar en raw_rows en batches
-      const bridgeBatchSize = 500;
+      // Insertar en raw_rows en batches (Optimizamos batch size para velocidad)
+      const bridgeBatchSize = 1000; 
       for (let i = 0; i < rawData.length; i += bridgeBatchSize) {
         const chunk = rawData.slice(i, i + bridgeBatchSize);
         const values = chunk.map((row, idx) => `('${upload_id}', ${i + idx}, '${JSON.stringify(row).replace(/'/g, "''")}')`).join(',');
         await db.query(`INSERT INTO raw_rows (raw_upload_id, row_index, raw_data) VALUES ${values}`);
       }
 
-      await ImportModel.updateProgress(upload_id, { total_rows: totalExcelRows, current_operation: 'Iniciando procesamiento de datos...' });
+      await ImportModel.updateProgress(upload_id, { total_rows: totalExcelRows, current_operation: 'Iniciando procesamiento rápido...' });
 
       // 3. FASE PROCESAMIENTO
       let processedCounter = 0;
       let globalStats = { created_lots: 0, created_products: 0, created_manufacturers: 0, skipped_rows: 0 };
       const allErrors = [];
-      const processingBatchSize = 50; // Reducido ligeramente por la descarga de imágenes
+      
+      // ✅ AUMENTAMOS BATCH SIZE: Como ya no descargamos imágenes dentro de la transacción,
+      // podemos procesar bloques mucho más grandes sin bloquear la BD.
+      const processingBatchSize = 200; 
 
       while (processedCounter < totalExcelRows) {
         const rowsRes = await db.query(
@@ -104,15 +110,23 @@ const ImportModel = {
 
         if (rowsRes.rows.length === 0) break;
 
-        const batchStats = await ImportModel.processBatch(rowsRes.rows, upload, currencyData, mappings, allErrors);
+        // ✅ PROCESAMIENTO OPTIMIZADO: Devuelve stats Y una cola de imágenes pendientes
+        const { stats: batchStats, imageQueue } = await ImportModel.processBatch(rowsRes.rows, upload, currencyData, mappings, allErrors);
         
         globalStats.created_lots += batchStats.created_lots;
         globalStats.created_products += batchStats.created_products;
         globalStats.created_manufacturers += batchStats.created_manufacturers;
         globalStats.skipped_rows += batchStats.skipped;
 
+        // ✅ DESCARGA EN PARALELO (POST-COMMIT)
+        // Procesamos la cola de imágenes fuera de la transacción de BD
+        if (imageQueue.length > 0) {
+            await ImportModel.processImageQueue(imageQueue);
+        }
+
         processedCounter += rowsRes.rows.length;
 
+        // Actualizamos progreso con menos frecuencia para no saturar DB (cada 5% o cada batch grande)
         await ImportModel.updateProgress(upload_id, { 
           processed_rows: processedCounter, 
           current_operation: `Procesando... (${Math.round((processedCounter/totalExcelRows)*100)}%)`,
@@ -139,6 +153,7 @@ const ImportModel = {
   processBatch: async (dbRows, upload, currencyData, mappings, errors) => {
     const client = await db.pool.connect();
     let stats = { created_lots: 0, created_products: 0, created_manufacturers: 0, skipped: 0 };
+    let imageQueue = []; // ✅ COLA TEMPORAL PARA IMÁGENES
 
     try {
       await client.query('BEGIN');
@@ -174,7 +189,7 @@ const ImportModel = {
 
           const quantity = mappings.cantidad === 'not_applicable' ? 0 : parseInt(item[mappings.cantidad]) || 0;
 
-          // --- 2. Inserción de Estructura (Fabricante -> Producto) ---
+          // --- 2. Inserción de Estructura ---
           
           // A. Fabricante
           let makerId;
@@ -196,79 +211,25 @@ const ImportModel = {
             stats.created_products++;
           }
 
-          // --- 3. PROCESAMIENTO DE IMÁGENES (NUEVO) ---
-          // Si existe mapeo de imagen y la URL es válida, intentamos descargarla.
-          // Usamos TRY/CATCH anidado para que si falla la imagen, NO falle el producto.
+          // --- 3. RECOLECCIÓN DE IMÁGENES (DIFERIDO) ---
+          // En lugar de descargar aquí, guardamos la tarea para después del COMMIT.
           if (mappings.imagen_url && mappings.imagen_url !== 'not_applicable') {
             const rawUrl = item[mappings.imagen_url];
-            // Validamos que sea un string y parezca una URL
             if (rawUrl && typeof rawUrl === 'string' && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
-                try {
-                    // Verificar si el producto ya tiene imágenes para evitar duplicados masivos o trabajo extra
-                    // (Opcional: aquí asumimos que queremos importar si es nuevo o si queremos agregar)
-                    // Para ser eficientes: Solo descargamos si es un producto NUEVO o si no tiene imágenes
-                    const imgCheck = await client.query('SELECT COUNT(*) FROM product_images WHERE product_id = $1', [productId]);
-                    const currentImageCount = parseInt(imgCheck.rows[0].count);
-
-                    // Solo intentamos descargar si tiene pocas imágenes (ej. menos de 3) para no saturar
-                    // o si es la primera vez.
-                    if (currentImageCount === 0) {
-                        const extMatch = rawUrl.match(/\.(jpg|jpeg|png|webp|gif)/i);
-                        const ext = extMatch ? extMatch[0] : '.jpg';
-                        // Nombre único para evitar colisiones
-                        const filename = `imp-${sku.replace(/[^a-z0-9]/gi, '_')}-${Date.now()}${ext}`;
-                        
-                        // Ruta local donde se guardará
-                        const localDir = path.join(process.cwd(), 'uploads', 'images');
-                        if (!fs.existsSync(localDir)) fs.mkdirSync(localDir, { recursive: true });
-                        
-                        const localPath = path.join(localDir, filename);
-                        const webPath = `/uploads/images/${filename}`;
-
-                        // Descargar imagen
-                        await new Promise((resolve, reject) => {
-                            const protocol = rawUrl.startsWith('https') ? https : http;
-                            const request = protocol.get(rawUrl, (response) => {
-                                if (response.statusCode === 200) {
-                                    const file = fs.createWriteStream(localPath);
-                                    response.pipe(file);
-                                    file.on('finish', () => {
-                                        file.close(resolve);
-                                    });
-                                } else {
-                                    reject(new Error(`Status Code: ${response.statusCode}`));
-                                }
-                            });
-                            
-                            request.on('error', (err) => {
-                                fs.unlink(localPath, () => {}); // Borrar archivo corrupto/incompleto
-                                reject(err);
-                            });
-                            
-                            // Timeout de seguridad para no colgar el proceso (10 segundos)
-                            request.setTimeout(10000, () => {
-                                request.destroy();
-                                reject(new Error('Timeout descarga imagen'));
-                            });
-                        });
-
-                        // Insertar en BD si la descarga fue exitosa
-                        await client.query(
-                            `INSERT INTO product_images (product_id, image_url, image_name, is_primary, display_order, created_by)
-                             VALUES ($1, $2, $3, $4, $5, $6)`,
-                            [productId, webPath, filename, true, 0, upload.uploaded_by]
-                        );
-                    }
-                } catch (imgErr) {
-                    // Solo logueamos advertencia, no rompemos el flujo del lote
-                    // console.warn(`⚠️ Warning: No se pudo descargar imagen para SKU ${sku}: ${imgErr.message}`);
+                // Verificamos "ligero" si ya tiene imágenes (opcional, pero rápido)
+                const imgCheck = await client.query('SELECT 1 FROM product_images WHERE product_id = $1 LIMIT 1', [productId]);
+                if (imgCheck.rowCount === 0) {
+                    imageQueue.push({
+                        productId: productId,
+                        rawUrl: rawUrl,
+                        sku: sku,
+                        uploaderId: upload.uploaded_by
+                    });
                 }
             }
           }
 
-          // --- 4. Inserción de Lotes y Proveedores ---
-
-          // C. Proveedor
+          // --- 4. Inserción de Lotes ---
           let psId;
           const psCheck = await client.query('SELECT id FROM product_suppliers WHERE supplier_id = $1 AND supplier_sku = $2', [upload.supplier_id, sku]);
           if (psCheck.rows.length > 0) psId = psCheck.rows[0].id;
@@ -281,7 +242,6 @@ const ImportModel = {
             psId = psInsert.rows[0].id;
           }
 
-          // D. Crear el Lote
           let rawStatus = upload.sales_category || 'available';
           let lotStatus = rawStatus === 'regular' ? 'available' : rawStatus;
 
@@ -314,8 +274,10 @@ const ImportModel = {
         }
       }
       
-      await client.query('COMMIT');
-      return stats;
+      await client.query('COMMIT'); // ✅ CIERRE RÁPIDO DE TRANSACCIÓN
+      
+      // Devolvemos stats Y la cola de imágenes para procesar AFUERA
+      return { stats, imageQueue };
 
     } catch (e) {
       await client.query('ROLLBACK');
@@ -323,6 +285,73 @@ const ImportModel = {
     } finally {
       client.release();
     }
+  },
+
+  // ✅ NUEVO: PROCESADOR DE COLA DE IMÁGENES (PARALELO)
+  processImageQueue: async (queue) => {
+    // Procesamos en bloques de concurrencia controlada
+    for (let i = 0; i < queue.length; i += IMAGE_DOWNLOAD_CONCURRENCY) {
+        const chunk = queue.slice(i, i + IMAGE_DOWNLOAD_CONCURRENCY);
+        
+        // Lanzamos el bloque en paralelo
+        await Promise.all(chunk.map(async (task) => {
+            try {
+                await ImportModel.downloadAndSaveImage(task);
+            } catch (err) {
+                // Error silencioso en imagen individual para no detener el lote
+                // console.warn(`Error downloading image for ${task.sku}:`, err.message);
+            }
+        }));
+    }
+  },
+
+  // ✅ NUEVO: HELPER DE DESCARGA INDIVIDUAL
+  downloadAndSaveImage: async ({ productId, rawUrl, sku, uploaderId }) => {
+    const extMatch = rawUrl.match(/\.(jpg|jpeg|png|webp|gif)/i);
+    const ext = extMatch ? extMatch[0] : '.jpg';
+    const filename = `imp-${sku.replace(/[^a-z0-9]/gi, '_')}-${Date.now()}${ext}`;
+    
+    const localDir = path.join(process.cwd(), 'uploads', 'images');
+    if (!fs.existsSync(localDir)) fs.mkdirSync(localDir, { recursive: true });
+    
+    const localPath = path.join(localDir, filename);
+    const webPath = `/uploads/images/${filename}`;
+
+    return new Promise((resolve, reject) => {
+        const protocol = rawUrl.startsWith('https') ? https : http;
+        const request = protocol.get(rawUrl, (response) => {
+            if (response.statusCode === 200) {
+                const file = fs.createWriteStream(localPath);
+                response.pipe(file);
+                file.on('finish', async () => {
+                    file.close();
+                    // Guardar en BD (Operación atómica rápida)
+                    try {
+                        await db.query(
+                            `INSERT INTO product_images (product_id, image_url, image_name, is_primary, display_order, created_by)
+                             VALUES ($1, $2, $3, $4, $5, $6)`,
+                            [productId, webPath, filename, true, 0, uploaderId]
+                        );
+                        resolve();
+                    } catch (dbErr) {
+                        reject(dbErr);
+                    }
+                });
+            } else {
+                reject(new Error(`Status Code: ${response.statusCode}`));
+            }
+        });
+        
+        request.on('error', (err) => {
+            fs.unlink(localPath, () => {});
+            reject(err);
+        });
+        
+        request.setTimeout(15000, () => { // 15s timeout
+            request.destroy();
+            reject(new Error('Timeout'));
+        });
+    });
   },
 
   updateProgress: async (upload_id, data) => {
