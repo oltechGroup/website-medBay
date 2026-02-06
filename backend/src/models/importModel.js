@@ -2,6 +2,10 @@
 
 const db = require('../config/database');
 const XLSX = require('xlsx');
+const fs = require('fs');
+const path = require('path');
+const https = require('https');
+const http = require('http');
 
 const ImportModel = {
 
@@ -12,7 +16,6 @@ const ImportModel = {
   },
 
   getSupplierExchangeRate: async (supplier_id) => {
-    // Obtenemos la tasa y el código, pero ahora también el símbolo para reportes
     const query = `
       SELECT c.exchange_rate, c.currency_code, c.currency_symbol 
       FROM suppliers s 
@@ -45,7 +48,6 @@ const ImportModel = {
 
   cleanSupplierInventory: async (supplier_id, sales_category) => {
     let statusFilter = 'available';
-    // Mapeamos también aquí por si acaso se usa 'regular' en el frontend para limpieza
     if (sales_category === 'regular') statusFilter = 'available'; 
     if (sales_category === 'near_expiry') statusFilter = 'near_expiry';
     if (sales_category === 'expired') statusFilter = 'expired';
@@ -64,10 +66,10 @@ const ImportModel = {
       const uploadRes = await db.query('SELECT * FROM raw_uploads WHERE id = $1', [upload_id]);
       const upload = uploadRes.rows[0];
 
-      // 1. OBTENER TASA ACTUAL (EL CORAZÓN)
+      // 1. OBTENER TASA ACTUAL
       const currencyData = await ImportModel.getSupplierExchangeRate(upload.supplier_id);
       
-      // 2. FASE "PUENTE": Volcar Excel a raw_rows para manejar archivos de 35k+ sin saturar RAM
+      // 2. FASE "PUENTE": Volcar Excel a raw_rows
       await ImportModel.updateProgress(upload_id, { current_operation: 'Leyendo archivo masivo...', status: 'processing' });
       
       const workbook = XLSX.readFile(upload.file_path, { cellDates: true });
@@ -88,11 +90,11 @@ const ImportModel = {
 
       await ImportModel.updateProgress(upload_id, { total_rows: totalExcelRows, current_operation: 'Iniciando procesamiento de datos...' });
 
-      // 3. FASE PROCESAMIENTO: Consumir desde raw_rows
+      // 3. FASE PROCESAMIENTO
       let processedCounter = 0;
       let globalStats = { created_lots: 0, created_products: 0, created_manufacturers: 0, skipped_rows: 0 };
       const allErrors = [];
-      const processingBatchSize = 100;
+      const processingBatchSize = 50; // Reducido ligeramente por la descarga de imágenes
 
       while (processedCounter < totalExcelRows) {
         const rowsRes = await db.query(
@@ -118,7 +120,7 @@ const ImportModel = {
         });
       }
 
-      // 4. LIMPIEZA FINAL DEL PUENTE
+      // 4. LIMPIEZA FINAL
       await db.query("DELETE FROM raw_rows WHERE raw_upload_id = $1", [upload_id]);
 
       const progressStatus = allErrors.length > 0 ? 'completed_with_errors' : 'completed';
@@ -148,24 +150,19 @@ const ImportModel = {
         try {
           await client.query('SAVEPOINT row_processing');
 
-          // --- LÓGICA DE MAPEOS FLEXIBLES ---
-          
-          // 1. Descripción (CORAZÓN)
+          // --- 1. Mapeo de Datos Básicos ---
           const description = mappings.descripcion === 'not_applicable' ? null : item[mappings.descripcion];
           if (!description) {
             throw new Error(`Fila ${rowIndex}: La descripción es obligatoria.`);
           }
 
-          // 2. SKU Flexible
           let sku = mappings.codigo === 'not_applicable' ? null : String(item[mappings.codigo] || '').trim();
           if (!sku || mappings.codigo === 'not_applicable') {
             sku = `GEN-${Buffer.from(description).toString('base64').substring(0, 6).toUpperCase()}-${Date.now().toString().slice(-6)}`;
           }
 
-          // 3. Fabricante Flexible
           let manufacturerName = mappings.fabricante === 'not_applicable' ? 'No especificado' : String(item[mappings.fabricante] || 'No especificado').trim();
 
-          // 4. Precio y Divisas
           let rawPrice = 0;
           if (mappings.precio !== 'not_applicable') {
             const priceStr = String(item[mappings.precio] || '0').replace(/[^0-9.]/g, '');
@@ -175,11 +172,10 @@ const ImportModel = {
           const exchangeRateUsed = currencyData.exchange_rate || 1;
           const priceUSD = rawPrice / exchangeRateUsed;
 
-          // 5. Cantidad (PERMITIMOS 0)
           const quantity = mappings.cantidad === 'not_applicable' ? 0 : parseInt(item[mappings.cantidad]) || 0;
 
-          // --- INSERCIONES ---
-
+          // --- 2. Inserción de Estructura (Fabricante -> Producto) ---
+          
           // A. Fabricante
           let makerId;
           const makerRes = await client.query('SELECT id FROM manufacturers WHERE name = $1', [manufacturerName]);
@@ -200,6 +196,78 @@ const ImportModel = {
             stats.created_products++;
           }
 
+          // --- 3. PROCESAMIENTO DE IMÁGENES (NUEVO) ---
+          // Si existe mapeo de imagen y la URL es válida, intentamos descargarla.
+          // Usamos TRY/CATCH anidado para que si falla la imagen, NO falle el producto.
+          if (mappings.imagen_url && mappings.imagen_url !== 'not_applicable') {
+            const rawUrl = item[mappings.imagen_url];
+            // Validamos que sea un string y parezca una URL
+            if (rawUrl && typeof rawUrl === 'string' && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
+                try {
+                    // Verificar si el producto ya tiene imágenes para evitar duplicados masivos o trabajo extra
+                    // (Opcional: aquí asumimos que queremos importar si es nuevo o si queremos agregar)
+                    // Para ser eficientes: Solo descargamos si es un producto NUEVO o si no tiene imágenes
+                    const imgCheck = await client.query('SELECT COUNT(*) FROM product_images WHERE product_id = $1', [productId]);
+                    const currentImageCount = parseInt(imgCheck.rows[0].count);
+
+                    // Solo intentamos descargar si tiene pocas imágenes (ej. menos de 3) para no saturar
+                    // o si es la primera vez.
+                    if (currentImageCount === 0) {
+                        const extMatch = rawUrl.match(/\.(jpg|jpeg|png|webp|gif)/i);
+                        const ext = extMatch ? extMatch[0] : '.jpg';
+                        // Nombre único para evitar colisiones
+                        const filename = `imp-${sku.replace(/[^a-z0-9]/gi, '_')}-${Date.now()}${ext}`;
+                        
+                        // Ruta local donde se guardará
+                        const localDir = path.join(process.cwd(), 'uploads', 'images');
+                        if (!fs.existsSync(localDir)) fs.mkdirSync(localDir, { recursive: true });
+                        
+                        const localPath = path.join(localDir, filename);
+                        const webPath = `/uploads/images/${filename}`;
+
+                        // Descargar imagen
+                        await new Promise((resolve, reject) => {
+                            const protocol = rawUrl.startsWith('https') ? https : http;
+                            const request = protocol.get(rawUrl, (response) => {
+                                if (response.statusCode === 200) {
+                                    const file = fs.createWriteStream(localPath);
+                                    response.pipe(file);
+                                    file.on('finish', () => {
+                                        file.close(resolve);
+                                    });
+                                } else {
+                                    reject(new Error(`Status Code: ${response.statusCode}`));
+                                }
+                            });
+                            
+                            request.on('error', (err) => {
+                                fs.unlink(localPath, () => {}); // Borrar archivo corrupto/incompleto
+                                reject(err);
+                            });
+                            
+                            // Timeout de seguridad para no colgar el proceso (10 segundos)
+                            request.setTimeout(10000, () => {
+                                request.destroy();
+                                reject(new Error('Timeout descarga imagen'));
+                            });
+                        });
+
+                        // Insertar en BD si la descarga fue exitosa
+                        await client.query(
+                            `INSERT INTO product_images (product_id, image_url, image_name, is_primary, display_order, created_by)
+                             VALUES ($1, $2, $3, $4, $5, $6)`,
+                            [productId, webPath, filename, true, 0, upload.uploaded_by]
+                        );
+                    }
+                } catch (imgErr) {
+                    // Solo logueamos advertencia, no rompemos el flujo del lote
+                    // console.warn(`⚠️ Warning: No se pudo descargar imagen para SKU ${sku}: ${imgErr.message}`);
+                }
+            }
+          }
+
+          // --- 4. Inserción de Lotes y Proveedores ---
+
           // C. Proveedor
           let psId;
           const psCheck = await client.query('SELECT id FROM product_suppliers WHERE supplier_id = $1 AND supplier_sku = $2', [upload.supplier_id, sku]);
@@ -213,10 +281,8 @@ const ImportModel = {
             psId = psInsert.rows[0].id;
           }
 
-          // D. Crear el Lote (Final) - CON CORRECCIÓN DE ESTADO
-          
+          // D. Crear el Lote
           let rawStatus = upload.sales_category || 'available';
-          // ✅ FIX CRÍTICO: Traducir 'regular' a 'available' para cumplir CHECK Constraint de PostgreSQL
           let lotStatus = rawStatus === 'regular' ? 'available' : rawStatus;
 
           let expiryDate = null;
