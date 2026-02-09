@@ -115,10 +115,10 @@ const importController = {
     });
 
     // --- PROCESO EN BACKGROUND ---
-    // Usamos el nuevo motor que creamos en el ImportModel para manejar las 35,000+ filas
-    // Este proceso ahora usa la tabla puente raw_rows para no saturar la RAM.
+    // Usamos el nuevo motor optimizado que creamos en el ImportModel
     try {
       console.log(`🚀 Iniciando ejecución de importación ID: ${upload_id}`);
+      // Nota: executeImportProcess ahora incluye lógica "non-blocking" para CPU
       await ImportModel.executeImportProcess(upload_id, mappings);
       console.log(`✅ Importación ID: ${upload_id} finalizada.`);
     } catch (error) {
@@ -153,6 +153,33 @@ const importController = {
       res.json({ success: true, stats });
     } catch (error) {
       res.status(500).json({ error: error.message });
+    }
+  },
+
+  // ✅ 8. NUEVO: ESTADO ACTIVO GLOBAL (Para la ventana flotante)
+  getActiveStatus: async (req, res) => {
+    try {
+      // Reutilizamos el historial para buscar si hay algo corriendo
+      // Esto evita tener que crear una query nueva en el modelo
+      const history = await ImportModel.getImportHistory();
+      
+      // Buscamos el primero que esté 'processing'
+      // (Ignoramos 'uploaded' porque eso es solo estar en el wizard, no consumiendo CPU)
+      const active = history.find(item => item.status === 'processing');
+
+      if (active) {
+         // Si hay uno activo, obtenemos sus detalles precisos (porcentajes)
+         const progress = await ImportModel.getImportProgress(active.id);
+         return res.json({ success: true, activeImport: progress });
+      }
+
+      // Si no hay nada corriendo
+      res.json({ success: true, activeImport: null });
+
+    } catch (error) {
+      // No fallamos con error 500 para no romper el polling del frontend
+      console.error('Error checking active status:', error);
+      res.json({ success: false, activeImport: null });
     }
   }
 };

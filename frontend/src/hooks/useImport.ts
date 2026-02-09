@@ -1,4 +1,4 @@
-//frontend/src/hooks/useImport.ts
+// frontend/src/hooks/useImport.ts
 
 import { useState, useCallback } from 'react';
 import { api } from '@/lib/api';
@@ -92,6 +92,18 @@ export const useImport = () => {
     return res.data.progress;
   };
 
+  // ✅ NUEVA FUNCIÓN: Obtener estado global activo
+  // Retorna null si no hay nada, o el objeto ImportProgress si hay algo procesando
+  const getActiveStatus = useCallback(async (): Promise<ImportProgress | null> => {
+    try {
+        const res = await api.get('/import/active-status');
+        return res.data.activeImport;
+    } catch (err) {
+        // En caso de error de red, asumimos que no hay nada activo para no molestar al usuario
+        return null;
+    }
+  }, []);
+
   // useCallback agregado para estabilidad del historial
   const getHistory = useCallback(async () => {
     try {
@@ -123,6 +135,7 @@ export const useImport = () => {
     startProcessing,
     getImportProgress,
     getHistory,
-    getStats
+    getStats,
+    getActiveStatus // ✅ Exportamos la nueva función
   };
 };

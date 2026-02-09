@@ -60,7 +60,7 @@ const ImportModel = {
     return result.rowCount;
   },
 
-  // --- LÓGICA DE PROCESAMIENTO MASIVO (MOTOR ASÍNCRONO OPTIMIZADO) ---
+  // --- LÓGICA DE PROCESAMIENTO MASIVO (MOTOR ASÍNCRONO OPTIMIZADO + NO BLOQUEANTE) ---
 
   executeImportProcess: async (upload_id, mappings) => {
     try {
@@ -83,12 +83,15 @@ const ImportModel = {
       // Limpieza de seguridad
       await db.query("DELETE FROM raw_rows WHERE raw_upload_id = $1", [upload_id]);
 
-      // Insertar en raw_rows en batches (Optimizamos batch size para velocidad)
+      // Insertar en raw_rows en batches
       const bridgeBatchSize = 1000; 
       for (let i = 0; i < rawData.length; i += bridgeBatchSize) {
         const chunk = rawData.slice(i, i + bridgeBatchSize);
         const values = chunk.map((row, idx) => `('${upload_id}', ${i + idx}, '${JSON.stringify(row).replace(/'/g, "''")}')`).join(',');
         await db.query(`INSERT INTO raw_rows (raw_upload_id, row_index, raw_data) VALUES ${values}`);
+        
+        // ✅ RESPIRADERO DE CPU: Permitir que el Event Loop respire entre lecturas masivas
+        await new Promise(resolve => setImmediate(resolve));
       }
 
       await ImportModel.updateProgress(upload_id, { total_rows: totalExcelRows, current_operation: 'Iniciando procesamiento rápido...' });
@@ -98,8 +101,6 @@ const ImportModel = {
       let globalStats = { created_lots: 0, created_products: 0, created_manufacturers: 0, skipped_rows: 0 };
       const allErrors = [];
       
-      // ✅ AUMENTAMOS BATCH SIZE: Como ya no descargamos imágenes dentro de la transacción,
-      // podemos procesar bloques mucho más grandes sin bloquear la BD.
       const processingBatchSize = 200; 
 
       while (processedCounter < totalExcelRows) {
@@ -110,7 +111,7 @@ const ImportModel = {
 
         if (rowsRes.rows.length === 0) break;
 
-        // ✅ PROCESAMIENTO OPTIMIZADO: Devuelve stats Y una cola de imágenes pendientes
+        // Procesamiento principal
         const { stats: batchStats, imageQueue } = await ImportModel.processBatch(rowsRes.rows, upload, currencyData, mappings, allErrors);
         
         globalStats.created_lots += batchStats.created_lots;
@@ -118,20 +119,24 @@ const ImportModel = {
         globalStats.created_manufacturers += batchStats.created_manufacturers;
         globalStats.skipped_rows += batchStats.skipped;
 
-        // ✅ DESCARGA EN PARALELO (POST-COMMIT)
-        // Procesamos la cola de imágenes fuera de la transacción de BD
+        // Descarga de imágenes en paralelo
         if (imageQueue.length > 0) {
             await ImportModel.processImageQueue(imageQueue);
         }
 
         processedCounter += rowsRes.rows.length;
 
-        // Actualizamos progreso con menos frecuencia para no saturar DB (cada 5% o cada batch grande)
+        // Guardar progreso en DB
         await ImportModel.updateProgress(upload_id, { 
           processed_rows: processedCounter, 
           current_operation: `Procesando... (${Math.round((processedCounter/totalExcelRows)*100)}%)`,
           stats: globalStats
         });
+
+        // ✅ RESPIRADERO DE CPU CRÍTICO: 
+        // Esto libera el hilo de Node.js para atender otras peticiones HTTP (login, ver órdenes, etc.)
+        // antes de continuar con el siguiente bloque de 200 productos.
+        await new Promise(resolve => setImmediate(resolve));
       }
 
       // 4. LIMPIEZA FINAL
@@ -153,7 +158,7 @@ const ImportModel = {
   processBatch: async (dbRows, upload, currencyData, mappings, errors) => {
     const client = await db.pool.connect();
     let stats = { created_lots: 0, created_products: 0, created_manufacturers: 0, skipped: 0 };
-    let imageQueue = []; // ✅ COLA TEMPORAL PARA IMÁGENES
+    let imageQueue = []; 
 
     try {
       await client.query('BEGIN');
@@ -165,7 +170,6 @@ const ImportModel = {
         try {
           await client.query('SAVEPOINT row_processing');
 
-          // --- 1. Mapeo de Datos Básicos ---
           const description = mappings.descripcion === 'not_applicable' ? null : item[mappings.descripcion];
           if (!description) {
             throw new Error(`Fila ${rowIndex}: La descripción es obligatoria.`);
@@ -189,8 +193,6 @@ const ImportModel = {
 
           const quantity = mappings.cantidad === 'not_applicable' ? 0 : parseInt(item[mappings.cantidad]) || 0;
 
-          // --- 2. Inserción de Estructura ---
-          
           // A. Fabricante
           let makerId;
           const makerRes = await client.query('SELECT id FROM manufacturers WHERE name = $1', [manufacturerName]);
@@ -211,12 +213,10 @@ const ImportModel = {
             stats.created_products++;
           }
 
-          // --- 3. RECOLECCIÓN DE IMÁGENES (DIFERIDO) ---
-          // En lugar de descargar aquí, guardamos la tarea para después del COMMIT.
+          // Recolección de Imágenes
           if (mappings.imagen_url && mappings.imagen_url !== 'not_applicable') {
             const rawUrl = item[mappings.imagen_url];
             if (rawUrl && typeof rawUrl === 'string' && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
-                // Verificamos "ligero" si ya tiene imágenes (opcional, pero rápido)
                 const imgCheck = await client.query('SELECT 1 FROM product_images WHERE product_id = $1 LIMIT 1', [productId]);
                 if (imgCheck.rowCount === 0) {
                     imageQueue.push({
@@ -229,7 +229,7 @@ const ImportModel = {
             }
           }
 
-          // --- 4. Inserción de Lotes ---
+          // C. Proveedor
           let psId;
           const psCheck = await client.query('SELECT id FROM product_suppliers WHERE supplier_id = $1 AND supplier_sku = $2', [upload.supplier_id, sku]);
           if (psCheck.rows.length > 0) psId = psCheck.rows[0].id;
@@ -242,6 +242,7 @@ const ImportModel = {
             psId = psInsert.rows[0].id;
           }
 
+          // D. Lote
           let rawStatus = upload.sales_category || 'available';
           let lotStatus = rawStatus === 'regular' ? 'available' : rawStatus;
 
@@ -274,9 +275,7 @@ const ImportModel = {
         }
       }
       
-      await client.query('COMMIT'); // ✅ CIERRE RÁPIDO DE TRANSACCIÓN
-      
-      // Devolvemos stats Y la cola de imágenes para procesar AFUERA
+      await client.query('COMMIT');
       return { stats, imageQueue };
 
     } catch (e) {
@@ -287,25 +286,17 @@ const ImportModel = {
     }
   },
 
-  // ✅ NUEVO: PROCESADOR DE COLA DE IMÁGENES (PARALELO)
   processImageQueue: async (queue) => {
-    // Procesamos en bloques de concurrencia controlada
     for (let i = 0; i < queue.length; i += IMAGE_DOWNLOAD_CONCURRENCY) {
         const chunk = queue.slice(i, i + IMAGE_DOWNLOAD_CONCURRENCY);
-        
-        // Lanzamos el bloque en paralelo
         await Promise.all(chunk.map(async (task) => {
             try {
                 await ImportModel.downloadAndSaveImage(task);
-            } catch (err) {
-                // Error silencioso en imagen individual para no detener el lote
-                // console.warn(`Error downloading image for ${task.sku}:`, err.message);
-            }
+            } catch (err) {}
         }));
     }
   },
 
-  // ✅ NUEVO: HELPER DE DESCARGA INDIVIDUAL
   downloadAndSaveImage: async ({ productId, rawUrl, sku, uploaderId }) => {
     const extMatch = rawUrl.match(/\.(jpg|jpeg|png|webp|gif)/i);
     const ext = extMatch ? extMatch[0] : '.jpg';
@@ -325,7 +316,6 @@ const ImportModel = {
                 response.pipe(file);
                 file.on('finish', async () => {
                     file.close();
-                    // Guardar en BD (Operación atómica rápida)
                     try {
                         await db.query(
                             `INSERT INTO product_images (product_id, image_url, image_name, is_primary, display_order, created_by)
@@ -347,7 +337,7 @@ const ImportModel = {
             reject(err);
         });
         
-        request.setTimeout(15000, () => { // 15s timeout
+        request.setTimeout(15000, () => {
             request.destroy();
             reject(new Error('Timeout'));
         });

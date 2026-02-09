@@ -1,10 +1,12 @@
-//frontend/src/app/dashboard/layout.tsx
+// frontend/src/app/dashboard/layout.tsx
 'use client';
 
 import { useState } from 'react';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import DashboardSidebar from '@/components/layout/DashboardSidebar';
 import Header from '@/components/layout/Header';
+// ✅ IMPORTACIÓN NUEVA: La ventanita flotante
+import GlobalImportStatus from '@/components/layout/GlobalImportStatus';
 import { cn } from '@/lib/utils'; // Utilidad para clases condicionales
 
 export default function DashboardLayout({
@@ -22,7 +24,7 @@ export default function DashboardLayout({
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-slate-50 font-sans">
+      <div className="min-h-screen bg-slate-50 font-sans relative">
         
         {/* 1. HEADER GLOBAL (Fixed Top) */}
         {/* Le pasamos el estado para que sepa cuánto margen dejar a la izquierda */}
@@ -69,6 +71,10 @@ export default function DashboardLayout({
             onClick={() => setSidebarOpen(false)}
           />
         )}
+
+        {/* ✅ 5. COMPONENTE GLOBAL DE PROGRESO DE IMPORTACIÓN */}
+        {/* Se renderiza aquí para estar disponible en TODAS las páginas del dashboard */}
+        <GlobalImportStatus />
 
       </div>
     </ProtectedRoute>

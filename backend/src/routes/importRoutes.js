@@ -48,6 +48,9 @@ router.post('/clean-catalog', importController.cleanCatalog);
 router.post('/process', importController.processImport);
 
 // 6. Monitoreo y Estadísticas
+// ✅ NUEVA RUTA: Estado Activo Global (Para la ventanita flotante)
+router.get('/active-status', importController.getActiveStatus);
+
 router.get('/progress/:upload_id', importController.getProgress);
 router.get('/history', importController.getHistory);
 router.get('/stats', importController.getStats);
