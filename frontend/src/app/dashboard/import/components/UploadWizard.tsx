@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useImport, ImportProgress } from '@/hooks/useImport';
 import { useSuppliersBasic } from '@/hooks/useSuppliers';
 import { useCountriesBasic } from '@/hooks/useCountries';
-import { useAuth } from '@/hooks/useAuth'; // ✅ IMPORTANTE: Hook de autenticación
+import { useAuth } from '@/hooks/useAuth';
 import { 
   Building, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, Trash2, FileText, Lock
 } from 'lucide-react';
@@ -21,13 +21,13 @@ const CATEGORIES = [
 ];
 
 export const UploadWizard = () => {
-  const { user } = useAuth(); // ✅ Acceso al usuario actual
+  const { user } = useAuth();
   const { suppliers } = useSuppliersBasic();
   const { data: countries } = useCountriesBasic();
   
   const { 
     createQuickSupplier, cleanCatalog, uploadFile, 
-    getMappingTemplate, startProcessing
+    getMappingTemplate, startProcessing, getActiveStatus // ✅ IMPORTANTE: Agregamos getActiveStatus
   } = useImport();
 
   const [step, setStep] = useState(1);
@@ -53,15 +53,36 @@ export const UploadWizard = () => {
   
   const [localSuppliers, setLocalSuppliers] = useState<any[]>([]);
   
-  // ✅ Verificación de Rol de Administrador
   const isAdmin = user?.verification_level === 'admin';
 
-  // CORRECCIÓN: Resetear estado de limpieza cuando cambia la categoría
+  // ✅ EFECTO DE AUTO-RESTAURACIÓN (MEMORIA DE SESIÓN)
+  useEffect(() => {
+    const checkSession = async () => {
+        // Solo verificamos si estamos en el paso 1 (para no interrumpir si el usuario ya está haciendo algo)
+        if (step === 1) {
+            const active = await getActiveStatus();
+            if (active && active.id) {
+                // Si encontramos una sesión (activa o terminada recientemente)
+                setUploadId(active.id);
+                
+                // Si ya terminó, seteamos el progreso para mostrar resultados inmediatamente
+                if (['completed', 'completed_with_errors', 'finished', 'failed'].includes(active.status)) {
+                    setProgress(active);
+                }
+                
+                // Saltamos directo al paso 4
+                setStep(4);
+            }
+        }
+    };
+    checkSession();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Se ejecuta solo al montar el componente
+
   useEffect(() => {
      setCleaned(false);
   }, [category, supplierId]);
   
-  // Filtro de proveedores activos
   const activeSuppliers = [...(suppliers || []).filter((s: any) => s.is_active !== false && s.is_active !== 'f'), ...localSuppliers];
 
   const selectedSupplierData = activeSuppliers.find((s:any) => s.id === supplierId);
@@ -149,7 +170,6 @@ export const UploadWizard = () => {
             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
               <span className="flex items-center"><Building className="mr-2 h-5 w-5 text-blue-600"/> Proveedor</span>
               
-              {/* ✅ BLINDAJE VISUAL: Solo el admin ve el botón de crear */}
               {isAdmin && (
                 <button onClick={() => setShowCreateModal(true)} className="text-sm text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-3 py-1 rounded-full transition-colors">
                   + Nuevo Proveedor
@@ -186,7 +206,6 @@ export const UploadWizard = () => {
                 {cleaned ? (
                   <span className="flex items-center text-green-700 font-bold text-sm bg-green-100 px-4 py-2 rounded-lg border border-green-200 shadow-sm"><CheckCircle2 className="w-4 h-4 mr-2"/> Listo</span>
                 ) : (
-                  // ✅ BLINDAJE VISUAL: Solo el admin puede borrar
                   isAdmin ? (
                     <button onClick={() => setShowCleanModal(true)} className="flex items-center bg-white border border-orange-300 text-orange-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors shadow-sm"><Trash2 className="w-4 h-4 mr-2"/> Limpiar Ahora</button>
                   ) : (
@@ -229,7 +248,7 @@ export const UploadWizard = () => {
       {step === 4 && (
         <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in zoom-in-95">
            <ImportProgressComponent uploadId={uploadId} onComplete={(data) => setProgress(data)} />
-           {progress && ['completed', 'completed_with_errors'].includes(progress.status) && (
+           {progress && ['completed', 'completed_with_errors', 'finished', 'failed'].includes(progress.status) && (
              <ImportResults progressData={progress} onNewImport={handleReset} />
            )}
         </div>

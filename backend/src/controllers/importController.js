@@ -115,10 +115,10 @@ const importController = {
     });
 
     // --- PROCESO EN BACKGROUND ---
-    // Usamos el nuevo motor optimizado que creamos en el ImportModel
+    // Usamos el nuevo motor optimizado que creamos en el ImportModel para manejar las 35,000+ filas
     try {
       console.log(`🚀 Iniciando ejecución de importación ID: ${upload_id}`);
-      // Nota: executeImportProcess ahora incluye lógica "non-blocking" para CPU
+      // Nota: executeImportProcess ahora incluye lógica "non-blocking" para CPU y descarga diferida de imágenes
       await ImportModel.executeImportProcess(upload_id, mappings);
       console.log(`✅ Importación ID: ${upload_id} finalizada.`);
     } catch (error) {
@@ -156,28 +156,28 @@ const importController = {
     }
   },
 
-  // ✅ 8. NUEVO: ESTADO ACTIVO GLOBAL (Para la ventana flotante)
+  // ✅ 8. ESTADO ACTIVO GLOBAL (MEJORADO PARA PERSISTENCIA)
   getActiveStatus: async (req, res) => {
     try {
-      // Reutilizamos el historial para buscar si hay algo corriendo
-      // Esto evita tener que crear una query nueva en el modelo
+      // Obtenemos el historial (ordenado por fecha descendente, el [0] es el último)
       const history = await ImportModel.getImportHistory();
       
-      // Buscamos el primero que esté 'processing'
-      // (Ignoramos 'uploaded' porque eso es solo estar en el wizard, no consumiendo CPU)
-      const active = history.find(item => item.status === 'processing');
+      // Tomamos SIEMPRE la última importación realizada, sin importar su estado
+      // Esto permite que si terminó (failed/completed), el frontend pueda mostrar el resultado
+      // hasta que el usuario decida iniciar una nueva.
+      const latestImport = history[0];
 
-      if (active) {
-         // Si hay uno activo, obtenemos sus detalles precisos (porcentajes)
-         const progress = await ImportModel.getImportProgress(active.id);
+      if (latestImport) {
+         // Obtenemos los detalles completos de esa importación
+         const progress = await ImportModel.getImportProgress(latestImport.id);
          return res.json({ success: true, activeImport: progress });
       }
 
-      // Si no hay nada corriendo
+      // Si no existe historial alguno
       res.json({ success: true, activeImport: null });
 
     } catch (error) {
-      // No fallamos con error 500 para no romper el polling del frontend
+      // Manejo de error silencioso para no romper el polling del frontend
       console.error('Error checking active status:', error);
       res.json({ success: false, activeImport: null });
     }
