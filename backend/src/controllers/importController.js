@@ -28,13 +28,12 @@ const importController = {
       const { supplier_id, sales_category } = req.body;
       
       // Optimizamos la lectura inicial: solo cargamos las primeras 10 filas
-      // Esto es solo para que el usuario vea sus columnas y haga el mapeo.
       const workbook = XLSX.readFile(req.file.path, { sheetRows: 10 });
       const sheetName = workbook.SheetNames[0];
       const previewData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
       const columns = previewData.length > 0 ? Object.keys(previewData[0]) : [];
 
-      // Registrar el upload en BD para tener seguimiento del archivo físico
+      // Registrar el upload en BD
       const uploadId = await ImportModel.createUploadRecord({
         filename: req.file.originalname,
         path: req.file.path,
@@ -48,7 +47,7 @@ const importController = {
         upload_id: uploadId,
         preview: previewData,
         columns: columns,
-        total_rows_estimate: 0 // Se calculará con precisión en el executeImportProcess
+        total_rows_estimate: 0
       });
 
     } catch (error) {
@@ -57,7 +56,7 @@ const importController = {
     }
   },
 
-  // 3. Previsualización (Mantenido por compatibilidad)
+  // 3. Previsualización
   getPreview: async (req, res) => {
     res.json({ message: "Usar datos retornados en upload" });
   },
@@ -99,7 +98,7 @@ const importController = {
     }
   },
 
-  // 6. PROCESAMIENTO PRINCIPAL (MOTOR ASÍNCRONO)
+  // 6. PROCESAMIENTO PRINCIPAL
   processImport: async (req, res) => {
     const { upload_id, mappings } = req.body;
     
@@ -108,22 +107,18 @@ const importController = {
     }
 
     // --- RESPUESTA INMEDIATA ---
-    // Liberamos al frontend para que muestre la barra de progreso
     res.json({ 
       success: true, 
       message: 'El procesamiento masivo ha comenzado en segundo plano.' 
     });
 
     // --- PROCESO EN BACKGROUND ---
-    // Usamos el nuevo motor optimizado que creamos en el ImportModel para manejar las 35,000+ filas
     try {
       console.log(`🚀 Iniciando ejecución de importación ID: ${upload_id}`);
-      // Nota: executeImportProcess ahora incluye lógica "non-blocking" para CPU y descarga diferida de imágenes
       await ImportModel.executeImportProcess(upload_id, mappings);
       console.log(`✅ Importación ID: ${upload_id} finalizada.`);
     } catch (error) {
       console.error("❌ Error CRÍTICO en el proceso de fondo:", error);
-      // Registramos el error en la tabla de progreso para que el usuario sepa qué falló
       await ImportModel.logFatalError(upload_id, error.message);
     }
   },
@@ -156,29 +151,47 @@ const importController = {
     }
   },
 
-  // ✅ 8. ESTADO ACTIVO GLOBAL (MEJORADO PARA PERSISTENCIA)
+  // ✅ 8. ESTADO ACTIVO GLOBAL (CORREGIDO Y MAS INTELIGENTE)
   getActiveStatus: async (req, res) => {
     try {
       // Obtenemos el historial (ordenado por fecha descendente, el [0] es el último)
       const history = await ImportModel.getImportHistory();
-      
-      // Tomamos SIEMPRE la última importación realizada, sin importar su estado
-      // Esto permite que si terminó (failed/completed), el frontend pueda mostrar el resultado
-      // hasta que el usuario decida iniciar una nueva.
       const latestImport = history[0];
 
       if (latestImport) {
-         // Obtenemos los detalles completos de esa importación
-         const progress = await ImportModel.getImportProgress(latestImport.id);
-         return res.json({ success: true, activeImport: progress });
+         // --- LÓGICA DE FILTRADO PARA EVITAR ZOMBIES ---
+         
+         // 1. Si está procesando, SIEMPRE lo devolvemos (es lo más importante)
+         if (latestImport.status === 'processing') {
+             const progress = await ImportModel.getImportProgress(latestImport.id);
+             return res.json({ success: true, activeImport: progress });
+         }
+
+         // 2. Si ya terminó (éxito o fallo), verificamos la FECHA.
+         // Si tiene más de 24 horas de antigüedad, asumimos que ya no es relevante 
+         // y devolvemos null para permitir nuevas importaciones.
+         const importDate = new Date(latestImport.created_at);
+         const oneDayAgo = new Date();
+         oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+
+         if (importDate > oneDayAgo) {
+             // Es reciente (menos de 24h), intentamos obtener progreso
+             const progress = await ImportModel.getImportProgress(latestImport.id);
+             
+             // Validación extra: Si por alguna razón el progreso no existe (base de datos inconsistente)
+             // devolvemos null para no romper el frontend.
+             if (progress) {
+                return res.json({ success: true, activeImport: progress });
+             }
+         }
       }
 
-      // Si no existe historial alguno
+      // Si no hay nada reciente o activo, devolvemos null (limpio)
       res.json({ success: true, activeImport: null });
 
     } catch (error) {
-      // Manejo de error silencioso para no romper el polling del frontend
       console.error('Error checking active status:', error);
+      // En caso de error, devolvemos null para liberar la interfaz
       res.json({ success: false, activeImport: null });
     }
   }
