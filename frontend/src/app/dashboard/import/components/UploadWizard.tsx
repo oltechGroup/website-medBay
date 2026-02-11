@@ -27,7 +27,7 @@ export const UploadWizard = () => {
   
   const { 
     createQuickSupplier, cleanCatalog, uploadFile, 
-    getMappingTemplate, startProcessing, getActiveStatus // ✅ IMPORTANTE: Agregamos getActiveStatus
+    getMappingTemplate, startProcessing, getActiveStatus
   } = useImport();
 
   const [step, setStep] = useState(1);
@@ -58,26 +58,21 @@ export const UploadWizard = () => {
   // ✅ EFECTO DE AUTO-RESTAURACIÓN (MEMORIA DE SESIÓN)
   useEffect(() => {
     const checkSession = async () => {
-        // Solo verificamos si estamos en el paso 1 (para no interrumpir si el usuario ya está haciendo algo)
         if (step === 1) {
             const active = await getActiveStatus();
             if (active && active.id) {
-                // Si encontramos una sesión (activa o terminada recientemente)
                 setUploadId(active.id);
-                
-                // Si ya terminó, seteamos el progreso para mostrar resultados inmediatamente
+                // Si ya terminó, seteamos el progreso para que la UI sepa que hay resultados
                 if (['completed', 'completed_with_errors', 'finished', 'failed'].includes(active.status)) {
                     setProgress(active);
                 }
-                
-                // Saltamos directo al paso 4
                 setStep(4);
             }
         }
     };
     checkSession();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Se ejecuta solo al montar el componente
+  }, []);
 
   useEffect(() => {
      setCleaned(false);
@@ -151,6 +146,9 @@ export const UploadWizard = () => {
     setProgress(null);
     setCleaned(false);
   };
+
+  // Variable auxiliar para saber si terminó
+  const isFinished = progress && ['completed', 'completed_with_errors', 'finished', 'failed'].includes(progress.status);
 
   return (
     <div className="p-8">
@@ -245,12 +243,25 @@ export const UploadWizard = () => {
         </div>
       )}
 
+      {/* ✅ CORRECCIÓN VISUAL: Estados mutuamente excluyentes */}
       {step === 4 && (
         <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in zoom-in-95">
-           <ImportProgressComponent uploadId={uploadId} onComplete={(data) => setProgress(data)} />
-           {progress && ['completed', 'completed_with_errors', 'finished', 'failed'].includes(progress.status) && (
-             <ImportResults progressData={progress} onNewImport={handleReset} />
+           
+           {!isFinished ? (
+             // CASO A: Aún procesando (Muestra la barra animada)
+             <ImportProgressComponent uploadId={uploadId} onComplete={(data) => setProgress(data)} />
+           ) : (
+             // CASO B: Ya terminó (Muestra SOLO los resultados y el título)
+             <div className="space-y-4">
+                <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
+                    <div className="bg-slate-100 p-2 rounded-full"><FileText className="w-5 h-5 text-slate-600"/></div>
+                    <h2 className="text-xl font-bold text-gray-800">Resultados de la Última Importación</h2>
+                </div>
+                {/* Pasamos 'progress' como data porque ya está completo */}
+                <ImportResults progressData={progress!} onNewImport={handleReset} />
+             </div>
            )}
+
         </div>
       )}
 
