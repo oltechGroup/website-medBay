@@ -1,11 +1,11 @@
 // backend/src/controllers/documentController.js
 
 const { Pool } = require('pg');
-const transporter = require('../config/mailer'); // ✅ Necesario para email
+const nodemailer = require('nodemailer'); // ✅ CAMBIO 1: Usamos nodemailer directo
 const { 
   generateDocumentUpdateTemplate, 
   getBrandingAttachments 
-} = require('../utils/emailTemplates'); // ✅ Template nuevo
+} = require('../utils/emailTemplates');
 
 // Configuración de la Base de Datos
 const pool = new Pool({
@@ -17,6 +17,18 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false
   }
+});
+
+// ✅ CAMBIO 2: Definimos el transporter AQUÍ MISMO (Igual que en userController)
+// Esto elimina el error 500 causado por diferencias en la configuración externa.
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: process.env.EMAIL_PORT,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
 const documentController = {
@@ -109,13 +121,14 @@ const documentController = {
       const updateRes = await pool.query(updateQuery, [newPath, notes || 'Actualización por usuario', id]);
 
       // 4. 🚨 ALERTA DE SEGURIDAD AL ADMIN
+      // Preparamos el HTML del correo
       const htmlContent = generateDocumentUpdateTemplate({
         userName: doc.full_name,
         documentType: doc.document_type,
         notes: notes || 'El usuario ha reemplazado el archivo manualmente.'
       });
 
-      // Insertar Notificación
+      // Insertar Notificación en Panel
       await pool.query(
         'INSERT INTO notifications (type, sender_name, sender_email, subject, content) VALUES ($1, $2, $3, $4, $5)',
         [
@@ -130,7 +143,7 @@ const documentController = {
         ]
       );
 
-      // Enviar Correo
+      // ✅ Enviar Correo (Ahora usa el transporter local correctamente configurado)
       await transporter.sendMail({
         from: `"Seguridad MedBay" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com",
@@ -146,7 +159,7 @@ const documentController = {
 
     } catch (error) {
       console.error('Error reemplazando documento:', error);
-      res.status(500).json({ error: 'Error interno' });
+      res.status(500).json({ error: 'Error interno al procesar actualización' });
     }
   },
 

@@ -1,3 +1,4 @@
+// frontend/src/app/profile/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -77,7 +78,7 @@ export default function ProfilePage() {
   if (!user) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 pt-24 md:pt-28 font-sans">
+    <div className="min-h-screen bg-slate-50 pb-20 pt-24 md:pt-28 font-sans text-slate-900">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         
         {/* ENCABEZADO */}
@@ -151,7 +152,8 @@ export default function ProfilePage() {
                     type="text" 
                     value={phoneForm} 
                     onChange={(e) => setPhoneForm(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    // ✅ CORRECCIÓN: Agregado text-slate-900 para visibilidad
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                     placeholder="Tu número..."
                   />
                   <button 
@@ -427,38 +429,35 @@ function AddressModal({ address, onClose }: { address: Address | null, onClose: 
           <h3 className={`font-black text-xl tracking-tight ${isFiscal ? 'text-amber-700' : 'text-slate-800'}`}>
             {isEdit ? (isFiscal ? 'Modificar Datos Fiscales' : 'Editar Dirección') : 'Nueva Dirección'}
           </h3>
-          {isFiscal && (
-            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mt-2 bg-white px-3 py-1 rounded-full border border-amber-200 w-fit">
-              Sujeto a validación administrativa
-            </p>
-          )}
+          {/* ✅ CORRECCIÓN: Eliminado texto de "Sujeto a validación" */}
         </div>
         
         <form onSubmit={handleSubmit} className="p-8 space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Calle</label>
-              <input required value={formData.street} onChange={e => setFormData({...formData, street: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
+              {/* ✅ CORRECCIÓN: Agregado text-slate-900 placeholder:text-slate-400 a todos los inputs */}
+              <input required value={formData.street} onChange={e => setFormData({...formData, street: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Num Ext.</label>
-              <input required value={formData.street_number} onChange={e => setFormData({...formData, street_number: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
+              <input required value={formData.street_number} onChange={e => setFormData({...formData, street_number: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">CP</label>
-              <input required value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
+              <input required value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
             <div className="col-span-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Colonia</label>
-              <input required value={formData.colony} onChange={e => setFormData({...formData, colony: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
+              <input required value={formData.colony} onChange={e => setFormData({...formData, colony: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Ciudad</label>
-              <input required value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
+              <input required value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Estado</label>
-              <input required value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
+              <input required value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
           </div>
 
