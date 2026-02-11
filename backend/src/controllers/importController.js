@@ -151,47 +151,48 @@ const importController = {
     }
   },
 
-  // ✅ 8. ESTADO ACTIVO GLOBAL (CORREGIDO Y MAS INTELIGENTE)
+  // ✅ 8. ESTADO ACTIVO GLOBAL (INTELIGENTE: IGNORA BORRADORES)
   getActiveStatus: async (req, res) => {
     try {
-      // Obtenemos el historial (ordenado por fecha descendente, el [0] es el último)
+      // Obtenemos el historial (el [0] es el último registrado)
       const history = await ImportModel.getImportHistory();
       const latestImport = history[0];
 
       if (latestImport) {
-         // --- LÓGICA DE FILTRADO PARA EVITAR ZOMBIES ---
+         // --- LÓGICA DE FILTRADO ---
+
+         // 🛡️ REGLA ANTI-BLOQUEO: Si el estado es 'uploaded', lo ignoramos.
+         // Esto significa que el usuario subió el archivo pero nunca inició el proceso.
+         // Devolvemos NULL para que el sistema permita una nueva importación.
+         if (latestImport.status === 'uploaded') {
+             return res.json({ success: true, activeImport: null });
+         }
          
-         // 1. Si está procesando, SIEMPRE lo devolvemos (es lo más importante)
+         // 1. Si está procesando, SIEMPRE lo devolvemos (es prioridad para la UI)
          if (latestImport.status === 'processing') {
              const progress = await ImportModel.getImportProgress(latestImport.id);
              return res.json({ success: true, activeImport: progress });
          }
 
-         // 2. Si ya terminó (éxito o fallo), verificamos la FECHA.
-         // Si tiene más de 24 horas de antigüedad, asumimos que ya no es relevante 
-         // y devolvemos null para permitir nuevas importaciones.
+         // 2. Si ya terminó (éxito o fallo), verificamos la caducidad (24 horas)
          const importDate = new Date(latestImport.created_at);
          const oneDayAgo = new Date();
          oneDayAgo.setHours(oneDayAgo.getHours() - 24);
 
          if (importDate > oneDayAgo) {
-             // Es reciente (menos de 24h), intentamos obtener progreso
              const progress = await ImportModel.getImportProgress(latestImport.id);
-             
-             // Validación extra: Si por alguna razón el progreso no existe (base de datos inconsistente)
-             // devolvemos null para no romper el frontend.
+             // Si el progreso existe, lo devolvemos para mostrar resultados
              if (progress) {
                 return res.json({ success: true, activeImport: progress });
              }
          }
       }
 
-      // Si no hay nada reciente o activo, devolvemos null (limpio)
+      // Si no hay nada relevante, devolvemos null
       res.json({ success: true, activeImport: null });
 
     } catch (error) {
       console.error('Error checking active status:', error);
-      // En caso de error, devolvemos null para liberar la interfaz
       res.json({ success: false, activeImport: null });
     }
   }
