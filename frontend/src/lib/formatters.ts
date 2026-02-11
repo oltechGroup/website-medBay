@@ -1,6 +1,6 @@
 // frontend/src/lib/formatters.ts
 
-// ✅ DEFINIMOS EL DOMINIO DEL BACKEND
+// ✅ DEFINIMOS EL DOMINIO DEL BACKEND (Fuente única de verdad)
 const API_DOMAIN = "https://api.medbaysupply.com";
 
 export const formatCurrency = (amount?: number | string | null) => {
@@ -27,25 +27,30 @@ export const formatDate = (dateString?: string | Date | null) => {
   }).format(date);
 };
 
-// ✅ CORRECCIÓN DE IMÁGENES
+// ✅ FUNCIÓN MAESTRA PARA RECURSOS (Imágenes y Documentos)
 export const getImageUrl = (path?: string | null) => {
   if (!path) return "https://placehold.co/400x400/f3f4f6/9ca3af?text=Sin+Imagen"; 
   
-  // Si ya viene con http (ej. S3 o enlace externo), lo dejamos igual
+  // 1. Si ya es una URL completa (S3, Cloudinary, Externo), se devuelve tal cual
   if (path.startsWith("http")) return path;
   
-  // Normalizamos las barras (Windows a Unix)
-  const cleanPath = path.replace(/\\/g, "/");
+  // 2. Normalización de barras para evitar errores en diferentes OS
+  let cleanPath = path.replace(/\\/g, "/");
   
-  // Aseguramos que empiece con /
+  // 3. Evitar duplicidad de prefijos si el path ya trae la URL de la API por error
+  if (cleanPath.includes('medbaysupply.com')) {
+      const parts = cleanPath.split('medbaysupply.com');
+      cleanPath = parts[parts.length - 1];
+  }
+
+  // 4. Aseguramos que empiece con una sola barra
   const normalizedPath = cleanPath.startsWith("/") ? cleanPath : `/${cleanPath}`;
   
-  // 🔥 AQUÍ ESTÁ LA SOLUCIÓN:
-  // Devolvemos la URL absoluta apuntando al Backend, no relativa.
+  // 5. Construcción de URL Absoluta con el dominio certificado
   return `${API_DOMAIN}${normalizedPath}`;
 };
 
-// ✅ CORRECCIÓN DE LÓGICA DE NEGOCIO:
+// ✅ CONFIGURACIÓN DE ESTADOS DE LOTES
 export const getLotStatusConfig = (status: string, expiryDate?: string) => {
   const s = status?.toLowerCase() || '';
 

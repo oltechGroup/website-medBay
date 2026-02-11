@@ -1,5 +1,3 @@
-// frontend/src/app/profile/page.tsx
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAddresses, Address } from "@/hooks/useAddresses";
 import { useDocuments, Document } from "@/hooks/useDocuments";
 import { api } from "@/lib/api"; 
+import { formatDate } from "@/lib/formatters";
 import { 
   User, Phone, Mail, Building2, MapPin, FileText, 
   Edit2, AlertTriangle, CheckCircle, Clock, XCircle, 
@@ -14,12 +13,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner"; 
 
-// Importamos el NUEVO modal dedicado al cliente
+// Importamos el modal dedicado al cliente
 import { ClientDocumentModal } from "@/components/features/profile/ClientDocumentModal";
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth(); 
-  const { addresses, billingAddresses, shippingAddresses, deleteAddress } = useAddresses();
+  const { billingAddresses, shippingAddresses, deleteAddress } = useAddresses();
   const { documents } = useDocuments('all');
   
   // --- SEPARACIÓN DE DOCUMENTOS ---
@@ -48,6 +47,8 @@ export default function ProfilePage() {
 
   // --- 1. ACTUALIZAR TELÉFONO ---
   const handleUpdatePhone = async () => {
+    if (!phoneForm.trim()) return toast.error("El teléfono no puede estar vacío");
+    
     try {
       setIsUpdatingPhone(true);
       await api.put('/users/profile', { phone: phoneForm });
@@ -76,55 +77,55 @@ export default function ProfilePage() {
   if (!user) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 pt-24 md:pt-28">
+    <div className="min-h-screen bg-slate-50 pb-20 pt-24 md:pt-28 font-sans">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         
         {/* ENCABEZADO */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800">Mi Perfil</h1>
-          <p className="text-slate-500">Administra tu información personal, direcciones y documentación legal.</p>
+        <div className="mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Mi Perfil</h1>
+          <p className="text-slate-500 font-medium">Administra tu información personal, direcciones y documentación legal.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* === COLUMNA IZQUIERDA: IDENTIDAD Y CONTACTO === */}
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500">
             
             {/* TARJETA DE IDENTIDAD */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 overflow-hidden relative">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-[4rem] -mr-4 -mt-4"></div>
+            <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-6 overflow-hidden relative group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-bl-[4rem] -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
               
               <div className="flex flex-col items-center text-center mb-6 relative z-10">
-                <div className="w-20 h-20 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center text-3xl font-bold border-4 border-white shadow-md mb-3">
+                <div className="w-24 h-24 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center text-4xl font-black border-4 border-white shadow-xl mb-4">
                   {user.full_name.charAt(0)}
                 </div>
-                <h2 className="text-lg font-bold text-slate-800">{user.full_name}</h2>
-                <div className="mt-1">
-                   <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">{user.full_name}</h2>
+                <div className="mt-2">
+                   <span className="bg-blue-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg shadow-blue-200">
                      {user.verification_level.replace('_', ' ')}
                    </span>
                 </div>
               </div>
 
-              <div className="space-y-4 border-t border-slate-100 pt-4">
+              <div className="space-y-5 border-t border-slate-100 pt-6">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase">Empresa / Razón Social</label>
-                  <div className="flex items-center gap-2 text-slate-700 font-medium">
-                    <Building2 size={16} className="text-slate-400"/>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Empresa / Razón Social</label>
+                  <div className="flex items-center gap-2 text-slate-700 font-bold">
+                    <Building2 size={16} className="text-blue-500"/>
                     {user.company_name || "No registrado"}
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase">Correo Electrónico</label>
-                  <div className="flex items-center gap-2 text-slate-700 font-medium">
-                    <Mail size={16} className="text-slate-400"/>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Correo Electrónico</label>
+                  <div className="flex items-center gap-2 text-slate-700 font-bold">
+                    <Mail size={16} className="text-blue-500"/>
                     {user.email}
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase">RFC / Tax ID</label>
-                  <div className="flex items-center gap-2 text-slate-700 font-medium font-mono">
-                    <CreditCard size={16} className="text-slate-400"/>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">RFC / Tax ID</label>
+                  <div className="flex items-center gap-2 text-slate-700 font-bold font-mono bg-slate-50 px-2 py-1 rounded-lg w-fit border border-slate-100">
+                    <CreditCard size={16} className="text-blue-500"/>
                     {user.tax_id || "N/A"}
                   </div>
                 </div>
@@ -132,13 +133,13 @@ export default function ProfilePage() {
             </div>
 
             {/* TARJETA DE CONTACTO (EDITABLE) */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                  <Phone size={18} className="text-blue-600"/> Teléfono de Contacto
+                <h3 className="font-black text-slate-800 flex items-center gap-2 uppercase text-xs tracking-widest">
+                  <Phone size={18} className="text-blue-600"/> Contacto
                 </h3>
                 {!isEditingPhone && (
-                  <button onClick={() => setIsEditingPhone(true)} className="text-xs text-blue-600 font-bold hover:underline">
+                  <button onClick={() => setIsEditingPhone(true)} className="text-[10px] bg-slate-50 hover:bg-slate-100 text-blue-600 font-black px-3 py-1 rounded-full uppercase tracking-tighter transition-colors">
                     Editar
                   </button>
                 )}
@@ -150,42 +151,44 @@ export default function ProfilePage() {
                     type="text" 
                     value={phoneForm} 
                     onChange={(e) => setPhoneForm(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    placeholder="Tu número..."
                   />
                   <button 
                     onClick={handleUpdatePhone} 
                     disabled={isUpdatingPhone}
-                    className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                    className="bg-blue-600 text-white p-2.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 disabled:opacity-50"
                   >
-                    {isUpdatingPhone ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>}
+                    {isUpdatingPhone ? <Loader2 size={18} className="animate-spin"/> : <CheckCircle size={18}/>}
                   </button>
-                  <button onClick={() => setIsEditingPhone(false)} className="text-slate-400 hover:text-slate-600 p-2">
-                    <XCircle size={16}/>
+                  <button onClick={() => setIsEditingPhone(false)} className="text-slate-400 hover:text-red-500 p-2.5 transition-colors">
+                    <XCircle size={18}/>
                   </button>
                 </div>
               ) : (
-                <p className="text-slate-600 font-medium">{user.phone || "Sin registrar"}</p>
+                <p className="text-slate-700 font-black text-lg">{user.phone || "Sin registrar"}</p>
               )}
             </div>
 
           </div>
 
-          {/* === COLUMNA CENTRAL Y DERECHA: DIRECCIONES Y DOCUMENTOS === */}
-          <div className="lg:col-span-2 space-y-6">
+          {/* === COLUMNA CENTRAL Y DERECHA === */}
+          <div className="lg:col-span-2 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
             {/* 1. DIRECCIÓN FISCAL */}
-            <div className="bg-white rounded-2xl shadow-sm border-l-4 border-amber-400 p-6">
-              <div className="flex justify-between items-start mb-4">
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-8 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-2 h-full bg-amber-400"></div>
+              <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                    <Building2 size={18} className="text-amber-500"/> Dirección de Facturación (Fiscal)
+                  <h3 className="font-black text-slate-800 flex items-center gap-2 uppercase text-sm tracking-widest">
+                    <Building2 size={20} className="text-amber-500"/> Facturación
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1">Usada para generar tus facturas automáticamente.</p>
+                  <p className="text-xs text-slate-400 font-medium mt-1">Información fiscal para tus comprobantes.</p>
                 </div>
                 {billingAddresses.length > 0 && (
                   <button 
                     onClick={() => { setSelectedAddress(billingAddresses[0]); setIsAddressModalOpen(true); }}
-                    className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition"
+                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 px-4 py-2 rounded-xl hover:bg-amber-100 transition shadow-sm"
                   >
                     <Edit2 size={12}/> Modificar
                   </button>
@@ -193,60 +196,61 @@ export default function ProfilePage() {
               </div>
 
               {billingAddresses.length > 0 ? (
-                <div className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <p className="font-bold text-slate-800">{billingAddresses[0].street} #{billingAddresses[0].street_number}</p>
+                <div className="text-sm font-bold text-slate-600 leading-relaxed bg-slate-50 p-6 rounded-[1.5rem] border border-slate-100">
+                  <p className="text-lg text-slate-800 font-black mb-1">{billingAddresses[0].street} #{billingAddresses[0].street_number}</p>
                   <p>Col. {billingAddresses[0].colony}</p>
                   <p>{billingAddresses[0].city}, {billingAddresses[0].state}, {billingAddresses[0].country}</p>
-                  <p className="font-mono text-xs text-slate-400 mt-2">CP: {billingAddresses[0].postal_code}</p>
+                  <p className="font-mono text-xs text-blue-500 mt-4 bg-white w-fit px-3 py-1 rounded-full border border-slate-200 shadow-sm">CP: {billingAddresses[0].postal_code}</p>
                 </div>
               ) : (
-                <div className="text-center p-6 border-2 border-dashed border-slate-200 rounded-xl">
-                  <p className="text-slate-400 text-sm">No has configurado una dirección fiscal.</p>
-                  <button className="mt-2 text-blue-600 text-sm font-bold">Agregar ahora</button>
+                <div className="text-center p-10 border-2 border-dashed border-slate-200 rounded-[2rem] bg-slate-50/50">
+                  <p className="text-slate-400 font-bold mb-4">No has configurado una dirección fiscal.</p>
+                  <button className="text-blue-600 font-black uppercase text-xs tracking-widest hover:underline">Agregar ahora</button>
                 </div>
               )}
             </div>
 
-            {/* 2. DOCUMENTACIÓN LEGAL (Licencias - Editables) */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-               <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6">
-                 <ShieldCheck size={18} className="text-blue-600"/> Documentación Legal
+            {/* 2. DOCUMENTACIÓN LEGAL */}
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-8">
+               <h3 className="font-black text-slate-800 flex items-center gap-2 mb-8 uppercase text-sm tracking-widest">
+                 <ShieldCheck size={20} className="text-blue-600"/> Documentos Legales
                </h3>
                
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  {legalDocs.map((doc) => (
-                   <div key={doc.id} className="border border-slate-100 rounded-xl p-4 hover:border-blue-200 transition-colors bg-slate-50/50">
-                     <div className="flex justify-between items-start mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-slate-100 shadow-sm text-blue-500">
-                            <FileText size={20}/>
+                   <div key={doc.id} className="border border-slate-100 rounded-3xl p-5 hover:border-blue-200 transition-all bg-slate-50/50 group">
+                     <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-slate-100 shadow-sm text-blue-500 group-hover:scale-110 transition-transform">
+                            <FileText size={24}/>
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-slate-700 capitalize">Registro Sanitario</p>
-                            <p className="text-xs text-slate-400">{new Date(doc.created_at).toLocaleDateString()}</p>
+                            <p className="text-sm font-black text-slate-800 capitalize">
+                                {doc.document_type === 'license' ? 'Cédula / Registro' : 'Acta Constitutiva'}
+                            </p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Cargado: {formatDate(doc.created_at)}</p>
                           </div>
                         </div>
                         {getStatusBadge(doc.status)}
                      </div>
                      
                      {doc.status === 'rejected' && doc.notes && (
-                       <div className="mb-3 text-xs bg-red-50 text-red-600 p-2 rounded-lg border border-red-100">
-                         <strong>Nota:</strong> {doc.notes}
+                       <div className="mb-4 text-[11px] font-bold bg-red-50 text-red-600 p-3 rounded-2xl border border-red-100 flex items-start gap-2">
+                         <AlertTriangle size={14} className="shrink-0"/>
+                         <p>"{doc.notes}"</p>
                        </div>
                      )}
 
-                     <div className="flex gap-2 mt-2">
-                       {/* BOTÓN VER (Abre Modal) */}
+                     <div className="flex gap-3 mt-4">
                        <button 
                          onClick={() => setViewDoc(doc)}
-                         className="flex-1 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition flex items-center justify-center gap-1"
+                         className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-sm flex items-center justify-center gap-2"
                        >
                          <Eye size={14}/> Ver
                        </button>
-                       {/* BOTÓN ACTUALIZAR (Abre Modal de Subida) */}
                        <button 
                          onClick={() => setUpdateDoc(doc)}
-                         className="flex-1 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition shadow-sm"
+                         className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200"
                        >
                          Actualizar
                        </button>
@@ -255,38 +259,39 @@ export default function ProfilePage() {
                  ))}
                  
                  {legalDocs.length === 0 && (
-                   <p className="text-slate-400 text-sm col-span-2 text-center py-4">No tienes licencias o registros cargados.</p>
+                   <div className="col-span-full py-10 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                      <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Sin documentación cargada</p>
+                   </div>
                  )}
                </div>
             </div>
 
-            {/* 3. HISTORIAL DE PAGOS (Solo Lectura) */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-               <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6">
-                 <Receipt size={18} className="text-emerald-600"/> Evidencias de Pago
+            {/* 3. HISTORIAL DE PAGOS */}
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-8">
+               <h3 className="font-black text-slate-800 flex items-center gap-2 mb-8 uppercase text-sm tracking-widest">
+                 <Receipt size={20} className="text-emerald-600"/> Evidencias de Pago
                </h3>
                
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  {paymentDocs.map((doc) => (
-                   <div key={doc.id} className="border border-slate-100 rounded-xl p-4 hover:border-emerald-200 transition-colors bg-emerald-50/30">
-                     <div className="flex justify-between items-start mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-slate-100 shadow-sm text-emerald-500">
-                            <CreditCard size={20}/>
+                   <div key={doc.id} className="border border-slate-100 rounded-3xl p-5 hover:border-emerald-200 transition-all bg-emerald-50/20 group">
+                     <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-slate-100 shadow-sm text-emerald-500 group-hover:rotate-12 transition-transform">
+                            <CreditCard size={24}/>
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-slate-700">Comprobante</p>
-                            <p className="text-xs text-slate-400">Orden: #{doc.reference_id?.slice(0,8) || 'N/A'}</p>
+                            <p className="text-sm font-black text-slate-800">Comprobante</p>
+                            <p className="text-[10px] font-black text-emerald-600 uppercase">Orden: #{doc.reference_id?.slice(0,8) || 'N/A'}</p>
                           </div>
                         </div>
                         {getStatusBadge(doc.status)}
                      </div>
 
-                     <div className="mt-2">
-                       {/* BOTÓN VER (Abre Modal, sin botón de actualizar) */}
+                     <div className="mt-4">
                        <button 
                          onClick={() => setViewDoc(doc)}
-                         className="w-full py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition flex items-center justify-center gap-1"
+                         className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-sm flex items-center justify-center gap-2"
                        >
                          <Eye size={14}/> Ver Comprobante
                        </button>
@@ -295,48 +300,47 @@ export default function ProfilePage() {
                  ))}
                  
                  {paymentDocs.length === 0 && (
-                   <p className="text-slate-400 text-sm col-span-2 text-center py-4">No hay evidencias de pago registradas.</p>
+                   <p className="text-slate-400 font-bold text-center py-6 col-span-full">No hay evidencias de pago registradas.</p>
                  )}
                </div>
             </div>
 
             {/* 4. DIRECCIONES DE ENVÍO */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                  <MapPin size={18} className="text-slate-600"/> Direcciones de Envío
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-8">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="font-black text-slate-800 flex items-center gap-2 uppercase text-sm tracking-widest">
+                  <MapPin size={20} className="text-slate-600"/> Mis Direcciones
                 </h3>
                 <button 
-                  onClick={() => { setSelectedAddress(null); setIsAddressModalOpen(true); }} // Null = Crear nueva
-                  className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition"
+                  onClick={() => { setSelectedAddress(null); setIsAddressModalOpen(true); }}
+                  className="text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-5 py-2.5 rounded-xl hover:bg-blue-100 transition shadow-sm"
                 >
                   + Nueva Dirección
                 </button>
               </div>
 
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {shippingAddresses.map((addr) => (
-                  <div key={addr.id} className="flex justify-between items-center p-4 border border-slate-100 rounded-xl hover:bg-slate-50 transition group">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-blue-500 transition">
-                          <MapPin size={16}/>
+                  <div key={addr.id} className="flex justify-between items-center p-5 border border-slate-100 rounded-3xl hover:bg-slate-50 transition group bg-white shadow-sm">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                          <MapPin size={18}/>
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-700">{addr.street} #{addr.street_number}</p>
-                          <p className="text-xs text-slate-500">{addr.city}, {addr.state}</p>
+                          <p className="text-sm font-black text-slate-800">{addr.street} #{addr.street_number}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">{addr.city}, {addr.state}</p>
                         </div>
                       </div>
                       <button 
                         onClick={() => deleteAddress(addr.id)} 
-                        className="p-2 text-slate-300 hover:text-red-500 transition"
-                        title="Eliminar dirección"
+                        className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
                       >
-                        <XCircle size={18}/>
+                        <XCircle size={20}/>
                       </button>
                   </div>
                 ))}
                 {shippingAddresses.length === 0 && (
-                  <p className="text-slate-400 text-sm text-center py-4">No tienes direcciones de envío guardadas.</p>
+                  <p className="text-slate-400 font-bold text-center py-6 col-span-full">No tienes direcciones de envío guardadas.</p>
                 )}
               </div>
             </div>
@@ -353,7 +357,7 @@ export default function ProfilePage() {
         />
       )}
 
-      {/* MODAL: VISUALIZAR DOCUMENTO (NUEVO) */}
+      {/* MODAL: VISUALIZAR DOCUMENTO */}
       {viewDoc && (
         <ClientDocumentModal 
           isOpen={!!viewDoc}
@@ -362,7 +366,7 @@ export default function ProfilePage() {
         />
       )}
 
-      {/* MODAL: ACTUALIZAR DOCUMENTO (SUBIDA) */}
+      {/* MODAL: ACTUALIZAR DOCUMENTO */}
       {updateDoc && (
         <DocumentUploadModal 
           doc={updateDoc} 
@@ -375,7 +379,7 @@ export default function ProfilePage() {
 }
 
 /* -----------------------------------------------------------------------
-   COMPONENTES INTERNOS (MODALES DE FORMULARIO) 
+    COMPONENTES INTERNOS
    -----------------------------------------------------------------------
 */
 
@@ -417,52 +421,52 @@ function AddressModal({ address, onClose }: { address: Address | null, onClose: 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-        <div className={`p-4 border-b ${isFiscal ? 'bg-amber-50 border-amber-100' : 'border-slate-100'}`}>
-          <h3 className={`font-bold text-lg ${isFiscal ? 'text-amber-700' : 'text-slate-800'}`}>
-            {isEdit ? (isFiscal ? '⚠️ Modificar Dirección Fiscal' : 'Editar Dirección') : 'Nueva Dirección de Envío'}
+    <div className="fixed inset-0 bg-slate-900/60 z-[100] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+        <div className={`p-8 border-b ${isFiscal ? 'bg-amber-50 border-amber-100' : 'border-slate-100'}`}>
+          <h3 className={`font-black text-xl tracking-tight ${isFiscal ? 'text-amber-700' : 'text-slate-800'}`}>
+            {isEdit ? (isFiscal ? 'Modificar Datos Fiscales' : 'Editar Dirección') : 'Nueva Dirección'}
           </h3>
           {isFiscal && (
-            <p className="text-xs text-amber-600 mt-1">
-              Nota: Este cambio será auditado por seguridad y notificaremos a la administración.
+            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mt-2 bg-white px-3 py-1 rounded-full border border-amber-200 w-fit">
+              Sujeto a validación administrativa
             </p>
           )}
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-8 space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="text-xs font-bold text-slate-500 uppercase">Calle</label>
-              <input required value={formData.street} onChange={e => setFormData({...formData, street: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2 text-sm" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Calle</label>
+              <input required value={formData.street} onChange={e => setFormData({...formData, street: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Número Ext.</label>
-              <input required value={formData.street_number} onChange={e => setFormData({...formData, street_number: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2 text-sm" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Num Ext.</label>
+              <input required value={formData.street_number} onChange={e => setFormData({...formData, street_number: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Código Postal</label>
-              <input required value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2 text-sm" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">CP</label>
+              <input required value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
             <div className="col-span-2">
-              <label className="text-xs font-bold text-slate-500 uppercase">Colonia</label>
-              <input required value={formData.colony} onChange={e => setFormData({...formData, colony: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2 text-sm" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Colonia</label>
+              <input required value={formData.colony} onChange={e => setFormData({...formData, colony: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Ciudad</label>
-              <input required value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2 text-sm" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Ciudad</label>
+              <input required value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase">Estado</label>
-              <input required value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2 text-sm" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Estado</label>
+              <input required value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
           </div>
 
-          <div className="pt-4 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg">Cancelar</button>
-            <button type="submit" disabled={loading} className={`px-6 py-2 text-sm font-bold text-white rounded-lg transition shadow-md flex items-center gap-2 ${isFiscal ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
+          <div className="pt-6 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-6 py-3 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors">Cancelar</button>
+            <button type="submit" disabled={loading} className={`px-8 py-3 text-xs font-black uppercase tracking-widest text-white rounded-2xl transition shadow-lg flex items-center gap-3 ${isFiscal ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'}`}>
               {loading && <Loader2 size={16} className="animate-spin"/>}
-              {isEdit ? 'Guardar Cambios' : 'Agregar Dirección'}
+              {isEdit ? 'Guardar Cambios' : 'Crear Dirección'}
             </button>
           </div>
         </form>
@@ -477,59 +481,76 @@ function DocumentUploadModal({ doc, onClose }: { doc: Document, onClose: () => v
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return;
-    setLoading(true);
+    if (!file) return toast.error("Por favor selecciona un archivo");
+    
+    // Validación de tamaño (Máx 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      return toast.error("El archivo es demasiado grande (Máximo 5MB)");
+    }
 
+    setLoading(true);
     const formData = new FormData();
     formData.append('documentFile', file);
-    formData.append('notes', 'Actualización solicitada por usuario desde perfil.');
+    formData.append('notes', 'Actualización solicitada por usuario desde el perfil.');
 
     try {
       await api.put(`/documents/${doc.id}/replace`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      toast.success("Documento enviado a revisión");
+      toast.success("Documento enviado a revisión correctamente");
       onClose();
+      // Recargamos para refrescar el estado global de documentos
       window.location.reload();
-    } catch (error) {
-      toast.error("Error al subir documento");
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Error al subir el documento");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6">
-        <div className="text-center mb-6">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
-            <UploadCloud size={24}/>
+    <div className="fixed inset-0 bg-slate-900/60 z-[100] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl p-8 animate-in zoom-in-95 duration-300">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <UploadCloud size={32}/>
           </div>
-          <h3 className="font-bold text-lg text-slate-800">Actualizar {doc.document_type.replace('_', ' ')}</h3>
-          <p className="text-sm text-slate-500">Sube la nueva versión de tu documento. Esto reemplazará el archivo actual y requerirá una nueva validación.</p>
+          <h3 className="font-black text-xl text-slate-800 tracking-tight">Actualizar {doc.document_type.replace('_', ' ')}</h3>
+          <p className="text-xs text-slate-400 font-bold mt-2 leading-relaxed uppercase tracking-tighter">
+            Esto reemplazará el archivo actual y pasará a revisión técnica.
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:bg-slate-50 transition cursor-pointer relative">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="border-2 border-dashed border-slate-200 rounded-[2rem] p-10 text-center hover:bg-slate-50 transition-all cursor-pointer relative group">
             <input 
               type="file" 
-              accept=".pdf,.jpg,.png" 
+              accept=".pdf,.jpg,.jpeg,.png" 
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
             {file ? (
-              <div className="text-sm font-bold text-blue-600 flex items-center justify-center gap-2">
-                <FileText size={16}/> {file.name}
+              <div className="text-sm font-black text-blue-600 flex flex-col items-center gap-2">
+                <FileText size={32} className="text-blue-500 animate-bounce"/> 
+                <span className="truncate max-w-full px-4">{file.name}</span>
               </div>
             ) : (
-              <p className="text-sm text-slate-400">Clic para seleccionar archivo (PDF, JPG)</p>
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-sm font-black text-slate-500">Seleccionar archivo</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">PDF, JPG o PNG (Máx 5MB)</p>
+              </div>
             )}
           </div>
 
           <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 py-3 text-sm font-bold text-slate-500 bg-slate-100 rounded-xl hover:bg-slate-200">Cancelar</button>
-            <button type="submit" disabled={!file || loading} className="flex-1 py-3 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center gap-2">
-               {loading && <Loader2 size={18} className="animate-spin"/>} Subir
+            <button type="button" onClick={onClose} className="flex-1 py-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors">Cancelar</button>
+            <button 
+              type="submit" 
+              disabled={!file || loading} 
+              className="flex-[1.5] py-4 text-xs font-black uppercase tracking-widest text-white bg-blue-600 rounded-2xl hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 flex justify-center items-center gap-3 transition-all"
+            >
+               {loading ? <Loader2 size={18} className="animate-spin"/> : <CheckCircle size={18}/>}
+               {loading ? 'Subiendo...' : 'Confirmar'}
             </button>
           </div>
         </form>
