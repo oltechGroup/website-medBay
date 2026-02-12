@@ -527,6 +527,21 @@ function DocumentUploadModal({ doc, onClose, onReplace, isSubmitting }: UploadMo
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          
+          {/* ✅ NUEVO: Advertencia Visual de Seguridad */}
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-start gap-3">
+            <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={18} />
+            <div>
+              <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-1">
+                Atención: Cuenta en Revisión
+              </h4>
+              <p className="text-xs text-amber-700 leading-relaxed">
+                Al actualizar este documento, tu cuenta pasará a estado de <strong>validación</strong>. 
+                No podrás iniciar sesión ni realizar compras hasta que un administrador verifique el nuevo archivo (aprox. 24-48 hrs).
+              </p>
+            </div>
+          </div>
+
           <div className="border-2 border-dashed border-slate-200 rounded-[2rem] p-10 text-center hover:bg-slate-50 transition-all cursor-pointer relative group">
             <input 
               type="file" 
@@ -555,7 +570,7 @@ function DocumentUploadModal({ doc, onClose, onReplace, isSubmitting }: UploadMo
               className="flex-[1.5] py-4 text-xs font-black uppercase tracking-widest text-white bg-blue-600 rounded-2xl hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 flex justify-center items-center gap-3 transition-all"
             >
                {isSubmitting ? <Loader2 size={18} className="animate-spin"/> : <CheckCircle size={18}/>}
-               {isSubmitting ? 'Subiendo...' : 'Confirmar'}
+               {isSubmitting ? 'Confirmar y Enviar' : 'Confirmar'}
             </button>
           </div>
         </form>

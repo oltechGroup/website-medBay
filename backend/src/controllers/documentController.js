@@ -73,7 +73,7 @@ const documentController = {
     }
   },
 
-  // --- REEMPLAZAR DOCUMENTO (SOLUCIÓN ROBUSTA ERROR 500) ---
+  // --- REEMPLAZAR DOCUMENTO (SOLUCIÓN ROBUSTA ERROR 500 + BLOQUEO USUARIO) ---
   replaceDocument: async (req, res) => {
     try {
       const { id } = req.params; 
@@ -105,10 +105,10 @@ const documentController = {
         return res.status(403).json({ error: 'No autorizado para modificar este documento' });
       }
 
-      // 4. Actualizar en BD (LO MÁS IMPORTANTE)
-      // Reseteamos verified_by y verified_at a NULL para limpiar historial
+      // 4. Actualizar en BD (DOCUMENTO + USUARIO)
+      // Actualizamos el documento y reseteamos validaciones
       const newPath = `/uploads/evidence/${file.filename}`;
-      const updateQuery = `
+      const updateDocQuery = `
         UPDATE documents 
         SET 
           file_path = $1, 
@@ -121,10 +121,20 @@ const documentController = {
         RETURNING *
       `;
       
-      const updateRes = await pool.query(updateQuery, [newPath, notes || 'Actualización solicitada por usuario', id]);
+      // ✅ NUEVO: Actualizamos el estado del usuario a 'pending' para bloquear login
+      const updateUserQuery = `
+        UPDATE users
+        SET account_status = 'pending'
+        WHERE id = $1
+      `;
+
+      // Ejecutamos ambas en paralelo (o secuencial, pero asegurando ambas)
+      const [updateRes] = await Promise.all([
+        pool.query(updateDocQuery, [newPath, notes || 'Actualización solicitada por usuario', id]),
+        pool.query(updateUserQuery, [doc.owner_id])
+      ]);
 
       // 5. 🛡️ BLOQUE BLINDADO DE NOTIFICACIÓN
-      // Si el correo falla, NO fallamos la petición al usuario.
       try {
         const htmlContent = generateDocumentUpdateTemplate({
           userName: doc.full_name,
@@ -159,13 +169,12 @@ const documentController = {
         console.log(`✅ Notificación enviada para documento: ${id}`);
 
       } catch (emailError) {
-        // ⚠️ Solo logueamos el error, NO detenemos la respuesta
         console.error('⚠️ ALERTA: El documento se actualizó, pero falló el envío del correo:', emailError.message);
       }
 
-      // 6. Respuesta Exitosa (Siempre se envía si la BD actualizó)
+      // 6. Respuesta Exitosa
       res.json({
-        message: 'Documento actualizado y enviado a revisión',
+        message: 'Documento actualizado. Tu cuenta está en revisión.',
         document: updateRes.rows[0]
       });
 
