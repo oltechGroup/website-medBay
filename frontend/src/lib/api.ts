@@ -8,7 +8,7 @@ const API_BASE_URL = 'https://api.medbaysupply.com/api';
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json', // Por defecto es JSON
   },
   withCredentials: true 
 });
@@ -16,12 +16,21 @@ export const api = axios.create({
 // --- INTERCEPTOR REQUEST ---
 api.interceptors.request.use(
   (config) => {
+    // 1. Inyección de Token (Lógica existente)
     if (typeof window !== 'undefined') {
       const token = Cookies.get('medbay_token') || localStorage.getItem('medbay_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
+
+    // 2. ✅ FIX INTELIGENTE PARA ARCHIVOS
+    // Si estamos enviando FormData, eliminamos el Content-Type 'application/json'
+    // para dejar que el navegador configure el 'multipart/form-data' con el boundary correcto.
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => {
@@ -29,7 +38,7 @@ api.interceptors.request.use(
   }
 );
 
-// --- INTERCEPTOR RESPONSE ---
+// --- INTERCEPTOR RESPONSE (Sin cambios, mantiene tu lógica de seguridad) ---
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -49,7 +58,6 @@ api.interceptors.response.use(
         if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
           
           // --- FIX CRÍTICO: Matar la Cookie Zombie ---
-          // Debemos replicar la configuración exacta de dominio usada al crear la cookie
           const isProduction = window.location.hostname.includes('medbaysupply.com');
           
           const cookieOptions: Cookies.CookieAttributes = { 
@@ -59,18 +67,18 @@ api.interceptors.response.use(
             sameSite: 'Lax'
           };
 
-          // 1. Intentamos borrar con el dominio específico (La forma correcta)
+          // 1. Intentamos borrar con el dominio específico
           Cookies.remove('medbay_token', cookieOptions);
           Cookies.remove('medbay_role', cookieOptions);
 
-          // 2. Intentamos borrar sin dominio (Backup por si quedó una cookie vieja en localhost o sin dominio)
+          // 2. Intentamos borrar sin dominio (Backup)
           Cookies.remove('medbay_token', { path: '/' });
           Cookies.remove('medbay_role', { path: '/' });
 
           localStorage.removeItem('medbay_token');
           localStorage.removeItem('medbay_user');
           
-          // Forzamos la recarga en el login para limpiar cualquier estado en memoria
+          // Forzamos la recarga en el login
           window.location.href = '/login';
         }
       }
