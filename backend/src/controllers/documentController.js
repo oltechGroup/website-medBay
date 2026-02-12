@@ -73,7 +73,7 @@ const documentController = {
     }
   },
 
-  // --- REEMPLAZAR DOCUMENTO (SOLUCIÓN ROBUSTA ERROR 500 + BLOQUEO USUARIO) ---
+  // --- REEMPLAZAR DOCUMENTO (SOLUCIÓN COMPLETA: BLOQUEO + NOTIFICACIÓN RICA) ---
   replaceDocument: async (req, res) => {
     try {
       const { id } = req.params; 
@@ -85,9 +85,17 @@ const documentController = {
         return res.status(400).json({ error: 'Se requiere subir un nuevo archivo.' });
       }
 
-      // 2. Obtener documento actual para validar propiedad
+      // 2. Obtener documento actual Y DATOS DEL USUARIO necesarios para la notificación
+      // ✅ MEJORA: Traemos company_name, tax_id, phone para llenar la tarjeta del dashboard
       const checkQuery = `
-        SELECT d.*, u.full_name, u.email 
+        SELECT 
+          d.*, 
+          u.full_name, 
+          u.email, 
+          u.company_name, 
+          u.tax_id, 
+          u.phone,
+          u.verification_level
         FROM documents d
         JOIN users u ON d.owner_id = u.id
         WHERE d.id = $1
@@ -106,7 +114,6 @@ const documentController = {
       }
 
       // 4. Actualizar en BD (DOCUMENTO + USUARIO)
-      // Actualizamos el documento y reseteamos validaciones
       const newPath = `/uploads/evidence/${file.filename}`;
       const updateDocQuery = `
         UPDATE documents 
@@ -121,43 +128,76 @@ const documentController = {
         RETURNING *
       `;
       
-      // ✅ NUEVO: Actualizamos el estado del usuario a 'pending' para bloquear login
       const updateUserQuery = `
         UPDATE users
         SET account_status = 'pending'
         WHERE id = $1
       `;
 
-      // Ejecutamos ambas en paralelo (o secuencial, pero asegurando ambas)
+      // Ejecutamos actualizaciones
       const [updateRes] = await Promise.all([
         pool.query(updateDocQuery, [newPath, notes || 'Actualización solicitada por usuario', id]),
         pool.query(updateUserQuery, [doc.owner_id])
       ]);
 
-      // 5. 🛡️ BLOQUE BLINDADO DE NOTIFICACIÓN
+      // 5. 🛡️ CONSTRUCCIÓN DE NOTIFICACIÓN COMPLETA (Dashboard)
       try {
+        // A) Obtener dirección fiscal para la tarjeta del dashboard
+        const addressQuery = `
+          SELECT * FROM addresses 
+          WHERE user_id = $1 AND (is_fiscal = true OR address_type = 'billing') 
+          LIMIT 1
+        `;
+        const addressRes = await pool.query(addressQuery, [doc.owner_id]);
+        const addr = addressRes.rows[0];
+
+        // B) Formatear dirección
+        const fullAddress = addr 
+          ? `${addr.street} #${addr.street_number}, ${addr.colony || ''}, ${addr.city}, ${addr.state}, CP: ${addr.postal_code}`
+          : 'Dirección no registrada';
+
+        // C) Definir Rol amigable
+        const roleFriendlyName = doc.verification_level === 'medical_professional' 
+          ? 'Profesional de Salud' 
+          : doc.verification_level === 'business_verified' 
+            ? 'Cuenta Empresarial'
+            : 'Usuario';
+
+        // D) Construir Payload Rico (Igual que en Register)
+        const notifContent = {
+          mensaje: `El usuario ha actualizado un documento legal (${doc.document_type}). Se requiere re-validación.`,
+          extra_data: {
+            user_id: doc.owner_id,
+            role_name: roleFriendlyName,
+            company: doc.company_name || 'N/A',
+            tax_id: doc.tax_id || 'N/A',
+            phone: doc.phone || 'N/A',
+            address: fullAddress,
+            file_path: newPath // Enviamos el nuevo archivo para que salga en la tarjeta
+          }
+        };
+
+        // E) Insertar Notificación
+        // ✅ TRUCO: Usamos type 'Registro Usuario' para que el Frontend use el componente RegisterDetails
+        // y muestre la tarjeta completa con todos los datos.
+        await pool.query(
+          'INSERT INTO notifications (type, sender_name, sender_email, subject, content) VALUES ($1, $2, $3, $4, $5)',
+          [
+            'Registro Usuario', // Mantenemos este tipo para activar la vista detallada en el front
+            doc.full_name, 
+            doc.email, 
+            `Actualización: ${roleFriendlyName}`, // Asunto diferenciado
+            JSON.stringify(notifContent)
+          ]
+        );
+
+        // F) Enviar Correo al Admin (HTML Template)
         const htmlContent = generateDocumentUpdateTemplate({
           userName: doc.full_name,
           documentType: doc.document_type,
           notes: notes || 'El usuario ha reemplazado el archivo manualmente.'
         });
 
-        // Insertar Notificación en Panel del Admin
-        await pool.query(
-          'INSERT INTO notifications (type, sender_name, sender_email, subject, content) VALUES ($1, $2, $3, $4, $5)',
-          [
-            'security_alert', 
-            doc.full_name, 
-            doc.email, 
-            '📄 Documento Reemplazado', 
-            JSON.stringify({ 
-              message: `El usuario actualizó su ${doc.document_type}. Requiere nueva validación.`,
-              doc_id: id 
-            })
-          ]
-        );
-
-        // Enviar Correo al Admin
         await transporter.sendMail({
           from: `"Seguridad MedBay" <${process.env.EMAIL_USER}>`,
           to: "medbay.info02@gmail.com",
@@ -166,10 +206,10 @@ const documentController = {
           attachments: getBrandingAttachments()
         });
         
-        console.log(`✅ Notificación enviada para documento: ${id}`);
+        console.log(`✅ Notificación completa enviada para: ${id}`);
 
       } catch (emailError) {
-        console.error('⚠️ ALERTA: El documento se actualizó, pero falló el envío del correo:', emailError.message);
+        console.error('⚠️ ALERTA: El documento se actualizó, pero falló la notificación:', emailError.message);
       }
 
       // 6. Respuesta Exitosa
