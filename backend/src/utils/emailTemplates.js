@@ -1,9 +1,10 @@
 // backend/src/utils/emailTemplates.js
 
 const path = require('path');
+const fs = require('fs'); // ✅ IMPORTANTE: Necesario para verificar existencia de archivos
 
-// ✅ Regresamos a la ruta relativa que funcionaba
-const ICONS_PATH = path.join(__dirname, '../../../frontend/public/icons');
+// Definimos la ruta esperada (pero no confiamos ciegamente en ella)
+const ICONS_RELATIVE_PATH = '../../../frontend/public/icons';
 
 const theme = {
   colors: {
@@ -103,7 +104,7 @@ const generateOrderReceivedTemplate = (data) => {
       `).join('')}
     </div>
   `;
-  return wrapHtml(`Solicitud Recibida`, content, { text: 'Ver Mis Pedidos', url: 'http://localhost:3000/orders' });
+  return wrapHtml(`Solicitud Recibida`, content, { text: 'Ver Mis Pedidos', url: 'https://medbaysupply.com/orders' });
 };
 
 // 2. CLIENTE: APROBACIÓN DE STOCK + DATOS BANCARIOS
@@ -132,7 +133,7 @@ const generateOrderApprovedTemplate = (data) => {
       </p>
     </div>
   `;
-  return wrapHtml(`Stock Confirmado: Acción Requerida`, content, { text: 'Subir Comprobante / Pagar', url: 'http://localhost:3000/orders' });
+  return wrapHtml(`Stock Confirmado: Acción Requerida`, content, { text: 'Subir Comprobante / Pagar', url: 'https://medbaysupply.com/orders' });
 };
 
 // 3. CLIENTE: RECHAZO DE STOCK
@@ -146,7 +147,7 @@ const generateOrderRejectedTemplate = (data) => {
       Tu orden ha sido cancelada y no se ha generado ningún cobro. Te invitamos a revisar lotes alternativos en nuestra plataforma o solicitar una cotización personalizada.
     </p>
   `;
-  return wrapHtml(`Actualización de Orden`, content, { text: 'Ver Catálogo', url: 'http://localhost:3000/products' });
+  return wrapHtml(`Actualización de Orden`, content, { text: 'Ver Catálogo', url: 'https://medbaysupply.com/products' });
 };
 
 // 4. CLIENTE: CONFIRMACIÓN DE ENVÍO
@@ -165,13 +166,11 @@ const generateOrderShippedTemplate = (data) => {
       </div>
     </div>
   `;
-  return wrapHtml(`Orden Enviada`, content, { text: 'Rastrear Paquete', url: 'http://localhost:3000/orders' });
+  return wrapHtml(`Orden Enviada`, content, { text: 'Rastrear Paquete', url: 'https://medbaysupply.com/orders' });
 };
 
-// 5. CLIENTE: CONFIRMACIÓN DE COTIZACIÓN CREADA (Nuevo)
-// ✅ ACTUALIZADO: Muestra contexto si existe (Lote específico)
+// 5. CLIENTE: CONFIRMACIÓN DE COTIZACIÓN CREADA
 const generateQuoteCreatedClientTemplate = (data) => {
-  // Verificamos si hay contexto inteligente
   const contextHtml = data.context && data.context.lotNumber ? `
     <div style="margin-top:10px; padding-top:10px; border-top: 1px dashed #e2e8f0; font-size: 11px; color: #64748b;">
       <strong>Referencia Específica:</strong><br>
@@ -196,7 +195,7 @@ const generateQuoteCreatedClientTemplate = (data) => {
       Recibirás una propuesta formal en un plazo máximo de <strong>48 horas hábiles</strong>.
     </p>
   `;
-  return wrapHtml(`Solicitud de Cotización Recibida`, content, { text: 'Ver Mis Cotizaciones', url: 'http://localhost:3000/quotes' });
+  return wrapHtml(`Solicitud de Cotización Recibida`, content, { text: 'Ver Mis Cotizaciones', url: 'https://medbaysupply.com/quotes' });
 };
 
 // ==========================================
@@ -222,10 +221,10 @@ const generateNewOrderAdminTemplate = (data) => {
       Verificar disponibilidad de stock y aprobar/rechazar la orden.
     </div>
   `;
-  return wrapHtml(`🔔 Nueva Orden Pendiente`, content, { text: 'Gestionar Orden en Dashboard', url: 'http://localhost:3000/dashboard/orders' });
+  return wrapHtml(`🔔 Nueva Orden Pendiente`, content, { text: 'Gestionar Orden en Dashboard', url: 'https://medbaysupply.com/dashboard/orders' });
 };
 
-// 2. ADMIN: PAGO SUBIDO (Nuevo)
+// 2. ADMIN: PAGO SUBIDO
 const generatePaymentUploadedTemplate = (data) => {
   const content = `
     <p class="subtitle">Un cliente ha subido un comprobante de pago.</p>
@@ -243,10 +242,10 @@ const generatePaymentUploadedTemplate = (data) => {
       Revisa la evidencia de transferencia en el panel.
     </div>
   `;
-  return wrapHtml(`💸 Pago Recibido: #${data.orderId.slice(0,8)}`, content, { text: 'Validar Pago', url: 'http://localhost:3000/dashboard/orders' });
+  return wrapHtml(`💸 Pago Recibido: #${data.orderId.slice(0,8)}`, content, { text: 'Validar Pago', url: 'https://medbaysupply.com/dashboard/orders' });
 };
 
-// 3. ADMIN: COTIZACIÓN ACEPTADA (Nuevo)
+// 3. ADMIN: COTIZACIÓN ACEPTADA
 const generateQuoteAcceptedAdminTemplate = (data) => {
   const content = `
     <div class="success-box" style="text-align: center; margin-bottom: 25px;">
@@ -267,10 +266,10 @@ const generateQuoteAcceptedAdminTemplate = (data) => {
       El siguiente paso es convertir esta cotización en una Orden de Compra o contactar al cliente para finalizar el pago.
     </p>
   `;
-  return wrapHtml(`✅ Cotización Cerrada`, content, { text: 'Procesar Venta', url: 'http://localhost:3000/dashboard/quotes' });
+  return wrapHtml(`✅ Cotización Cerrada`, content, { text: 'Procesar Venta', url: 'https://medbaysupply.com/dashboard/quotes' });
 };
 
-// 4. ADMIN: COTIZACIÓN RECHAZADA (Nuevo)
+// 4. ADMIN: COTIZACIÓN RECHAZADA
 const generateQuoteRejectedAdminTemplate = (data) => {
   const content = `
     <div class="warning-box" style="text-align: center; margin-bottom: 25px;">
@@ -290,11 +289,11 @@ const generateQuoteRejectedAdminTemplate = (data) => {
       Puedes intentar enviar una contra-propuesta con un mejor precio o buscar un lote diferente.
     </div>
   `;
-  return wrapHtml(`⚠️ Cotización Rechazada`, content, { text: 'Ver Detalles y Re-cotizar', url: 'http://localhost:3000/dashboard/quotes' });
+  return wrapHtml(`⚠️ Cotización Rechazada`, content, { text: 'Ver Detalles y Re-cotizar', url: 'https://medbaysupply.com/dashboard/quotes' });
 };
 
 // ==========================================
-// 🛡️ TEMPLATES DE SEGURIDAD / PERFIL (NUEVO)
+// 🛡️ TEMPLATES DE SEGURIDAD / PERFIL
 // ==========================================
 
 // 1. ADMIN: ALERTA DE CAMBIO DE DIRECCIÓN FISCAL
@@ -320,7 +319,7 @@ const generateFiscalAddressChangeTemplate = (data) => {
       Se recomienda verificar que la nueva dirección coincida con la Constancia de Situación Fiscal actualizada.
     </p>
   `;
-  return wrapHtml(`⚠️ Actualización Fiscal: ${data.userName}`, content, { text: 'Revisar Perfil de Usuario', url: `http://localhost:3000/dashboard/users/${data.userId}` });
+  return wrapHtml(`⚠️ Actualización Fiscal: ${data.userName}`, content, { text: 'Revisar Perfil de Usuario', url: `https://medbaysupply.com/dashboard/users/${data.userId}` });
 };
 
 // 2. ADMIN: ALERTA DE ACTUALIZACIÓN DE DOCUMENTO
@@ -343,16 +342,14 @@ const generateDocumentUpdateTemplate = (data) => {
       Validar la autenticidad del nuevo archivo adjunto.
     </div>
   `;
-  return wrapHtml(`📄 Documento Actualizado: ${data.userName}`, content, { text: 'Validar Documento', url: `http://localhost:3000/dashboard/documents` });
+  return wrapHtml(`📄 Documento Actualizado: ${data.userName}`, content, { text: 'Validar Documento', url: `https://medbaysupply.com/dashboard/documents` });
 };
 
 // ==========================================
-// 📥 TEMPLATES GENERALES (COTIZACIÓN INICIAL Y CONTACTO)
+// 📥 TEMPLATES GENERALES
 // ==========================================
 
 const generateQuoteTemplate = (data) => {
-  // ✅ ACTUALIZADO: Bloque Inteligente para el ADMIN
-  // Si viene con contexto (Lote, Precio Ref), lo mostramos destacado.
   const contextHtml = data.context ? `
     <div style="background: #eff6ff; padding: 15px; border-radius: 8px; border: 1px solid #bfdbfe; margin: 20px 0;">
       <div style="font-size: 11px; font-weight: bold; color: #1e40af; text-transform: uppercase; margin-bottom: 8px;">Contexto Técnico (Origen)</div>
@@ -385,7 +382,7 @@ const generateQuoteTemplate = (data) => {
     </table>
     ${data.message ? `<div class="label" style="margin-top: 25px;">Notas Adicionales:</div><div class="message-box">"${data.message}"</div>` : ''}
   `;
-  return wrapHtml(`Nueva Cotización Requerida`, content, { text: 'Gestionar en Dashboard', url: 'https://medbay.com/dashboard/quotes' });
+  return wrapHtml(`Nueva Cotización Requerida`, content, { text: 'Gestionar en Dashboard', url: 'https://medbaysupply.com/dashboard/quotes' });
 };
 
 const generateContactTemplate = (data) => {
@@ -400,7 +397,7 @@ const generateContactTemplate = (data) => {
     <div class="label" style="margin-top: 25px;">Mensaje:</div>
     <div class="message-box">${data.message}</div>
   `;
-  return wrapHtml(`Nuevo Mensaje de Contacto`, content, { text: 'Responder en Dashboard', url: 'https://medbay.com/dashboard' });
+  return wrapHtml(`Nuevo Mensaje de Contacto`, content, { text: 'Responder en Dashboard', url: 'https://medbaysupply.com/dashboard' });
 };
 
 const generateRegisterTemplate = (data) => {
@@ -426,7 +423,7 @@ const generateRegisterTemplate = (data) => {
       El usuario ha adjuntado documentación que requiere revisión manual.
     </p>
   `;
-  return wrapHtml(`Validación de Cuenta Requerida`, content, { text: 'Validar Documentos en Dashboard', url: 'https://medbay.com/dashboard' });
+  return wrapHtml(`Validación de Cuenta Requerida`, content, { text: 'Validar Documentos en Dashboard', url: 'https://medbaysupply.com/dashboard' });
 };
 
 const generateQuoteResponseTemplate = (data) => {
@@ -443,7 +440,7 @@ const generateQuoteResponseTemplate = (data) => {
     </div>
     <p>Ingresa a tu panel de usuario para aceptar esta oferta.</p>
   `;
-  return wrapHtml(`Respuesta a tu Cotización #${data.sku}`, content, { text: 'Ver Mis Cotizaciones', url: 'https://medbay.com/quotes' });
+  return wrapHtml(`Respuesta a tu Cotización #${data.sku}`, content, { text: 'Ver Mis Cotizaciones', url: 'https://medbaysupply.com/quotes' });
 };
 
 const generateResponseTemplate = (title, message, isSuccess = true) => {
@@ -459,15 +456,27 @@ const generateResponseTemplate = (title, message, isSuccess = true) => {
   return wrapHtml(title, content, null);
 };
 
-// ✅ Restuarado para adjuntar archivo físico con ruta relativa
+// ==========================================
+// 🩹 FUNCIÓN BLINDADA (SOLUCIÓN ERROR 500)
+// ==========================================
+// Verifica si el logo existe físicamente. Si no, devuelve array vacío
+// para evitar que Nodemailer crashee al intentar leer una ruta inexistente.
 const getBrandingAttachments = () => {
-  return [
-    {
-      filename: 'logocompletoblanco.png',
-      path: ICONS_PATH + '/logocompletoblanco.png', // Ajuste para asegurar la ruta correcta
-      cid: 'logomedbayblanco'
-    }
-  ];
+  const logoPath = path.join(__dirname, ICONS_RELATIVE_PATH, 'logocompletoblanco.png');
+  
+  if (fs.existsSync(logoPath)) {
+    return [
+      {
+        filename: 'logocompletoblanco.png',
+        path: logoPath,
+        cid: 'logomedbayblanco'
+      }
+    ];
+  } else {
+    // Log de advertencia para el desarrollador, pero NO rompe el flujo
+    console.warn(`[EMAIL WARNING] No se encontró el logo en: ${logoPath}. Enviando correo sin branding.`);
+    return [];
+  }
 };
 
 module.exports = { 
