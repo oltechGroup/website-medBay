@@ -1,7 +1,7 @@
 // backend/src/controllers/documentController.js
 
 const { Pool } = require('pg');
-const nodemailer = require('nodemailer'); // ✅ CAMBIO 1: Usamos nodemailer directo
+const nodemailer = require('nodemailer'); 
 const { 
   generateDocumentUpdateTemplate, 
   getBrandingAttachments 
@@ -19,8 +19,7 @@ const pool = new Pool({
   }
 });
 
-// ✅ CAMBIO 2: Definimos el transporter AQUÍ MISMO (Igual que en userController)
-// Esto elimina el error 500 causado por diferencias en la configuración externa.
+// Configuración del Transporter (Local para evitar conflictos)
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: process.env.EMAIL_PORT,
@@ -37,7 +36,7 @@ const documentController = {
   create: async (req, res) => {
     try {
       const { owner_type, owner_id, document_type, reference_id } = req.body;
-      const file = req.file; // Multer nos da el archivo aquí
+      const file = req.file; 
 
       // Validaciones básicas
       if (!owner_type || !owner_id || !document_type || !file) {
@@ -79,18 +78,18 @@ const documentController = {
     }
   },
 
-  // --- REEMPLAZAR DOCUMENTO (ACTUALIZAR CON ALERTA) ---
+  // --- REEMPLAZAR DOCUMENTO (Lógica Mejorada) ---
   replaceDocument: async (req, res) => {
     try {
-      const { id } = req.params; // ID del documento a reemplazar
-      const { notes } = req.body; // Notas opcionales del usuario ("Actualicé mi RFC...")
+      const { id } = req.params; 
+      const { notes } = req.body; 
       const file = req.file;
 
       if (!file) {
         return res.status(400).json({ error: 'Se requiere subir un nuevo archivo.' });
       }
 
-      // 1. Obtener documento actual
+      // 1. Obtener documento actual para validar propiedad
       const checkQuery = `
         SELECT d.*, u.full_name, u.email 
         FROM documents d
@@ -105,37 +104,43 @@ const documentController = {
 
       const doc = checkRes.rows[0];
 
-      // 2. Validar Permisos (Solo dueño o admin)
+      // 2. Validar Permisos (Solo el dueño o un admin pueden reemplazar)
       if (doc.owner_id !== req.user.id && req.user.verification_level !== 'admin') {
-        return res.status(403).json({ error: 'No autorizado' });
+        return res.status(403).json({ error: 'No autorizado para modificar este documento' });
       }
 
-      // 3. Actualizar en BD (Cambia path, resetea status a 'uploaded')
+      // 3. Actualizar en BD
+      // ✅ MEJORA: Reseteamos verified_by y verified_at a NULL para limpiar el historial de rechazos
       const newPath = `/uploads/evidence/${file.filename}`;
       const updateQuery = `
         UPDATE documents 
-        SET file_path = $1, status = 'uploaded', updated_at = NOW(), notes = $2
+        SET 
+          file_path = $1, 
+          status = 'uploaded', 
+          updated_at = NOW(), 
+          notes = $2,
+          verified_by = NULL,   -- Limpiamos quien lo revisó antes
+          verified_at = NULL    -- Limpiamos la fecha de revisión anterior
         WHERE id = $3
         RETURNING *
       `;
-      const updateRes = await pool.query(updateQuery, [newPath, notes || 'Actualización por usuario', id]);
+      const updateRes = await pool.query(updateQuery, [newPath, notes || 'Actualización solicitada por usuario', id]);
 
       // 4. 🚨 ALERTA DE SEGURIDAD AL ADMIN
-      // Preparamos el HTML del correo
       const htmlContent = generateDocumentUpdateTemplate({
         userName: doc.full_name,
         documentType: doc.document_type,
-        notes: notes || 'El usuario ha reemplazado el archivo manualmente.'
+        notes: notes || 'El usuario ha reemplazado el archivo manualmente tras un rechazo o actualización.'
       });
 
-      // Insertar Notificación en Panel
+      // Insertar Notificación en Panel del Admin
       await pool.query(
         'INSERT INTO notifications (type, sender_name, sender_email, subject, content) VALUES ($1, $2, $3, $4, $5)',
         [
           'security_alert', 
           doc.full_name, 
           doc.email, 
-          '📄 Documento Actualizado', 
+          '📄 Documento Reemplazado', 
           JSON.stringify({ 
             message: `El usuario actualizó su ${doc.document_type}. Requiere nueva validación.`,
             doc_id: id 
@@ -143,7 +148,7 @@ const documentController = {
         ]
       );
 
-      // ✅ Enviar Correo (Ahora usa el transporter local correctamente configurado)
+      // Enviar Correo al Admin
       await transporter.sendMail({
         from: `"Seguridad MedBay" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com",
@@ -163,7 +168,7 @@ const documentController = {
     }
   },
 
-  // --- OBTENER TODOS (ADMIN - CON JOIN COMPLETO) ---
+  // --- OBTENER TODOS (ADMIN) ---
   getAll: async (req, res) => {
     try {
       const query = `

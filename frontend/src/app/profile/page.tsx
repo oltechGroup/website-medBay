@@ -20,7 +20,9 @@ import { ClientDocumentModal } from "@/components/features/profile/ClientDocumen
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth(); 
   const { billingAddresses, shippingAddresses, deleteAddress } = useAddresses();
-  const { documents } = useDocuments('all');
+  
+  // ✅ CAMBIO 1: Extraemos la nueva función 'replaceDocument' y su estado 'isReplacing'
+  const { documents, replaceDocument, isReplacing } = useDocuments('all');
   
   // --- SEPARACIÓN DE DOCUMENTOS ---
   const legalDocs = documents.filter(d => ['license', 'business_registration'].includes(d.document_type));
@@ -152,7 +154,6 @@ export default function ProfilePage() {
                     type="text" 
                     value={phoneForm} 
                     onChange={(e) => setPhoneForm(e.target.value)}
-                    // ✅ CORRECCIÓN: Agregado text-slate-900 para visibilidad
                     className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                     placeholder="Tu número..."
                   />
@@ -373,6 +374,9 @@ export default function ProfilePage() {
         <DocumentUploadModal 
           doc={updateDoc} 
           onClose={() => setUpdateDoc(null)}
+          // ✅ CAMBIO 2: Pasamos la función y el estado de carga desde el hook del padre
+          onReplace={replaceDocument}
+          isSubmitting={isReplacing}
         />
       )}
 
@@ -429,14 +433,12 @@ function AddressModal({ address, onClose }: { address: Address | null, onClose: 
           <h3 className={`font-black text-xl tracking-tight ${isFiscal ? 'text-amber-700' : 'text-slate-800'}`}>
             {isEdit ? (isFiscal ? 'Modificar Datos Fiscales' : 'Editar Dirección') : 'Nueva Dirección'}
           </h3>
-          {/* ✅ CORRECCIÓN: Eliminado texto de "Sujeto a validación" */}
         </div>
         
         <form onSubmit={handleSubmit} className="p-8 space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">Calle</label>
-              {/* ✅ CORRECCIÓN: Agregado text-slate-900 placeholder:text-slate-400 a todos los inputs */}
               <input required value={formData.street} onChange={e => setFormData({...formData, street: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 transition-all outline-none" />
             </div>
             <div>
@@ -474,36 +476,40 @@ function AddressModal({ address, onClose }: { address: Address | null, onClose: 
   );
 }
 
-function DocumentUploadModal({ doc, onClose }: { doc: Document, onClose: () => void }) {
+// ✅ CAMBIO 3: Definimos los tipos de las props correctamente
+interface UploadModalProps { 
+  doc: Document; 
+  onClose: () => void;
+  onReplace: (data: { id: string, formData: FormData }) => Promise<any>;
+  isSubmitting: boolean;
+}
+
+function DocumentUploadModal({ doc, onClose, onReplace, isSubmitting }: UploadModalProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
+  
+  // ✅ CAMBIO 4: Eliminamos el estado 'loading' local, usamos 'isSubmitting' que viene del hook
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return toast.error("Por favor selecciona un archivo");
     
-    // Validación de tamaño (Máx 5MB)
     if (file.size > 5 * 1024 * 1024) {
       return toast.error("El archivo es demasiado grande (Máximo 5MB)");
     }
 
-    setLoading(true);
     const formData = new FormData();
     formData.append('documentFile', file);
     formData.append('notes', 'Actualización solicitada por usuario desde el perfil.');
 
     try {
-      await api.put(`/documents/${doc.id}/replace`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      // ✅ CAMBIO 5: Usamos la función del hook que gestiona la mutación e invalidación
+      await onReplace({ id: doc.id, formData });
+      
       toast.success("Documento enviado a revisión correctamente");
       onClose();
-      // Recargamos para refrescar el estado global de documentos
-      window.location.reload();
+      // ✅ CAMBIO 6: Eliminamos window.location.reload(). El hook se encarga.
     } catch (error: any) {
       toast.error(error.response?.data?.error || "Error al subir el documento");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -545,11 +551,11 @@ function DocumentUploadModal({ doc, onClose }: { doc: Document, onClose: () => v
             <button type="button" onClick={onClose} className="flex-1 py-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors">Cancelar</button>
             <button 
               type="submit" 
-              disabled={!file || loading} 
+              disabled={!file || isSubmitting} 
               className="flex-[1.5] py-4 text-xs font-black uppercase tracking-widest text-white bg-blue-600 rounded-2xl hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 flex justify-center items-center gap-3 transition-all"
             >
-               {loading ? <Loader2 size={18} className="animate-spin"/> : <CheckCircle size={18}/>}
-               {loading ? 'Subiendo...' : 'Confirmar'}
+               {isSubmitting ? <Loader2 size={18} className="animate-spin"/> : <CheckCircle size={18}/>}
+               {isSubmitting ? 'Subiendo...' : 'Confirmar'}
             </button>
           </div>
         </form>
