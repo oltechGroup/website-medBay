@@ -1,5 +1,4 @@
-//frontend/src/app/(auth)/login/page.tsx
-
+//fronted/src/app/(auth)/login/page.tsx
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -27,19 +26,23 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      // 1. Ejecutamos la mutación y capturamos la respuesta del backend
+      // 1. Ejecutamos la mutación (esto guarda cookies y actualiza Zustand)
       const response = await loginMutation.mutateAsync(data);
       
-      // 2. Extraemos el usuario de la respuesta
       const user = response.user;
 
-      // 3. Lógica de Redirección basada en Roles
-      if (user.verification_level === 'admin') {
-        router.push('/dashboard');
-      } else {
-        // Usuarios: medical_professional, business_verified, guest, etc.
-        router.push('/');
-      }
+      // ✅ LA SOLUCIÓN DEFINITIVA: 
+      // Usamos window.location.href en lugar de router.push().
+      // Esto fuerza una recarga total del navegador, obligando al Middleware 
+      // y a todas las páginas protegidas a leer las cookies frescas desde el inicio.
+      
+      const targetPath = user.verification_level === 'admin' ? '/dashboard' : '/';
+
+      // Agregamos un pequeñísimo retraso (100ms) para asegurar que 
+      // el navegador terminó de escribir las cookies antes de saltar.
+      setTimeout(() => {
+        window.location.href = targetPath;
+      }, 100);
 
     } catch (error: any) {
       setError('root', {
@@ -135,6 +138,9 @@ export default function LoginPage() {
             )}
 
             <div className="flex items-center justify-end">
+              {/* ✅ TIP: Si esta página te da 404 en consola, es porque aún no creas 
+                  el archivo src/app/(auth)/forgot-password/page.tsx. 
+                  Next.js intenta pre-cargarlo al verlo aquí. */}
               <Link href="/forgot-password" className="text-sm font-semibold text-slate-500 hover:text-blue-600 transition-colors">
                 ¿Olvidaste tu contraseña?
               </Link>
