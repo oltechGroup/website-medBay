@@ -109,7 +109,8 @@ const documentController = {
       
       // 3. ACTUALIZACIÓN EN DB (Transacción implícita con Promise.all)
       
-      // A) Resetear el documento (Elimina el 'verified' anterior, limpia fechas y pone el nuevo archivo)
+      // A) Resetear el documento.
+      // ⚠️ CORRECCIÓN CRÍTICA: Eliminamos "updated_at" porque no existe en tu tabla.
       const updateDocQuery = `
         UPDATE documents 
         SET 
@@ -117,7 +118,6 @@ const documentController = {
           status = 'uploaded',      -- Se reinicia a pendiente de revisión
           verified_by = NULL,       -- Se borra quién lo verificó antes
           verified_at = NULL,       -- Se borra la fecha de verificación
-          updated_at = NOW(), 
           notes = $2
         WHERE id = $3
         RETURNING *
@@ -322,8 +322,6 @@ const documentController = {
 
         } else if (status === 'rejected') {
           // --- RECHAZO: Si se rechaza el documento legal, asegurar que el usuario esté Rejected/Pending ---
-          // Opcional: Depende de cuán estricto quieras ser. Normalmente si el doc está mal, la cuenta no avanza.
-          // Aquí podríamos forzar 'rejected' en el usuario también si lo deseas, pero 'pending' o 'rejected' lo bloquean igual.
           
           await pool.query("UPDATE users SET account_status = 'rejected' WHERE id = $1", [updatedDoc.owner_id]);
           console.log(`⛔ Estados Ligados: Documento rechazado -> Cuenta Rechazada`);
