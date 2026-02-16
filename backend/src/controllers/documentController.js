@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 const nodemailer = require('nodemailer'); 
 const { 
   generateDocumentUpdateTemplate, 
+  generateResponseTemplate, 
   getBrandingAttachments 
 } = require('../utils/emailTemplates');
 
@@ -85,8 +86,7 @@ const documentController = {
         return res.status(400).json({ error: 'Se requiere subir un nuevo archivo.' });
       }
 
-      // 2. Obtener documento actual Y DATOS DEL USUARIO necesarios para la notificación
-      // ✅ MEJORA: Traemos company_name, tax_id, phone para llenar la tarjeta del dashboard
+      // 2. Obtener documento actual Y DATOS DEL USUARIO
       const checkQuery = `
         SELECT 
           d.*, 
@@ -113,8 +113,10 @@ const documentController = {
         return res.status(403).json({ error: 'No autorizado para modificar este documento' });
       }
 
-      // 4. Actualizar en BD (DOCUMENTO + USUARIO)
+      // 4. Actualizar en BD (DOCUMENTO + BLOQUEAR USUARIO)
       const newPath = `/uploads/evidence/${file.filename}`;
+      
+      // ✅ Se reinicia el documento a 'uploaded'
       const updateDocQuery = `
         UPDATE documents 
         SET 
@@ -128,6 +130,7 @@ const documentController = {
         RETURNING *
       `;
       
+      // ✅ Se pone al usuario en 'pending' para bloquear acceso
       const updateUserQuery = `
         UPDATE users
         SET account_status = 'pending'
@@ -140,9 +143,8 @@ const documentController = {
         pool.query(updateUserQuery, [doc.owner_id])
       ]);
 
-      // 5. 🛡️ CONSTRUCCIÓN DE NOTIFICACIÓN COMPLETA (Dashboard)
+      // 5. 🛡️ Notificación al Dashboard
       try {
-        // A) Obtener dirección fiscal para la tarjeta del dashboard
         const addressQuery = `
           SELECT * FROM addresses 
           WHERE user_id = $1 AND (is_fiscal = true OR address_type = 'billing') 
@@ -151,19 +153,16 @@ const documentController = {
         const addressRes = await pool.query(addressQuery, [doc.owner_id]);
         const addr = addressRes.rows[0];
 
-        // B) Formatear dirección
         const fullAddress = addr 
           ? `${addr.street} #${addr.street_number}, ${addr.colony || ''}, ${addr.city}, ${addr.state}, CP: ${addr.postal_code}`
           : 'Dirección no registrada';
 
-        // C) Definir Rol amigable
         const roleFriendlyName = doc.verification_level === 'medical_professional' 
           ? 'Profesional de Salud' 
           : doc.verification_level === 'business_verified' 
             ? 'Cuenta Empresarial'
             : 'Usuario';
 
-        // D) Construir Payload Rico (Igual que en Register)
         const notifContent = {
           mensaje: `El usuario ha actualizado un documento legal (${doc.document_type}). Se requiere re-validación.`,
           extra_data: {
@@ -173,25 +172,22 @@ const documentController = {
             tax_id: doc.tax_id || 'N/A',
             phone: doc.phone || 'N/A',
             address: fullAddress,
-            file_path: newPath // Enviamos el nuevo archivo para que salga en la tarjeta
+            file_path: newPath
           }
         };
 
-        // E) Insertar Notificación
-        // ✅ TRUCO: Usamos type 'Registro Usuario' para que el Frontend use el componente RegisterDetails
-        // y muestre la tarjeta completa con todos los datos.
+        // Usamos 'Registro Usuario' para activar la vista detallada en el front
         await pool.query(
           'INSERT INTO notifications (type, sender_name, sender_email, subject, content) VALUES ($1, $2, $3, $4, $5)',
           [
-            'Registro Usuario', // Mantenemos este tipo para activar la vista detallada en el front
+            'Registro Usuario', 
             doc.full_name, 
             doc.email, 
-            `Actualización: ${roleFriendlyName}`, // Asunto diferenciado
+            `Actualización: ${roleFriendlyName}`, 
             JSON.stringify(notifContent)
           ]
         );
 
-        // F) Enviar Correo al Admin (HTML Template)
         const htmlContent = generateDocumentUpdateTemplate({
           userName: doc.full_name,
           documentType: doc.document_type,
@@ -206,13 +202,10 @@ const documentController = {
           attachments: getBrandingAttachments()
         });
         
-        console.log(`✅ Notificación completa enviada para: ${id}`);
-
       } catch (emailError) {
-        console.error('⚠️ ALERTA: El documento se actualizó, pero falló la notificación:', emailError.message);
+        console.error('⚠️ ALERTA: Falló la notificación de actualización:', emailError.message);
       }
 
-      // 6. Respuesta Exitosa
       res.json({
         message: 'Documento actualizado. Tu cuenta está en revisión.',
         document: updateRes.rows[0]
@@ -274,9 +267,9 @@ const documentController = {
         SELECT 
           d.*, 
           u.full_name as user_name, 
-          u.email as user_email,
-          u.company_name,
-          u.verification_level as user_role,
+          u.email as user_email, 
+          u.company_name, 
+          u.verification_level as user_role, 
           u.account_status as user_status
         FROM documents d
         LEFT JOIN users u ON d.owner_id = u.id AND d.owner_type = 'user'
@@ -300,12 +293,13 @@ const documentController = {
     }
   },
 
-  // --- ACTUALIZAR ESTADO (ADMIN) ---
+  // --- ACTUALIZAR ESTADO (ADMIN) - ✅ LÓGICA INTELIGENTE IMPLEMENTADA ---
   updateStatus: async (req, res) => {
     try {
       const { id } = req.params;
       const { status, notes } = req.body;
 
+      // 1. Actualizar el estado del documento
       const query = `
         UPDATE documents 
         SET status = $1, notes = $2, verified_by = $3, verified_at = NOW()
@@ -319,9 +313,48 @@ const documentController = {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
 
+      const updatedDoc = result.rows[0];
+
+      // ✅ 2. AUTOMATIZACIÓN CONDICIONAL: Reactivar cuenta SOLO si es una Actualización (no Registro)
+      if (status === 'verified' && ['license', 'business_registration'].includes(updatedDoc.document_type)) {
+        
+        // Detectar si es un registro inicial usando las notas
+        const isRegistration = updatedDoc.notes && updatedDoc.notes.includes('Registro inicial');
+
+        if (!isRegistration) {
+          // --- FLUJO DE ACTUALIZACIÓN (Reactivar Automáticamente) ---
+          const userCheck = await pool.query('SELECT account_status, email, full_name FROM users WHERE id = $1', [updatedDoc.owner_id]);
+          const user = userCheck.rows[0];
+
+          if (user && user.account_status === 'pending') {
+            await pool.query("UPDATE users SET account_status = 'active' WHERE id = $1", [updatedDoc.owner_id]);
+            
+            console.log(`✅ [Update Flow] Cuenta reactivada automáticamente para usuario ${user.email}`);
+
+            // Enviar correo de reactivación
+            const htmlContent = generateResponseTemplate(
+              'Documentación Aprobada', 
+              `Hola <strong>${user.full_name}</strong>,<br><br>Hemos validado tu documentación actualizada. Tu cuenta está nuevamente <strong>ACTIVA</strong> y puedes operar con normalidad.`, 
+              true
+            );
+
+            await transporter.sendMail({
+              from: `"Admin MedBay" <${process.env.EMAIL_USER}>`,
+              to: user.email,
+              subject: "🎉 Cuenta Reactivada",
+              html: htmlContent,
+              attachments: getBrandingAttachments()
+            });
+          }
+        } else {
+          // --- FLUJO DE REGISTRO (Solo Aprobar Documento) ---
+          console.log(`ℹ️ [Register Flow] Documento aprobado. El usuario requiere activación manual en Gestión de Usuarios.`);
+        }
+      }
+
       res.json({
         message: 'Estado actualizado',
-        document: result.rows[0]
+        document: updatedDoc
       });
 
     } catch (error) {

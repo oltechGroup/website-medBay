@@ -14,14 +14,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner"; 
 
-// Importamos el modal dedicado al cliente
+// Importamos el modal dedicado al cliente (Visualización)
 import { ClientDocumentModal } from "@/components/features/profile/ClientDocumentModal";
 
 export default function ProfilePage() {
-  const { user, refreshUser } = useAuth(); 
+  // ✅ CAMBIO 1: Extraemos 'logout' para expulsar al usuario tras actualizar docs
+  const { user, refreshUser, logout } = useAuth(); 
   const { billingAddresses, shippingAddresses, deleteAddress } = useAddresses();
   
-  // ✅ CAMBIO 1: Extraemos la nueva función 'replaceDocument' y su estado 'isReplacing'
   const { documents, replaceDocument, isReplacing } = useDocuments('all');
   
   // --- SEPARACIÓN DE DOCUMENTOS ---
@@ -374,9 +374,9 @@ export default function ProfilePage() {
         <DocumentUploadModal 
           doc={updateDoc} 
           onClose={() => setUpdateDoc(null)}
-          // ✅ CAMBIO 2: Pasamos la función y el estado de carga desde el hook del padre
           onReplace={replaceDocument}
           isSubmitting={isReplacing}
+          onLogout={logout} // ✅ CAMBIO 2: Pasamos la función de logout
         />
       )}
 
@@ -482,13 +482,12 @@ interface UploadModalProps {
   onClose: () => void;
   onReplace: (data: { id: string, formData: FormData }) => Promise<any>;
   isSubmitting: boolean;
+  onLogout: () => void; // ✅ Agregamos prop para logout
 }
 
-function DocumentUploadModal({ doc, onClose, onReplace, isSubmitting }: UploadModalProps) {
+function DocumentUploadModal({ doc, onClose, onReplace, isSubmitting, onLogout }: UploadModalProps) {
   const [file, setFile] = useState<File | null>(null);
   
-  // ✅ CAMBIO 4: Eliminamos el estado 'loading' local, usamos 'isSubmitting' que viene del hook
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return toast.error("Por favor selecciona un archivo");
@@ -502,12 +501,16 @@ function DocumentUploadModal({ doc, onClose, onReplace, isSubmitting }: UploadMo
     formData.append('notes', 'Actualización solicitada por usuario desde el perfil.');
 
     try {
-      // ✅ CAMBIO 5: Usamos la función del hook que gestiona la mutación e invalidación
       await onReplace({ id: doc.id, formData });
       
-      toast.success("Documento enviado a revisión correctamente");
+      toast.success("Documento enviado. Cerrando sesión para validación...");
       onClose();
-      // ✅ CAMBIO 6: Eliminamos window.location.reload(). El hook se encarga.
+      
+      // ✅ CAMBIO 4: Esperamos un poco y forzamos el logout para aplicar la seguridad estricta
+      setTimeout(() => {
+        onLogout();
+      }, 1500);
+
     } catch (error: any) {
       toast.error(error.response?.data?.error || "Error al subir el documento");
     }
@@ -567,10 +570,10 @@ function DocumentUploadModal({ doc, onClose, onReplace, isSubmitting }: UploadMo
             <button 
               type="submit" 
               disabled={!file || isSubmitting} 
-              className="flex-[1.5] py-4 text-xs font-black uppercase tracking-widest text-white bg-blue-600 rounded-2xl hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 flex justify-center items-center gap-3 transition-all"
+              className="flex-[1.5] py-4 text-xs font-black uppercase tracking-widest text-white bg-blue-600 rounded-2xl hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-500/30 flex justify-center items-center gap-3 transition-all"
             >
                {isSubmitting ? <Loader2 size={18} className="animate-spin"/> : <CheckCircle size={18}/>}
-               {isSubmitting ? 'Confirmar y Enviar' : 'Confirmar'}
+               {isSubmitting ? 'Enviando...' : 'Confirmar y Salir'}
             </button>
           </div>
         </form>

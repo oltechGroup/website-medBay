@@ -1,16 +1,14 @@
-//frontend/src/components/features/contact/NotificationModal.tsx
+// frontend/src/components/features/contact/NotificationModal.tsx
 "use client";
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  X, Mail, User, MessageCircle, FileText, Download, 
-  Clock, Phone, Maximize2, ShoppingCart, MessageSquareQuote, 
-  ArrowRight, ExternalLink, CheckCircle2, AlertCircle
+  X, Mail, User, MessageCircle, ShoppingCart, MessageSquareQuote, 
+  ExternalLink, CheckCircle2, AlertCircle, Clock
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
 import ReplyModal from './ReplyModal'; 
-import AdminActions from '../admin/AdminActions'; 
 
 // Importamos los detalles existentes (Reutilizamos lógica visual)
 import ContactDetails from './details/ContactDetails';
@@ -32,7 +30,7 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
 
   // --- 1. DETERMINAR TIPO Y FUENTE ---
   const source = data.source || 'notification'; // 'order' | 'quote' | 'notification'
-  const type = data.type; // 'Nueva Orden', 'Solicitud de Cotización', etc.
+  const type = data.type; // 'Nueva Orden', 'Solicitud de Cotización', 'Registro Usuario', etc.
 
   // --- 2. PREPARAR DATOS SEGÚN FUENTE ---
   let content: any = {};
@@ -45,12 +43,15 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
     content = data.data;
   }
 
-  // --- 3. LÓGICA DE REDIRECCIÓN (Gestión) ---
+  // --- 3. LÓGICA DE REDIRECCIÓN (Gestión Centralizada) ---
   const handleManageRedirect = () => {
     if (source === 'order') {
       router.push('/dashboard/orders');
     } else if (source === 'quote') {
       router.push('/dashboard/quotes');
+    } else if (type === 'Registro Usuario') {
+      // ✅ CAMBIO: Redirigir a la tabla de usuarios para validación centralizada
+      router.push('/dashboard/users');
     }
     onClose();
   };
@@ -87,7 +88,7 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
       );
     }
 
-    // B) VISTA DE COTIZACIÓN (Nuevo Sistema)
+    // B) VISTA DE COTIZACIÓN
     if (source === 'quote') {
       return (
         <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 space-y-4">
@@ -121,7 +122,7 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
       );
     }
 
-    // C) REGISTRO DE USUARIO
+    // C) REGISTRO DE USUARIO (Solo visualización)
     if (type === 'Registro Usuario') {
       return <RegisterDetails details={content.extra_data} />;
     }
@@ -198,38 +199,29 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
 
           {/* FOOTER (ACCIONES) */}
           <div className="p-6 border-t border-slate-200 bg-white z-20">
-             
-             {/* CASO 1: GESTIÓN (Orden / Cotización) */}
-             {(source === 'order' || source === 'quote') && (
-               <button 
-                 onClick={handleManageRedirect}
-                 className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-blue-600 shadow-xl shadow-slate-900/10 transition-all flex items-center justify-center gap-2"
-               >
-                 Gestionar Solicitud <ExternalLink size={20} />
-               </button>
-             )}
+              
+              {/* CASO 1: GESTIÓN (Orden / Cotización / Registro) - ✅ AHORA INCLUYE REGISTRO */}
+              {(source === 'order' || source === 'quote' || type === 'Registro Usuario') && (
+                <button 
+                  onClick={handleManageRedirect}
+                  className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-blue-600 shadow-xl shadow-slate-900/10 transition-all flex items-center justify-center gap-2"
+                >
+                  {type === 'Registro Usuario' ? 'Ir a Gestión de Usuarios' : 'Gestionar Solicitud'} 
+                  <ExternalLink size={20} />
+                </button>
+              )}
 
-             {/* CASO 2: REGISTRO (Validación) */}
-             {type === 'Registro Usuario' && (
-               <AdminActions 
-                 userId={content.extra_data?.user_id}
-                 userEmail={data.sender_email}
-                 userName={data.sender_name}
-                 onActionComplete={() => { onConfirmRead(); onClose(); }}
-               />
-             )}
-
-             {/* CASO 3: MENSAJE NORMAL (Responder/Leído) */}
-             {source === 'notification' && type !== 'Registro Usuario' && (
-               <div className="flex gap-4">
-                  <button onClick={onConfirmRead} className="flex-1 py-4 border-2 border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-slate-100 hover:text-slate-800 transition-colors flex items-center justify-center gap-2">
-                    <CheckCircle2 size={20} /> Marcar Leído
-                  </button>
-                  <button onClick={() => setIsReplyOpen(true)} className="flex-1 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-blue-600 shadow-xl shadow-slate-200 transition-colors flex items-center justify-center gap-2">
-                    <MessageCircle size={20} /> Responder
-                  </button>
-               </div>
-             )}
+              {/* CASO 2: MENSAJE NORMAL (Responder/Leído) */}
+              {source === 'notification' && type !== 'Registro Usuario' && (
+                <div className="flex gap-4">
+                   <button onClick={onConfirmRead} className="flex-1 py-4 border-2 border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-slate-100 hover:text-slate-800 transition-colors flex items-center justify-center gap-2">
+                     <CheckCircle2 size={20} /> Marcar Leído
+                   </button>
+                   <button onClick={() => setIsReplyOpen(true)} className="flex-1 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-blue-600 shadow-xl shadow-slate-200 transition-colors flex items-center justify-center gap-2">
+                     <MessageCircle size={20} /> Responder
+                   </button>
+                </div>
+              )}
 
           </div>
         </div>

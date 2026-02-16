@@ -9,8 +9,7 @@ import { getImageUrl } from "@/lib/formatters";
 import { OrderContext } from "./viewers/OrderContext";
 import { UserContext } from "./viewers/UserContext";
 
-// Importamos AdminActions para aprobar usuarios
-import AdminActions from "../admin/AdminActions";
+// ✅ CAMBIO 1: Eliminamos AdminActions (Ya no gestionamos usuarios desde aquí)
 
 interface DocumentViewerModalProps {
   isOpen: boolean;
@@ -29,7 +28,7 @@ export const DocumentViewerModal = ({
 }: DocumentViewerModalProps) => {
   const [mounted, setMounted] = useState(false);
   
-  // Estados para acción manual (Solo documentos simples)
+  // Estados para acción manual (rechazo con motivo)
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
 
@@ -44,7 +43,7 @@ export const DocumentViewerModal = ({
   const isPdf = doc.file_path.toLowerCase().endsWith('.pdf');
   const fileUrl = getImageUrl(doc.file_path);
 
-  // Contexto a mostrar
+  // Contexto a mostrar (Detalles de la orden o del usuario)
   const renderContext = () => {
     if (doc.document_type === 'payment_evidence' && doc.reference_id) {
       return <OrderContext orderId={doc.reference_id} />;
@@ -56,19 +55,21 @@ export const DocumentViewerModal = ({
   const getDocTitle = () => {
     switch (doc.document_type) {
       case 'payment_evidence': return 'Evidencia de Pago';
-      case 'license': return 'Evidencia de Registro'; // ✅ CAMBIADO
+      case 'license': return 'Evidencia de Registro';
       case 'business_registration': return 'Registro de Negocio';
       default: return 'Documento';
     }
   };
 
-  // Acción simple (Pagos/Otros)
+  // Acción de Validación/Rechazo
   const handleSimpleAction = async (status: DocStatus) => {
     if (status === 'rejected' && !rejectReason) {
       setShowRejectInput(true);
       return;
     }
     await onStatusChange(doc.id, status, rejectReason);
+    // Nota: El backend ya maneja si debe reactivar al usuario (caso actualización)
+    // o dejarlo pendiente (caso registro). Aquí solo cerramos el modal si se aprueba.
     if (status === 'verified') onClose();
   };
 
@@ -122,83 +123,76 @@ export const DocumentViewerModal = ({
           </div>
 
           {/* === FOOTER INTELIGENTE === */}
-          {/* Solo mostramos footer si NO es pago (los pagos se validan en ordenes) */}
+          {/* Solo mostramos footer si NO es pago (los pagos se validan en ordenes usualmente, aunque aquí permitimos validación técnica) */}
           {doc.document_type !== 'payment_evidence' && (
             <div className="p-6 border-t border-slate-100 bg-slate-50/50">
               
-              {/* CASO 1: USUARIO YA ACTIVO (Aprobado) */}
-              {doc.user_status === 'active' ? (
-                <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-center">
+              {/* ESTADO 1: DOCUMENTO YA VALIDADO (Verde) */}
+              {doc.status === 'verified' ? (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-center animate-in fade-in">
                   <p className="text-green-700 font-bold flex items-center justify-center gap-2">
-                    <CheckCircle2 size={20}/> Cuenta Aprobada
+                    <CheckCircle2 size={20}/> Documento Validado
                   </p>
-                  <p className="text-xs text-green-600 mt-1">El usuario ya tiene acceso al sistema.</p>
+                  <p className="text-xs text-green-600 mt-1">Este archivo cumple con los requisitos técnicos.</p>
                 </div>
-              ) : doc.user_status === 'rejected' ? (
-                /* CASO 2: USUARIO RECHAZADO */
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center">
+              ) : doc.status === 'rejected' && !showRejectInput ? (
+                /* ESTADO 2: DOCUMENTO RECHAZADO (Rojo) */
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center flex flex-col items-center animate-in fade-in">
                   <p className="text-red-700 font-bold flex items-center justify-center gap-2">
-                    <XCircle size={20}/> Solicitud Rechazada
+                    <XCircle size={20}/> Documento Rechazado
                   </p>
-                  <p className="text-xs text-red-600 mt-1">El usuario fue notificado.</p>
+                  <button 
+                    onClick={() => setShowRejectInput(true)}
+                    className="text-xs text-red-600 mt-2 underline hover:text-red-800"
+                  >
+                    Cambiar motivo de rechazo
+                  </button>
                 </div>
               ) : (
-                /* CASO 3: PENDIENTE (Mostramos acciones) */
-                doc.document_type === 'license' ? (
-                  <div className="animate-in slide-in-from-bottom-2">
-                    <p className="text-xs font-bold text-slate-400 uppercase mb-2 text-center">Gestión de Cuenta</p>
-                    <AdminActions 
-                      userId={doc.owner_id}
-                      userEmail={doc.user_email || ''}
-                      userName={doc.user_name || 'Usuario'}
-                      onActionComplete={onClose}
-                    />
-                  </div>
-                ) : (
-                  /* CASO 4: DOCUMENTO SIMPLE (No es registro ni pago) */
-                  <>
-                    {showRejectInput ? (
-                      <div className="space-y-3 animate-in slide-in-from-bottom-2">
-                        <label className="text-xs font-bold text-slate-700 ml-1">Motivo del rechazo:</label>
-                        <textarea 
-                          className="w-full p-3 rounded-xl border border-slate-300 text-sm focus:border-red-500 focus:ring-red-500 outline-none"
-                          rows={3}
-                          value={rejectReason}
-                          onChange={(e) => setRejectReason(e.target.value)}
-                          autoFocus
-                        ></textarea>
-                        <div className="flex gap-2">
-                          <button onClick={() => setShowRejectInput(false)} className="flex-1 py-3 text-slate-500 font-bold text-sm hover:bg-slate-200 rounded-xl">Cancelar</button>
-                          <button 
-                            onClick={() => handleSimpleAction('rejected')}
-                            disabled={isUpdating || !rejectReason.trim()}
-                            className="flex-1 py-3 bg-red-600 text-white font-bold text-sm hover:bg-red-700 rounded-xl shadow-lg shadow-red-500/20 disabled:opacity-50 flex justify-center"
-                          >
-                            {isUpdating ? <Loader2 className="animate-spin"/> : 'Confirmar'}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex gap-3">
+                /* ESTADO 3: PENDIENTE O EDICIÓN DE RECHAZO (Acciones Estándar) */
+                <>
+                  {showRejectInput ? (
+                    <div className="space-y-3 animate-in slide-in-from-bottom-2">
+                      <label className="text-xs font-bold text-slate-700 ml-1">Motivo del rechazo:</label>
+                      <textarea 
+                        className="w-full p-3 rounded-xl border border-slate-300 text-sm focus:border-red-500 focus:ring-red-500 outline-none"
+                        rows={3}
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        autoFocus
+                        placeholder="Indica por qué el documento no es válido..."
+                      ></textarea>
+                      <div className="flex gap-2">
+                        <button onClick={() => setShowRejectInput(false)} className="flex-1 py-3 text-slate-500 font-bold text-sm hover:bg-slate-200 rounded-xl">Cancelar</button>
                         <button 
-                          onClick={() => setShowRejectInput(true)}
-                          disabled={isUpdating}
-                          className="flex-1 py-4 border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                          onClick={() => handleSimpleAction('rejected')}
+                          disabled={isUpdating || !rejectReason.trim()}
+                          className="flex-1 py-3 bg-red-600 text-white font-bold text-sm hover:bg-red-700 rounded-xl shadow-lg shadow-red-500/20 disabled:opacity-50 flex justify-center"
                         >
-                          <XCircle size={20}/> Rechazar
-                        </button>
-                        <button 
-                          onClick={() => handleSimpleAction('verified')}
-                          disabled={isUpdating}
-                          className="flex-[2] py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
-                        >
-                          {isUpdating ? <Loader2 className="animate-spin"/> : <CheckCircle2 size={20}/>}
-                          Validar
+                          {isUpdating ? <Loader2 className="animate-spin"/> : 'Confirmar Rechazo'}
                         </button>
                       </div>
-                    )}
-                  </>
-                )
+                    </div>
+                  ) : (
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => setShowRejectInput(true)}
+                        disabled={isUpdating}
+                        className="flex-1 py-4 border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <XCircle size={20}/> Rechazar
+                      </button>
+                      <button 
+                        onClick={() => handleSimpleAction('verified')}
+                        disabled={isUpdating}
+                        className="flex-[2] py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                      >
+                        {isUpdating ? <Loader2 className="animate-spin"/> : <CheckCircle2 size={20}/>}
+                        Validar Documento
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
