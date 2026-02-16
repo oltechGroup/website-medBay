@@ -1,9 +1,10 @@
-//frontend/src/app/(shop)/wishlist/page.tsx
+// frontend/src/app/(shop)/wishlist/page.tsx
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { useWishlist, WishlistItem } from "@/hooks/useWishlist";
+import { useAuth } from "@/hooks/useAuth"; // ✅ Importamos useAuth
 import { getImageUrl } from "@/lib/formatters";
 import { 
   Trash2, Heart, ArrowRight, 
@@ -13,12 +14,16 @@ import { ProductQuickView } from "@/components/features/products/client/ProductQ
 import { Product } from "@/hooks/useProducts";
 
 export default function WishlistPage() {
+  // ✅ Extraemos el estado de autenticación
+  const { isAuthenticated, token } = useAuth();
   const { wishlistItems, isLoading, removeFromWishlist } = useWishlist();
   
-  // Estado para controlar el modal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // --- HELPER: CONVERTIR WISHLIST ITEM A PRODUCT ---
+  // ✅ LOGICA ANTI-FLICKER:
+  // Si el hook está cargando O si el usuario está autenticado pero el token aún no llega del disco...
+  const isInitialLoading = isLoading || (isAuthenticated && !token);
+
   const mapWishlistToProduct = (item: WishlistItem): Product => {
     return {
       id: item.product_id,
@@ -41,13 +46,15 @@ export default function WishlistPage() {
     setSelectedProduct(productData);
   };
 
-  // --- LOADING STATE ---
-  if (isLoading) {
+  // --- LOADING STATE MEJORADO ---
+  if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 bg-slate-200 rounded-full animate-ping opacity-75"></div>
-          <div className="h-4 w-40 bg-slate-200 rounded-full animate-pulse"></div>
+          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest animate-pulse">
+            Cargando tus favoritos...
+          </p>
         </div>
       </div>
     );
@@ -55,8 +62,6 @@ export default function WishlistPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden flex flex-col">
-      {/* ======= MAIN CONTENT ======= */}
-      {/* Ajuste: pt-32 para compensar el Header Fijo */}
       <main className="flex-grow w-[90%] max-w-[1400px] mx-auto pt-32 pb-12">
         
         {wishlistItems.length === 0 ? (
@@ -77,7 +82,7 @@ export default function WishlistPage() {
             </Link>
           </div>
         ) : (
-          /* --- GRID DE FAVORITOS --- */
+          /* --- GRID DE FAVORITOS (Sin cambios en tu lógica) --- */
           <>
             <div className="flex flex-col md:flex-row items-center justify-between mb-6 md:mb-8 gap-4">
                <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
@@ -88,7 +93,6 @@ export default function WishlistPage() {
                </span>
             </div>
 
-            {/* Ajuste: grid-cols-1 en móvil para tarjetas full width */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
               {wishlistItems.map((item) => {
                 const hasStock = parseInt(item.total_stock) > 0;
@@ -100,7 +104,6 @@ export default function WishlistPage() {
                     onClick={() => handleOpenProduct(item)}
                   >
                     {/* Imagen */}
-                    {/* Ajuste: Altura reducida en móvil (h-48) */}
                     <div className="relative h-48 md:h-56 bg-slate-50 p-6 md:p-8 flex items-center justify-center border-b border-slate-50 group-hover:bg-white transition-colors">
                       <img 
                         src={getImageUrl(item.product_image)} 
@@ -110,7 +113,7 @@ export default function WishlistPage() {
                       />
                       <button 
                         onClick={(e) => {
-                          e.stopPropagation(); // Evitar abrir modal al borrar
+                          e.stopPropagation();
                           removeFromWishlist(item.product_id);
                         }}
                         className="absolute top-3 right-3 md:top-4 md:right-4 p-2 md:p-2.5 bg-white border border-slate-100 text-slate-400 hover:text-red-500 hover:border-red-100 rounded-xl transition-all shadow-sm hover:shadow-md active:scale-90 z-10"
@@ -121,7 +124,6 @@ export default function WishlistPage() {
                     </div>
 
                     {/* Contenido */}
-                    {/* Ajuste: Padding reducido en móvil */}
                     <div className="p-4 md:p-6 flex-1 flex flex-col">
                       <div className="mb-3 md:mb-4 flex-1">
                         <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1 md:mb-2 truncate">
@@ -151,9 +153,7 @@ export default function WishlistPage() {
                       </div>
 
                       {/* Botón de Acción */}
-                      <button 
-                        className="w-full bg-slate-900 text-white py-3 md:py-3.5 rounded-xl font-bold text-xs md:text-sm hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2 group-hover:shadow-blue-600/20"
-                      >
+                      <button className="w-full bg-slate-900 text-white py-3 md:py-3.5 rounded-xl font-bold text-xs md:text-sm hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2 group-hover:shadow-blue-600/20">
                         <ShoppingBag size={16} /> Ver Opciones
                       </button>
                     </div>
@@ -165,7 +165,6 @@ export default function WishlistPage() {
         )}
       </main>
 
-      {/* ✅ MODAL DE PRODUCTO */}
       {selectedProduct && (
         <ProductQuickView 
           product={selectedProduct}

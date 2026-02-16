@@ -1,4 +1,4 @@
-//frontend/src/hooks/useCart.ts
+// frontend/src/hooks/useCart.ts
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -9,13 +9,11 @@ export interface CartItem {
   cart_quantity: number;
   product_lot_id: string;
   product_supplier_id: string;
-  // Detalles del Lote
   lot_number: string;
   expiry_date: string;
   unit_price: string;
   available_stock: number;
   lot_status: string;
-  // Detalles del Producto
   product_id: string;
   product_name: string;
   global_sku: string;
@@ -35,7 +33,8 @@ interface CartResponse {
 
 export const useCart = () => {
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
+  // Extraemos también el token para asegurar que existe antes de la petición
+  const { isAuthenticated, token } = useAuth();
 
   // 1. OBTENER CARRITO
   const cartQuery = useQuery({
@@ -44,8 +43,16 @@ export const useCart = () => {
       const response = await api.get('/cart');
       return response.data;
     },
-    enabled: isAuthenticated, // Solo fetch si está logueado
-    staleTime: 1000 * 60, // Considerar fresco por 1 minuto
+    // ✅ MEJORA: Solo habilitamos si está autenticado Y existe el token físicamente.
+    // Esto evita que useQuery se dispare durante el proceso de hidratación de Zustand.
+    enabled: !!isAuthenticated && !!token, 
+    staleTime: 1000 * 60,
+    // ✅ SEGURIDAD: Si falla por error de autenticación (401 o 403), no reintentamos.
+    // Esto evita que el interceptor de la API ejecute el logout varias veces.
+    retry: (failureCount, error: any) => {
+      if (error.response?.status === 401 || error.response?.status === 403) return false;
+      return failureCount < 2;
+    }
   });
 
   // 2. AGREGAR AL CARRITO
@@ -55,7 +62,6 @@ export const useCart = () => {
       return response.data;
     },
     onSuccess: () => {
-      // Recargar carrito automáticamente
       queryClient.invalidateQueries({ queryKey: ['cart'] });
     },
   });
@@ -96,16 +102,13 @@ export const useCart = () => {
   return {
     cartItems: cartQuery.data?.items || [],
     summary: cartQuery.data?.summary || { totalItems: 0, subtotal: 0 },
-    isLoading: cartQuery.isLoading,
+    isLoading: cartQuery.isLoading && isAuthenticated, // Solo mostrar loading si realmente esperamos estar logueados
     error: cartQuery.error,
     
     addToCart: addToCartMutation.mutateAsync,
     isAdding: addToCartMutation.isPending,
-    
     updateQuantity: updateQuantityMutation.mutateAsync,
-    
     removeItem: removeItemMutation.mutateAsync,
-    
     clearCart: clearCartMutation.mutateAsync,
   };
 };

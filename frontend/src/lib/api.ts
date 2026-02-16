@@ -8,7 +8,7 @@ const API_BASE_URL = 'https://api.medbaysupply.com/api';
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json', // Por defecto es JSON
+    'Content-Type': 'application/json',
   },
   withCredentials: true 
 });
@@ -16,75 +16,82 @@ export const api = axios.create({
 // --- INTERCEPTOR REQUEST ---
 api.interceptors.request.use(
   (config) => {
-    // 1. Inyección de Token (Lógica existente)
     if (typeof window !== 'undefined') {
+      // Priorizamos la Cookie que es lo que el Middleware y el Servidor ven
       const token = Cookies.get('medbay_token') || localStorage.getItem('medbay_token');
+      
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
 
-    // 2. ✅ FIX INTELIGENTE PARA ARCHIVOS
-    // Si estamos enviando FormData, eliminamos el Content-Type 'application/json'
-    // para dejar que el navegador configure el 'multipart/form-data' con el boundary correcto.
     if (config.data instanceof FormData) {
       delete config.headers['Content-Type'];
     }
 
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// --- INTERCEPTOR RESPONSE (Sin cambios, mantiene tu lógica de seguridad) ---
+// --- INTERCEPTOR RESPONSE (Cirugía aquí) ---
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    const status = error.response?.status;
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+
+    // 1. Manejo de 401 (No autorizado - Token expirado o inválido)
+    if (status === 401) {
       if (typeof window !== 'undefined') {
+        const token = Cookies.get('medbay_token');
         
-        // 1. Si es INVITADO (no tiene token), no hacemos nada.
-        const existingToken = Cookies.get('medbay_token');
-        if (!existingToken) {
-           return Promise.reject(error);
-        }
-
-        // 2. Si tenía token y falló, limpiamos y redirigimos
-        const currentPath = window.location.pathname;
-        
-        // Evitamos bucles si ya está en login
-        if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
-          
-          // --- FIX CRÍTICO: Matar la Cookie Zombie ---
-          const isProduction = window.location.hostname.includes('medbaysupply.com');
-          
-          const cookieOptions: Cookies.CookieAttributes = { 
-            path: '/', 
-            domain: isProduction ? '.medbaysupply.com' : undefined,
-            secure: window.location.protocol === 'https:',
-            sameSite: 'Lax'
-          };
-
-          // 1. Intentamos borrar con el dominio específico
-          Cookies.remove('medbay_token', cookieOptions);
-          Cookies.remove('medbay_role', cookieOptions);
-
-          // 2. Intentamos borrar sin dominio (Backup)
-          Cookies.remove('medbay_token', { path: '/' });
-          Cookies.remove('medbay_role', { path: '/' });
-
-          localStorage.removeItem('medbay_token');
-          localStorage.removeItem('medbay_user');
-          
-          // Forzamos la recarga en el login
-          window.location.href = '/login';
+        // Solo redirigimos si realmente HABÍA un token y el servidor lo rechazó.
+        // Si no hay token, es un invitado y no hay nada que limpiar.
+        if (token && !currentPath.includes('/login')) {
+          handleForceLogout();
         }
       }
     }
+
+    // 2. Manejo de 403 (Prohibido - Cuenta pendiente, suspendida o sin permisos)
+    // ¡OJO!: Aquí no limpiamos la sesión, porque el usuario sigue siendo válido, 
+    // pero su estatus (account_status) le impide ver esa data.
+    if (status === 403) {
+      console.warn("Acceso restringido: El usuario no tiene permisos o su cuenta no está activa.");
+      
+      // Si el error viene del backend con el mensaje de "cuenta no activa", 
+      // podrías redirigir a una página de "espera" en lugar de login.
+      // Por ahora, solo dejamos que el componente maneje el error sin borrar la sesión.
+    }
+
     return Promise.reject(error);
   }
 );
+
+/**
+ * Función auxiliar para limpiar sesión de forma segura sin dejar rastro
+ */
+function handleForceLogout() {
+  const isProduction = window.location.hostname.includes('medbaysupply.com');
+  const cookieOptions = { 
+    path: '/', 
+    domain: isProduction ? '.medbaysupply.com' : undefined,
+    secure: window.location.protocol === 'https:',
+    sameSite: 'Lax' as const
+  };
+
+  // Limpieza total
+  Cookies.remove('medbay_token', cookieOptions);
+  Cookies.remove('medbay_role', cookieOptions);
+  Cookies.remove('medbay_token', { path: '/' }); // Backup sin dominio
+  
+  localStorage.removeItem('medbay_token');
+  localStorage.removeItem('medbay_user');
+
+  // Redirigir conservando la ruta a la que quería ir (callbackUrl)
+  const currentPath = window.location.pathname;
+  window.location.href = `/login?callbackUrl=${encodeURIComponent(currentPath)}`;
+}
 
 export default api;

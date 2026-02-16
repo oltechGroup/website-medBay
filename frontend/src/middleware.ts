@@ -4,15 +4,20 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname;
+  const { pathname } = request.nextUrl;
+  
+  // 1. OBTENER CREDENCIALES
+  // Intentamos obtener el token de las cookies
+  const token = request.cookies.get('medbay_token')?.value;
+  const userRole = request.cookies.get('medbay_role')?.value;
 
-  // 1. DEFINICIÓN DE ROLES Y RUTAS
+  // 2. DEFINICIÓN DE RUTAS
   const staffRoles = ['admin', 'sales_agent'];
   
-  // Rutas exclusivas de Dashboard
-  const isDashboardRoute = path.startsWith('/dashboard') || path.startsWith('/admin');
+  // Rutas que requieren ser STAFF (Dashboard/Admin)
+  const isDashboardRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/admin');
 
-  // Rutas que requieren estar LOGUEADO
+  // Rutas que requieren estar LOGUEADO (Clientes)
   const protectedRoutes = [
     '/cart', 
     '/checkout', 
@@ -21,60 +26,71 @@ export function middleware(request: NextRequest) {
     '/wishlist', 
     '/quotes'
   ];
-  const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route));
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
 
-  // Rutas de Auth
-  const isAuthRoute = ['/login', '/register', '/forgot-password'].some(route => path.startsWith(route));
+  // Rutas de Autenticación
+  const isAuthRoute = ['/login', '/register', '/forgot-password'].some(route => pathname.startsWith(route));
 
-  // 2. OBTENER CREDENCIALES
-  const token = request.cookies.get('medbay_token')?.value;
-  const userRole = request.cookies.get('medbay_role')?.value; 
+  // --- LÓGICA DE REDIRECCIÓN ---
 
-  // --- LÓGICA DE CONTROL DE TRÁFICO ---
-
-  // CASO A: Usuario YA LOGUEADO intenta entrar a Registro
-  // (Solo bloqueamos registro. PERMITIMOS /login para romper bucles de tokens vencidos)
-  if (path.startsWith('/register') && token) {
+  // CASO A: Usuario YA LOGUEADO intentando entrar a Login o Registro
+  // Si ya tiene token, lo mandamos a su lugar correspondiente
+  if (isAuthRoute && token) {
     if (staffRoles.includes(userRole || '')) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // CASO B: Rutas de DASHBOARD (Admin + Vendedores)
+  // CASO B: Rutas de DASHBOARD (Privilegiadas)
   if (isDashboardRoute) {
-    // 1. Si no hay token -> Login
     if (!token) {
       const url = new URL('/login', request.url);
-      url.searchParams.set('callbackUrl', path);
+      url.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(url);
     }
     
-    // 2. Si hay token pero NO es Staff -> Home (Acceso Denegado)
+    // Si tiene token pero no es staff, fuera de aquí
     if (!staffRoles.includes(userRole || '')) {
       return NextResponse.redirect(new URL('/', request.url));
     }
   }
 
-  // CASO C: Rutas PROTEGIDAS (Cliente verificado)
+  // CASO C: Rutas PROTEGIDAS (Carrito, Favoritos, etc.)
   if (isProtectedRoute) {
-    // Si no hay token -> Login
     if (!token) {
+      // Si no hay token, lo mandamos al login pero guardamos a dónde quería ir
       const url = new URL('/login', request.url);
-      url.searchParams.set('callbackUrl', path);
-      return NextResponse.redirect(url);
+      url.searchParams.set('callbackUrl', pathname);
+      
+      // Creamos la respuesta de redirección
+      const response = NextResponse.redirect(url);
+      
+      // IMPORTANTE: Si por alguna razón había cookies "basura" o mal formadas, 
+      // las limpiamos en este rebote para forzar un estado limpio.
+      response.cookies.delete('medbay_token');
+      response.cookies.delete('medbay_role');
+      
+      return response;
     }
-    // Si hay token, PASA. 
-    // No redirigimos a ningún lado, dejamos que cargue la página.
+    // Si hay token, permitimos el paso. 
+    // La validación profunda del token la hará la API y el Interceptor que ya corregimos.
   }
 
-  // CASO D: Todo lo demás (Público)
   return NextResponse.next();
 }
 
-// Configuración: Excluir estáticos y API interna
+// Configuración del Matcher
 export const config = {
   matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - Public assets (svg, png, jpg, etc.)
+     */
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
