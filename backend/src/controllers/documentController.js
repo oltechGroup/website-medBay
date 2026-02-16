@@ -74,28 +74,21 @@ const documentController = {
     }
   },
 
-  // --- REEMPLAZAR DOCUMENTO (SOLUCIÓN COMPLETA: BLOQUEO + NOTIFICACIÓN RICA) ---
+  // --- REEMPLAZAR DOCUMENTO (ACTUALIZACIÓN DE PERFIL) ---
+  // Lógica: Nuevo archivo -> Resetea Doc a 'uploaded' -> Bloquea Usuario 'pending'
   replaceDocument: async (req, res) => {
     try {
       const { id } = req.params; 
       const { notes } = req.body; 
       const file = req.file;
 
-      // 1. Validación de archivo
       if (!file) {
         return res.status(400).json({ error: 'Se requiere subir un nuevo archivo.' });
       }
 
-      // 2. Obtener documento actual Y DATOS DEL USUARIO
+      // 1. Obtener datos actuales para notificaciones
       const checkQuery = `
-        SELECT 
-          d.*, 
-          u.full_name, 
-          u.email, 
-          u.company_name, 
-          u.tax_id, 
-          u.phone,
-          u.verification_level
+        SELECT d.*, u.full_name, u.email, u.company_name, u.phone, u.verification_level
         FROM documents d
         JOIN users u ON d.owner_id = u.id
         WHERE d.id = $1
@@ -105,69 +98,60 @@ const documentController = {
       if (checkRes.rows.length === 0) {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
-
       const doc = checkRes.rows[0];
 
-      // 3. Validar Permisos
+      // 2. Permisos
       if (doc.owner_id !== req.user.id && req.user.verification_level !== 'admin') {
-        return res.status(403).json({ error: 'No autorizado para modificar este documento' });
+        return res.status(403).json({ error: 'No autorizado.' });
       }
 
-      // 4. Actualizar en BD (DOCUMENTO + BLOQUEAR USUARIO)
       const newPath = `/uploads/evidence/${file.filename}`;
       
-      // ✅ Se reinicia el documento a 'uploaded'
+      // 3. ACTUALIZACIÓN EN DB (Transacción implícita con Promise.all)
+      
+      // A) Resetear el documento (Elimina el 'verified' anterior, limpia fechas y pone el nuevo archivo)
       const updateDocQuery = `
         UPDATE documents 
         SET 
           file_path = $1, 
-          status = 'uploaded', 
+          status = 'uploaded',      -- Se reinicia a pendiente de revisión
+          verified_by = NULL,       -- Se borra quién lo verificó antes
+          verified_at = NULL,       -- Se borra la fecha de verificación
           updated_at = NOW(), 
-          notes = $2,
-          verified_by = NULL,   
-          verified_at = NULL    
+          notes = $2
         WHERE id = $3
         RETURNING *
       `;
       
-      // ✅ Se pone al usuario en 'pending' para bloquear acceso
+      // B) Bloquear al usuario (Lo regresa a pending)
       const updateUserQuery = `
         UPDATE users
         SET account_status = 'pending'
         WHERE id = $1
       `;
 
-      // Ejecutamos actualizaciones
+      // Ejecutamos ambas actualizaciones
       const [updateRes] = await Promise.all([
-        pool.query(updateDocQuery, [newPath, notes || 'Actualización solicitada por usuario', id]),
+        pool.query(updateDocQuery, [newPath, notes || 'Actualización de documento', id]),
         pool.query(updateUserQuery, [doc.owner_id])
       ]);
 
-      // 5. 🛡️ Notificación al Dashboard
+      // 4. NOTIFICACIONES (Email y Dashboard)
       try {
-        const addressQuery = `
-          SELECT * FROM addresses 
-          WHERE user_id = $1 AND (is_fiscal = true OR address_type = 'billing') 
-          LIMIT 1
-        `;
-        const addressRes = await pool.query(addressQuery, [doc.owner_id]);
-        const addr = addressRes.rows[0];
+        const roleName = doc.verification_level === 'medical_professional' ? 'Profesional Salud' : 'Empresa';
+        
+        // Obtener dirección para el reporte (Estético)
+        const addressQuery = `SELECT * FROM addresses WHERE user_id = $1 AND (is_fiscal = true OR address_type = 'billing') LIMIT 1`;
+        const addrRes = await pool.query(addressQuery, [doc.owner_id]);
+        const addr = addrRes.rows[0];
+        const fullAddress = addr ? `${addr.street} #${addr.street_number}, ${addr.city}` : 'N/A';
 
-        const fullAddress = addr 
-          ? `${addr.street} #${addr.street_number}, ${addr.colony || ''}, ${addr.city}, ${addr.state}, CP: ${addr.postal_code}`
-          : 'Dirección no registrada';
-
-        const roleFriendlyName = doc.verification_level === 'medical_professional' 
-          ? 'Profesional de Salud' 
-          : doc.verification_level === 'business_verified' 
-            ? 'Cuenta Empresarial'
-            : 'Usuario';
-
+        // Dashboard Notification payload
         const notifContent = {
-          mensaje: `El usuario ha actualizado un documento legal (${doc.document_type}). Se requiere re-validación.`,
+          mensaje: `El usuario ha actualizado su ${doc.document_type}. Se requiere nueva validación.`,
           extra_data: {
             user_id: doc.owner_id,
-            role_name: roleFriendlyName,
+            role_name: roleName,
             company: doc.company_name || 'N/A',
             tax_id: doc.tax_id || 'N/A',
             phone: doc.phone || 'N/A',
@@ -176,44 +160,36 @@ const documentController = {
           }
         };
 
-        // Usamos 'Registro Usuario' para activar la vista detallada en el front
         await pool.query(
           'INSERT INTO notifications (type, sender_name, sender_email, subject, content) VALUES ($1, $2, $3, $4, $5)',
-          [
-            'Registro Usuario', 
-            doc.full_name, 
-            doc.email, 
-            `Actualización: ${roleFriendlyName}`, 
-            JSON.stringify(notifContent)
-          ]
+          ['Registro Usuario', doc.full_name, doc.email, `Documento Actualizado: ${roleName}`, JSON.stringify(notifContent)]
         );
 
+        // Email al Admin
         const htmlContent = generateDocumentUpdateTemplate({
           userName: doc.full_name,
           documentType: doc.document_type,
-          notes: notes || 'El usuario ha reemplazado el archivo manualmente.'
+          notes: notes
         });
 
         await transporter.sendMail({
           from: `"Seguridad MedBay" <${process.env.EMAIL_USER}>`,
           to: "medbay.info02@gmail.com",
-          subject: `🔔 Documento Actualizado: ${doc.full_name}`,
+          subject: `🔔 Alerta: Documento Actualizado - ${doc.full_name}`,
           html: htmlContent,
           attachments: getBrandingAttachments()
         });
-        
-      } catch (emailError) {
-        console.error('⚠️ ALERTA: Falló la notificación de actualización:', emailError.message);
-      }
+
+      } catch (e) { console.error('Error notificando:', e); }
 
       res.json({
-        message: 'Documento actualizado. Tu cuenta está en revisión.',
+        message: 'Documento actualizado. Tu cuenta ha pasado a revisión.',
         document: updateRes.rows[0]
       });
 
     } catch (error) {
-      console.error('🔥 Error CRÍTICO reemplazando documento:', error);
-      res.status(500).json({ error: 'Error interno al procesar actualización' });
+      console.error('Error crítico en replaceDocument:', error);
+      res.status(500).json({ error: 'Error al actualizar documento' });
     }
   },
 
@@ -293,72 +269,71 @@ const documentController = {
     }
   },
 
-  // --- ACTUALIZAR ESTADO (ADMIN) - ✅ LÓGICA INTELIGENTE IMPLEMENTADA ---
+  // --- ACTUALIZAR ESTADO DEL DOCUMENTO (ADMIN) ---
+  // ✅ CAMBIO CRÍTICO: Lógica de estados ligados (Doc Aprobado = Cuenta Activa)
   updateStatus: async (req, res) => {
     try {
       const { id } = req.params;
       const { status, notes } = req.body;
 
-      // 1. Actualizar el estado del documento
+      // 1. Actualizar el estado del DOCUMENTO
       const query = `
         UPDATE documents 
         SET status = $1, notes = $2, verified_by = $3, verified_at = NOW()
         WHERE id = $4
         RETURNING *
       `;
-
       const result = await pool.query(query, [status, notes, req.user.id, id]);
       
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Documento no encontrado' });
-      }
-
+      if (result.rows.length === 0) return res.status(404).json({ error: 'No encontrado' });
+      
       const updatedDoc = result.rows[0];
 
-      // ✅ 2. AUTOMATIZACIÓN CONDICIONAL: Reactivar cuenta SOLO si es una Actualización (no Registro)
-      if (status === 'verified' && ['license', 'business_registration'].includes(updatedDoc.document_type)) {
+      // 2. LÓGICA DE ESTADOS LIGADOS: Si el documento es Legal y se Verifica -> Activar Usuario
+      if (['license', 'business_registration'].includes(updatedDoc.document_type)) {
         
-        // Detectar si es un registro inicial usando las notas
-        const isRegistration = updatedDoc.notes && updatedDoc.notes.includes('Registro inicial');
+        if (status === 'verified') {
+          // --- APROBACIÓN: Activar Usuario Automáticamente ---
+          
+          // Primero verificamos que el usuario exista
+          const userRes = await pool.query('SELECT * FROM users WHERE id = $1', [updatedDoc.owner_id]);
+          const user = userRes.rows[0];
 
-        if (!isRegistration) {
-          // --- FLUJO DE ACTUALIZACIÓN (Reactivar Automáticamente) ---
-          const userCheck = await pool.query('SELECT account_status, email, full_name FROM users WHERE id = $1', [updatedDoc.owner_id]);
-          const user = userCheck.rows[0];
-
-          if (user && user.account_status === 'pending') {
+          if (user && user.account_status !== 'active') {
             await pool.query("UPDATE users SET account_status = 'active' WHERE id = $1", [updatedDoc.owner_id]);
             
-            console.log(`✅ [Update Flow] Cuenta reactivada automáticamente para usuario ${user.email}`);
+            console.log(`✅ Estados Ligados: Documento verificado -> Cuenta Activada (${user.email})`);
 
-            // Enviar correo de reactivación
-            const htmlContent = generateResponseTemplate(
-              'Documentación Aprobada', 
-              `Hola <strong>${user.full_name}</strong>,<br><br>Hemos validado tu documentación actualizada. Tu cuenta está nuevamente <strong>ACTIVA</strong> y puedes operar con normalidad.`, 
+            // Correo de Bienvenida / Reactivación
+            const html = generateResponseTemplate(
+              'Cuenta Verificada', 
+              `Hola <strong>${user.full_name}</strong>,<br><br>Tu documentación ha sido validada correctamente. Tu cuenta ahora está <strong>ACTIVA</strong> y tienes acceso completo a la plataforma.`, 
               true
             );
-
+            
             await transporter.sendMail({
               from: `"Admin MedBay" <${process.env.EMAIL_USER}>`,
               to: user.email,
-              subject: "🎉 Cuenta Reactivada",
-              html: htmlContent,
+              subject: "🎉 ¡Tu cuenta está Activa!",
+              html: html,
               attachments: getBrandingAttachments()
             });
           }
-        } else {
-          // --- FLUJO DE REGISTRO (Solo Aprobar Documento) ---
-          console.log(`ℹ️ [Register Flow] Documento aprobado. El usuario requiere activación manual en Gestión de Usuarios.`);
+
+        } else if (status === 'rejected') {
+          // --- RECHAZO: Si se rechaza el documento legal, asegurar que el usuario esté Rejected/Pending ---
+          // Opcional: Depende de cuán estricto quieras ser. Normalmente si el doc está mal, la cuenta no avanza.
+          // Aquí podríamos forzar 'rejected' en el usuario también si lo deseas, pero 'pending' o 'rejected' lo bloquean igual.
+          
+          await pool.query("UPDATE users SET account_status = 'rejected' WHERE id = $1", [updatedDoc.owner_id]);
+          console.log(`⛔ Estados Ligados: Documento rechazado -> Cuenta Rechazada`);
         }
       }
 
-      res.json({
-        message: 'Estado actualizado',
-        document: updatedDoc
-      });
+      res.json({ message: 'Estado actualizado y sincronizado.', document: updatedDoc });
 
     } catch (error) {
-      console.error('Error al actualizar estado:', error);
+      console.error('Error actualizando estado:', error);
       res.status(500).json({ error: 'Error interno' });
     }
   },

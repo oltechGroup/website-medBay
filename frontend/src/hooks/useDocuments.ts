@@ -56,20 +56,23 @@ export const useDocuments = (typeFilter: string = 'all', mode: 'admin' | 'my' = 
       return response.data;
     },
     onSuccess: () => {
+      // ✅ ACTUALIZACIÓN CLAVE: Refrescamos documentos Y usuarios
+      // Esto hace que si el backend activa al usuario, la tabla lo muestre al instante.
       queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] }); 
     },
   });
 
-  // 3. REEMPLAZAR DOCUMENTO (Usuario: Corregir rechazo) -> ¡NUEVO!
+  // 3. REEMPLAZAR DOCUMENTO (Usuario: Corregir rechazo)
   const replaceDocumentMutation = useMutation({
     mutationFn: async ({ id, formData }: { id: string; formData: FormData }) => {
-      // Importante: No configuramos headers manuales, dejamos que el navegador gestione el boundary
       const response = await api.put(`/documents/${id}/replace`, formData);
       return response.data;
     },
     onSuccess: () => {
-      // Esto refresca la lista automáticamente sin recargar la página
       queryClient.invalidateQueries({ queryKey: ['documents'] });
+      // También invalidamos usuarios por si acaso se refleja el estado 'pending' en alguna vista de admin activa
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
 
@@ -93,8 +96,8 @@ export const useDocuments = (typeFilter: string = 'all', mode: 'admin' | 'my' = 
     updateStatus: updateStatusMutation.mutateAsync,
     isUpdating: updateStatusMutation.isPending,
 
-    replaceDocument: replaceDocumentMutation.mutateAsync, // ✅ Nueva función expuesta
-    isReplacing: replaceDocumentMutation.isPending,       // ✅ Estado de carga expuesto
+    replaceDocument: replaceDocumentMutation.mutateAsync,
+    isReplacing: replaceDocumentMutation.isPending,
 
     deleteDocument: deleteMutation.mutateAsync
   };
