@@ -3,7 +3,7 @@
 const db = require('../config/database');
 
 const OrderItem = {
-  // Crear ítems (Sin cambios, funciona bien)
+  // Crear ítems 
   create: async (itemsData) => {
     const values = [];
     const placeholders = itemsData.map((item, index) => {
@@ -36,36 +36,34 @@ const OrderItem = {
     }
   },
 
-  // Obtener ítems de una orden (CORREGIDO PARA EVITAR ERRORES DE COLUMNA)
+  // Obtener ítems de una orden
   findByOrder: async (orderId) => {
     const query = `
       SELECT 
         oi.*,
-        -- Datos del Producto
-        p.description as product_name,  
-        p.global_sku,
+        -- ✅ TRUCO MÁGICO: Si no hay producto asociado (es Cotización Manual), ponemos un texto por defecto
+        COALESCE(p.description, 'Producto Especial (Ver Cotización)') as product_name,  
+        COALESCE(p.global_sku, 'N/A') as global_sku,
         -- Datos del Lote
         pl.lot_number,
         pl.expiry_date,
         -- Datos Específicos del Supplier-Producto
         ps.supplier_sku,
         
-        -- ✅ DATOS DEL PROVEEDOR
-        -- Usamos COALESCE para evitar nulos si no hay match
+        -- DATOS DEL PROVEEDOR
         s.id as supplier_id,
         s.name as supplier_name,
-        s.contact_email as supplier_contact, -- Asumiendo que es email, ajusta si es 'phone' o 'contact_info'
-        -- Si 'country' no existe, pon 'Intl' a mano o comenta esta línea si falla de nuevo
+        s.contact_email as supplier_contact, 
         s.country as supplier_country 
 
       FROM order_items oi
-      -- 1. Unimos con Lotes
+      -- Unimos con Lotes
       LEFT JOIN product_lots pl ON oi.product_lot_id = pl.id
-      -- 2. Unimos con la tabla pivote product_suppliers
+      -- Unimos con la tabla pivote product_suppliers
       LEFT JOIN product_suppliers ps ON oi.product_supplier_id = ps.id
-      -- 3. ✅ Unimos con la Tabla Maestra de Proveedores (suppliers) usando el supplier_id de la pivote
+      -- Unimos con la Tabla Maestra de Proveedores
       LEFT JOIN suppliers s ON ps.supplier_id = s.id
-      -- 4. Unimos con el Producto Base
+      -- Unimos con el Producto Base
       LEFT JOIN products p ON ps.product_id = p.id
       
       WHERE oi.order_id = $1
@@ -75,15 +73,14 @@ const OrderItem = {
       const result = await db.query(query, [orderId]);
       return result.rows;
     } catch (error) {
-      // Si falla por columna, intentamos una versión simplificada de emergencia
       console.error("Error detallado en findByOrder:", error.message);
       
-      // Fallback: Consulta simple sin datos de proveedor para que no rompa la app
+      // Fallback: Consulta simple también protegida con COALESCE
       const fallbackQuery = `
         SELECT 
           oi.*,
-          p.description as product_name,
-          p.global_sku,
+          COALESCE(p.description, 'Producto Especial (Ver Cotización)') as product_name,
+          COALESCE(p.global_sku, 'N/A') as global_sku,
           pl.lot_number,
           pl.expiry_date
         FROM order_items oi

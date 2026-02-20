@@ -1,10 +1,11 @@
 // backend/src/controllers/quoteController.js
 
+const db = require('../config/database'); // ✅ IMPORTANTE: Añadido para consultas directas
 const Quote = require('../models/quoteModel');
-const Order = require('../models/orderModel');       // ✅ Conexión con Órdenes
-const OrderItem = require('../models/orderItemModel'); // ✅ Conexión con Ítems
-const Address = require('../models/addressModel');   // ✅ Para buscar dirección default
-const User = require('../models/userModel');         // ✅ Para obtener código de vendedor
+const Order = require('../models/orderModel');       
+const OrderItem = require('../models/orderItemModel'); 
+const Address = require('../models/addressModel');   
+const User = require('../models/userModel');         
 const NotificationService = require('../services/notificationService');
 
 const quoteController = {
@@ -126,11 +127,11 @@ const quoteController = {
     }
   },
 
-  // 6. ✅ RESPONDER PROPUESTA (EL PUENTE MÁGICO)
+  // 6. ✅ RESPONDER PROPUESTA (EL PUENTE MÁGICO BLINDADO)
   respondToProposal: async (req, res) => {
     try {
       const { id } = req.params;
-      const { action } = req.body; // 'accepted' | 'rejected'
+      const { action } = req.body; 
 
       if (!['accepted', 'rejected'].includes(action)) return res.status(400).json({ error: 'Acción inválida' });
 
@@ -150,57 +151,52 @@ const quoteController = {
         const proposal = quote.admin_proposal;
         const request = quote.product_request;
         
-        // A. Obtener dirección por defecto del usuario
-        const userAddresses = await Address.findByUser(req.user.id);
-        const defaultAddress = userAddresses.find(a => a.is_default) || userAddresses[0];
+        // ✅ A. Consultas directas y seguras a la base de datos
+        // Dirección
+        const addressRes = await db.query('SELECT id FROM addresses WHERE user_id = $1 LIMIT 1', [req.user.id]);
+        const defaultAddressId = addressRes.rows.length > 0 ? addressRes.rows[0].id : null;
         
-        // B. Obtener datos del usuario para Referral Code (Comisiones)
-        // Esto asegura que si el cliente tiene un vendedor asignado, la orden lo herede.
-        const userProfile = await User.findById(req.user.id); // Asumiendo que User tiene findById expuesto o usamos query directa
-        // Si no tienes User.findById en el modelo, usaremos null por seguridad, pero idealmente lo traemos.
+        // Vendedor (Comisiones)
+        const userRes = await db.query('SELECT referral_code FROM users WHERE id = $1', [req.user.id]);
+        const referralCode = userRes.rows.length > 0 ? userRes.rows[0].referral_code : null;
         
         const subtotal = parseFloat(proposal.unit_price) * parseInt(proposal.quantity_found);
 
-        // C. Crear la Orden (Estado: pending_valuation para que Admin ponga envío/tax)
+        // B. Crear la Orden
         newOrder = await Order.create({
           customer_id: req.user.id,
           subtotal: subtotal,
           currency: 'USD',
-          shipping_address_id: defaultAddress ? defaultAddress.id : null, 
-          billing_address_id: defaultAddress ? defaultAddress.id : null,
-          referral_code: userProfile ? userProfile.referral_code : null, // ✅ Vincula la comisión
-          notes: `Orden generada desde Cotización #${quote.id.slice(0, 8)}. \nNota Admin: ${proposal.admin_notes || 'N/A'}`,
-          quote_id: quote.id // ✅ El vínculo en BD
+          shipping_address_id: defaultAddressId, 
+          billing_address_id: defaultAddressId,
+          referral_code: referralCode, 
+          // ✅ Guardamos el nombre explícitamente en las notas para no perder el contexto
+          notes: `Orden generada desde Cotización #${quote.id.slice(0, 8)}. Producto: ${request.product_name}. \nNota Admin: ${proposal.admin_notes || 'N/A'}`,
+          quote_id: quote.id 
         });
 
-        // D. Crear los Items de la Orden
-        // Intentamos recuperar IDs del contexto si existen (para ligar a inventario real)
+        // C. Crear los Items de la Orden
         const context = request.quote_context || {};
         
         await OrderItem.create([{
           order_id: newOrder.id,
-          // Si tenemos IDs reales del contexto, los usamos. Si no, NULL (es un ítem "ad-hoc")
           product_lot_id: context.lotId || null, 
           product_supplier_id: context.supplierId || null,
           quantity: proposal.quantity_found,
           unit_price: proposal.unit_price,
-          line_total: subtotal,
-          // Guardamos info descriptiva por si no hay ID de lote
-          expiry_category_name: `${proposal.lot_type} (Vence: ${proposal.expiry_date ? proposal.expiry_date.toString().slice(0,10) : 'N/A'})`
+          line_total: subtotal
         }]);
       }
 
       // Actualizar estado de la cotización
       const updatedQuote = await Quote.updateStatus(id, action);
 
-      // Notificaciones
+      // Notificaciones con protección extra
       if (action === 'accepted' && newOrder) {
-        // Notificar Admin que se creó una orden
-        NotificationService.notifyOrderCreated(newOrder.id).catch(console.error);
-        // Notificar Cliente que su orden se generó
-        NotificationService.notifyQuoteAccepted(id).catch(console.error);
+        if(NotificationService.notifyOrderCreated) NotificationService.notifyOrderCreated(newOrder.id).catch(console.error);
+        if(NotificationService.notifyQuoteAccepted) NotificationService.notifyQuoteAccepted(id).catch(console.error);
       } else {
-        NotificationService.notifyQuoteRejected(id).catch(console.error);
+        if(NotificationService.notifyQuoteRejected) NotificationService.notifyQuoteRejected(id).catch(console.error);
       }
 
       res.json({ 
@@ -209,11 +205,11 @@ const quoteController = {
           ? '¡Oferta aceptada! Se ha generado tu orden de compra.' 
           : 'Oferta rechazada.', 
         quote: updatedQuote,
-        orderId: newOrder ? newOrder.id : null // Retornamos ID para redirigir en frontend
+        orderId: newOrder ? newOrder.id : null 
       });
 
     } catch (error) {
-      console.error('Error respondiendo propuesta:', error);
+      console.error('🔥 Error respondiendo propuesta:', error);
       res.status(500).json({ error: 'Error interno al procesar tu respuesta' });
     }
   },

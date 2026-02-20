@@ -27,14 +27,19 @@ router.post('/:id/evidence', uploadEvidence.single('file'), orderController.uplo
 
 
 // ==========================================
+// 🤝 RUTAS COMPARTIDAS (Cliente dueño y Admin)
+// ==========================================
+
+// Obtener detalle de una orden específica (El controlador verifica que sea el dueño o Admin)
+router.get('/:id', orderController.getById);
+
+
+// ==========================================
 // 🛡️ RUTAS DE ADMIN
 // ==========================================
 
 // Obtener todas las órdenes
 router.get('/', authMiddleware.requireRole(['admin']), orderController.getAll);
-
-// Obtener detalle de una orden específica (Incluye shipping options)
-router.get('/:id', authMiddleware.requireRole(['admin']), orderController.getById);
 
 // Actualizar estado general (Bitácora / Cambios manuales)
 router.put('/:id/status', authMiddleware.requireRole(['admin']), orderController.updateStatus);
@@ -46,7 +51,7 @@ router.post('/:id/shipping-options', authMiddleware.requireRole(['admin']), orde
 // Finalizar valuación (Guardar Tax y Enviar al Cliente)
 router.post('/:id/valuation', authMiddleware.requireRole(['admin']), orderController.submitValuation);
 
-// ✅ NUEVA RUTA: Enviar mensaje de seguimiento (Concierge)
+// Enviar mensaje de seguimiento (Concierge)
 router.post('/:id/message', authMiddleware.requireRole(['admin']), orderController.sendUpdateMessage);
 
 module.exports = router;
