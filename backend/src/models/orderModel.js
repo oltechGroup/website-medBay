@@ -4,7 +4,6 @@ const db = require('../config/database');
 
 const Order = {
   // --- 1. CREAR ORDEN (Inicio del Flujo B2B) ---
-  // El cliente solo envía items y dirección. No hay pago ni envío definido aún.
   create: async (orderData) => {
     const {
       customer_id,
@@ -13,19 +12,20 @@ const Order = {
       shipping_address_id,
       billing_address_id,
       notes,
-      referral_code
+      referral_code,
+      quote_id 
     } = orderData;
     
-    // Estado inicial por defecto: 'pending_valuation'
     const initialStatus = 'pending_valuation';
 
     const query = `
       INSERT INTO orders (
         customer_id, status, subtotal, tax, total, currency,
         shipping_address_id, billing_address_id, notes,
-        shipping_method, shipping_cost, payment_method, payment_fee, referral_code
+        shipping_method, shipping_cost, payment_method, payment_fee, 
+        referral_code, quote_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
     
@@ -33,17 +33,18 @@ const Order = {
       customer_id, 
       initialStatus, 
       subtotal, 
-      0, // Tax inicial en 0 (Admin lo calcula después)
-      subtotal, // Total inicial = Subtotal (sin envío ni tax aún)
+      0, 
+      subtotal, 
       currency,
       shipping_address_id, 
       billing_address_id, 
       notes, 
-      null, // shipping_method (Se define después)
-      0,    // shipping_cost (Se define después)
-      null, // payment_method (Se define al final)
-      0,    // payment_fee
-      referral_code || null
+      null, 
+      0,    
+      null, 
+      0,    
+      referral_code || null,
+      quote_id || null 
     ];
     
     try {
@@ -56,7 +57,6 @@ const Order = {
 
   // --- 2. GESTIÓN DE OPCIONES DE ENVÍO (Admin) ---
   
-  // Guardar una opción de envío propuesta por el Admin
   createShippingOption: async (optionData) => {
     const { order_id, name, description, estimated_days, cost } = optionData;
     
@@ -74,7 +74,6 @@ const Order = {
     }
   },
 
-  // Obtener las opciones de envío de una orden
   getShippingOptions: async (orderId) => {
     const query = `SELECT * FROM shipping_options WHERE order_id = $1 ORDER BY cost ASC`;
     try {
@@ -87,13 +86,11 @@ const Order = {
 
   // --- 3. ACTUALIZACIONES FINANCIERAS (Admin) ---
 
-  // Admin establece el IMPUESTO manual y cambia estado a "Esperando Cliente"
   updateTaxAndStatus: async (orderId, taxAmount) => {
     const query = `
       UPDATE orders 
       SET 
         tax = $1, 
-        -- Recalculamos total parcial (Subtotal + Tax), el envío sigue siendo 0 hasta que el cliente elija
         total = subtotal + $1,
         status = 'waiting_customer_approval'
       WHERE id = $2
@@ -109,15 +106,12 @@ const Order = {
 
   // --- 4. SELECCIÓN DE CLIENTE (Cierre del Trato) ---
 
-  // El Cliente elige una opción de envío -> Se fija el precio final y el método
   selectShippingOption: async (orderId, shippingOptionId) => {
-    const client = await db.pool.connect(); // Usamos transacción para seguridad
+    const client = await db.pool.connect();
     
     try {
       await client.query('BEGIN');
 
-      // A. Marcar la opción como seleccionada en la tabla shipping_options
-      // Primero desmarcamos todas (por seguridad) y luego marcamos la elegida
       await client.query('UPDATE shipping_options SET is_selected = false WHERE order_id = $1', [orderId]);
       
       const optionRes = await client.query(`
@@ -130,15 +124,13 @@ const Order = {
       if (optionRes.rows.length === 0) throw new Error("Opción de envío no válida");
       const selectedOption = optionRes.rows[0];
 
-      // B. Actualizar la Orden con el costo, método y NUEVO TOTAL
-      // Total = Subtotal + Tax + CostoEnvío
       const orderRes = await client.query(`
         UPDATE orders 
         SET 
           shipping_method = $1,
           shipping_cost = $2,
           total = subtotal + tax + $2,
-          status = 'payment_pending' -- Ahora sí, pasa a esperar pago
+          status = 'payment_pending'
         WHERE id = $3
         RETURNING *
       `, [selectedOption.name, selectedOption.cost, orderId]);
@@ -154,7 +146,6 @@ const Order = {
     }
   },
 
-  // Guardar método de pago final (cuando el cliente paga)
   updatePaymentMethod: async (id, method) => {
     const query = `
       UPDATE orders SET payment_method = $1 WHERE id = $2 RETURNING *
@@ -162,6 +153,87 @@ const Order = {
     try {
       const result = await db.query(query, [method, id]);
       return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // --- 5. GESTIÓN DE COMISIONES (Vendedores) ---
+
+  getUnpaidCommissions: async () => {
+    const query = `
+      SELECT 
+        o.referral_code,
+        COUNT(o.id) as total_orders,
+        SUM(o.subtotal) as total_sales_amount,
+        MIN(o.placed_at) as oldest_pending_date
+      FROM orders o
+      WHERE 
+        o.referral_code IS NOT NULL 
+        AND o.commission_paid = FALSE 
+        AND o.status IN ('delivered', 'shipped') 
+      GROUP BY o.referral_code
+    `;
+    try {
+      const result = await db.query(query);
+      return result.rows;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  markCommissionsAsPaid: async (referralCode) => {
+    const query = `
+      UPDATE orders 
+      SET 
+        commission_paid = TRUE, 
+        commission_paid_at = CURRENT_TIMESTAMP
+      WHERE 
+        referral_code = $1 
+        AND commission_paid = FALSE
+        AND status IN ('delivered', 'shipped')
+      RETURNING id
+    `;
+    try {
+      const result = await db.query(query, [referralCode]);
+      return {
+        updatedCount: result.rowCount,
+        orderIds: result.rows.map(r => r.id)
+      };
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // --- 6. ✅ TIMELINE Y MENSAJERÍA (NUEVO PARA CONCIERGE) ---
+
+  // Agregar un evento o mensaje a la línea de tiempo
+  addTimelineEntry: async (orderId, userId, statusTo, notes, title) => {
+    const query = `
+      INSERT INTO order_timeline (order_id, changed_by, status_to, notes, title, created_at)
+      VALUES ($1, $2, $3, $4, $5, NOW())
+      RETURNING *
+    `;
+    try {
+      const result = await db.query(query, [orderId, userId, statusTo, notes, title]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  },
+  
+  // Obtener historial completo de la orden
+  getTimeline: async (orderId) => {
+    const query = `
+      SELECT t.*, u.full_name as changed_by_name 
+      FROM order_timeline t
+      LEFT JOIN users u ON t.changed_by = u.id
+      WHERE t.order_id = $1
+      ORDER BY t.created_at DESC
+    `;
+    try {
+      const result = await db.query(query, [orderId]);
+      return result.rows;
     } catch (error) {
       throw error;
     }

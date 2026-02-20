@@ -2,6 +2,7 @@
 "use client";
 
 import React from 'react';
+import { useRouter } from 'next/navigation'; // ✅ Importamos useRouter
 import { 
   X, Calendar, Package, DollarSign, 
   CheckCircle2, XCircle, AlertTriangle, 
@@ -14,7 +15,8 @@ interface CustomerQuoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   quote: CustomerQuote | null;
-  onRespond: (id: string, action: 'accepted' | 'rejected') => Promise<void>;
+  // ✅ Actualizamos el tipo para que onRespond pueda devolver el orderId
+  onRespond: (id: string, action: 'accepted' | 'rejected') => Promise<{ orderId?: string } | void>;
   isResponding: boolean;
 }
 
@@ -25,13 +27,14 @@ export default function CustomerQuoteModal({
   onRespond, 
   isResponding 
 }: CustomerQuoteModalProps) {
+  
+  const router = useRouter(); // ✅ Inicializamos router
 
   if (!isOpen || !quote) return null;
 
   const proposal = quote.admin_proposal;
   const request = quote.product_request;
 
-  // Si está abierta pero aún no tiene propuesta
   if (!proposal) return null;
 
   // --- HELPERS VISUALES ---
@@ -74,10 +77,24 @@ export default function CustomerQuoteModal({
   // --- LÓGICA DE ESTADOS ---
   const isAccepted = quote.status === 'accepted';
   const isRejected = quote.status === 'rejected';
-  const isActionable = quote.status === 'proposal_sent'; // Solo si está en 'sent' se puede actuar
+  const isActionable = quote.status === 'proposal_sent';
+
+  // --- MANEJADOR DE RESPUESTA ---
+  const handleAction = async (action: 'accepted' | 'rejected') => {
+    try {
+      const result = await onRespond(quote.id, action);
+      
+      // ✅ Si se acepta y devuelve un orderId, redirigimos
+      if (action === 'accepted' && result?.orderId) {
+        onClose(); // Cerramos el modal primero
+        router.push(`/orders?newOrder=${result.orderId}`); // Opcional: pasar el ID si quieres resaltarlo
+      }
+    } catch (error) {
+       console.error("Error al procesar acción", error);
+    }
+  };
 
   return (
-    // ⚡ AJUSTE Z-INDEX: 2000 para superar al Header
     <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
       {/* Backdrop */}
       <div 
@@ -88,7 +105,7 @@ export default function CustomerQuoteModal({
       {/* Modal Content */}
       <div className="relative bg-white w-full max-w-3xl h-[90vh] md:h-auto md:max-h-[90vh] rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-300 border border-white/20">
         
-        {/* HEADER (Sticky) */}
+        {/* HEADER */}
         <div className="bg-white px-6 py-5 md:px-8 md:py-6 flex items-center justify-between border-b border-slate-100 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-50 rounded-xl text-blue-600">
@@ -127,7 +144,7 @@ export default function CustomerQuoteModal({
               </div>
           </div>
 
-          {/* 2. LA OFERTA (Grid Responsivo) */}
+          {/* 2. LA OFERTA */}
           <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <ShieldCheck size={16} className="text-slate-400" />
@@ -192,7 +209,7 @@ export default function CustomerQuoteModal({
                    </p>
                    <p className="text-[10px] text-slate-400 font-medium mt-1">Fecha exacta certificada</p>
                 </div>
-             </div>
+              </div>
 
              {/* NOTAS DEL VENDEDOR */}
              {proposal.admin_notes && (
@@ -219,13 +236,12 @@ export default function CustomerQuoteModal({
 
         </div>
 
-        {/* FOOTER (Sticky Bottom) - LÓGICA DE BLOQUEO */}
+        {/* FOOTER - ACCIONES */}
         <div className="p-5 md:p-6 bg-white border-t border-slate-100 sticky bottom-0 z-10 flex-shrink-0">
            {isActionable ? (
-               // CASO 1: AÚN SE PUEDE DECIDIR
                <div className="flex gap-3 md:gap-4">
                    <button 
-                     onClick={() => onRespond(quote.id, 'rejected')}
+                     onClick={() => handleAction('rejected')} // ✅ Usamos la nueva función
                      disabled={isResponding}
                      className="flex-1 py-3.5 md:py-4 border-2 border-slate-100 rounded-2xl font-bold text-slate-500 hover:border-red-100 hover:bg-red-50 hover:text-red-600 transition-all disabled:opacity-50 text-xs md:text-sm uppercase tracking-wide"
                    >
@@ -233,24 +249,22 @@ export default function CustomerQuoteModal({
                    </button>
                    
                    <button 
-                     onClick={() => onRespond(quote.id, 'accepted')}
+                     onClick={() => handleAction('accepted')} // ✅ Usamos la nueva función
                      disabled={isResponding}
                      className="flex-[2] py-3.5 md:py-4 bg-slate-900 text-white rounded-2xl font-black text-xs md:text-sm uppercase tracking-wide hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-2 md:gap-3 disabled:opacity-50 group"
                    >
                      {isResponding ? 'Procesando...' : (
                        <>
-                         <CheckCircle2 size={18} className="group-hover:scale-110 transition-transform md:w-5 md:h-5" /> Aceptar
+                         <CheckCircle2 size={18} className="group-hover:scale-110 transition-transform md:w-5 md:h-5" /> Aceptar Propuesta
                        </>
                      )}
                    </button>
                </div>
            ) : isAccepted ? (
-               // CASO 2: YA ACEPTADA
                <div className="w-full bg-emerald-50 border border-emerald-100 text-emerald-800 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold animate-in zoom-in">
                    <CheckCircle2 size={20}/> ¡Cotización Aceptada!
                </div>
            ) : isRejected ? (
-               // CASO 3: YA RECHAZADA
                <div className="w-full bg-slate-100 text-slate-500 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold animate-in zoom-in">
                    <Ban size={20}/> Cotización Rechazada
                </div>

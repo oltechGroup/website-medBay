@@ -18,7 +18,7 @@ router.post('/register', uploadEvidence.single('documentFile'), userController.r
 // Todo lo de abajo requiere Token válido
 router.use(authMiddleware.verifyToken);
 
-// ✅ NUEVO: Actualizar mi propio perfil (Solo teléfono por ahora)
+// ✅ Actualizar mi propio perfil (Solo teléfono por ahora)
 router.put('/profile', userController.updateProfile);
 
 // ✅ Obtener lista de usuarios (Soporta filtros ?role=...&search=...)
@@ -26,6 +26,18 @@ router.get('/', authMiddleware.requireRole(['admin', 'sales_agent']), userContro
 
 // ✅ Crear Staff (Vendedores/Admins)
 router.post('/create-staff', authMiddleware.requireRole(['admin']), userController.createStaff);
+
+// ----------------------------------------------------
+// 💰 NUEVAS RUTAS DE COMISIONES (SOLO ADMIN)
+// ----------------------------------------------------
+
+// ✅ Obtener reporte de comisiones pendientes (Antes de /:id para evitar conflictos)
+router.get('/commissions/summary', authMiddleware.requireRole(['admin']), userController.getCommissionsSummary);
+
+// ✅ Pagar comisiones (Corte de Caja) a un vendedor específico
+router.post('/:id/pay-commissions', authMiddleware.requireRole(['admin']), userController.payUserCommissions);
+
+// ----------------------------------------------------
 
 // ✅ Detalles de Usuario específico
 router.get('/:id', userController.getUserById);

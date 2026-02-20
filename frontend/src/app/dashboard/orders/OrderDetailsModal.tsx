@@ -7,10 +7,11 @@ import {
   CheckCircle2, XCircle, Truck, FileText, 
   ExternalLink, ShieldCheck, AlertTriangle,
   Clock, Phone, Globe, MessageCircle, Building2,
-  Plus, Trash2, Send, DollarSign, Calendar
+  Plus, Trash2, Send, DollarSign, Calendar, Loader2
 } from "lucide-react";
 import { useAdminOrders, AdminOrder, OrderItem, Supplier, ShippingOption } from "@/hooks/useAdminOrders";
 import { formatCurrency, formatDate } from "@/lib/formatters";
+import { api } from "@/lib/api"; // ✅ Importamos api para el mensaje directo
 
 interface OrderDetailsModalProps {
   isOpen: boolean;
@@ -21,7 +22,7 @@ interface OrderDetailsModalProps {
 export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDetailsModalProps) {
   const { 
     getOrderDetails, updateStatus, 
-    addShippingOption, submitValuation, // ✅ Nuevas funciones
+    addShippingOption, submitValuation, 
     getStatusLabel, getStatusColor, 
     isUpdating, isAddingOption, isSubmittingValuation 
   } = useAdminOrders();
@@ -30,13 +31,16 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const [items, setItems] = useState<OrderItem[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   
-  // ✅ Nuevos estados para el flujo B2B
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [taxInput, setTaxInput] = useState<string>('');
   const [newOption, setNewOption] = useState({ name: '', days: '', cost: '' });
   
   const [loading, setLoading] = useState(true);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
+
+  // ✅ NUEVO: Estados para el mensaje de Concierge
+  const [newMessage, setNewMessage] = useState("");
+  const [isSendingMsg, setIsSendingMsg] = useState(false);
 
   // Cargar datos
   const fetchOrder = () => {
@@ -47,7 +51,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
         setItems(data.items);
         setSuppliers(data.suppliers || []);
         setShippingOptions(data.shippingOptions || []);
-        // Si ya hay tax guardado, lo ponemos, si no 0
         setTaxInput(data.order.tax || '0');
       })
       .finally(() => setLoading(false));
@@ -61,7 +64,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
 
   if (!isOpen) return null;
 
-  // --- MANEJADORES B2B (NUEVOS) ---
+  // --- MANEJADORES B2B ---
 
   const handleAddOption = async () => {
     if (!newOption.name || !newOption.cost) return alert("Nombre y Costo son obligatorios");
@@ -74,7 +77,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
       cost: parseFloat(newOption.cost)
     });
     
-    // Limpiar form y recargar para ver la nueva opción
     setNewOption({ name: '', days: '', cost: '' });
     fetchOrder(); 
   };
@@ -115,6 +117,31 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
       status: 'shipped', 
       tracking_number: tracking 
     });
+    onClose();
+  };
+
+  // ✅ NUEVO: Enviar Mensaje Manual
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
+    setIsSendingMsg(true);
+    try {
+      await api.post(`/orders/${orderId}/message`, { message: newMessage });
+      alert("Mensaje enviado y notificado al cliente.");
+      setNewMessage(""); // Limpiar caja
+      // Opcional: Podríamos recargar para ver el historial, pero por ahora limpia
+    } catch (error) {
+      console.error(error);
+      alert("Error al enviar el mensaje.");
+    } finally {
+      setIsSendingMsg(false);
+    }
+  };
+
+  // ✅ NUEVO: Marcar como Entregado
+  const handleMarkDelivered = async () => {
+    if(!confirm("¿Confirmas que el cliente recibió el paquete correctamente? Esto cerrará el ciclo de venta.")) return;
+    
+    await updateStatus({ orderId, status: 'delivered' });
     onClose();
   };
 
@@ -238,11 +265,9 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                     Panel de Control
                   </h4>
 
-                  {/* CASO 1: PENDIENTE DE VALUACIÓN (COTIZACIÓN) */}
+                  {/* CASO 1: PENDIENTE DE VALUACIÓN */}
                   {order.status === 'pending_valuation' && (
                     <div className="space-y-4">
-                      
-                      {/* A. INPUT IMPUESTOS */}
                       <div>
                         <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Impuestos (USD)</label>
                         <div className="relative">
@@ -257,7 +282,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                         </div>
                       </div>
 
-                      {/* B. LISTA DE OPCIONES AGREGADAS */}
                       <div>
                         <label className="text-xs font-bold text-slate-400 uppercase mb-2 block flex justify-between">
                           <span>Opciones de Envío</span>
@@ -278,7 +302,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                           )}
                         </div>
 
-                        {/* C. FORMULARIO PEQUEÑO PARA AGREGAR OPCIÓN */}
                         <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 space-y-2">
                            <input 
                              placeholder="Nombre (Ej: Aéreo)" 
@@ -313,7 +336,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
 
                       <div className="h-px bg-slate-700 my-4"></div>
 
-                      {/* D. BOTÓN FINAL: ENVIAR PROPUESTA */}
                       <button 
                         onClick={handleSubmitValuation}
                         disabled={isSubmittingValuation}
@@ -376,20 +398,83 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                     </div>
                   )}
 
-                   {/* CASOS FINALES */}
-                   {['shipped', 'delivered'].includes(order.status) && (
-                      <div className="text-center">
-                         <div className="bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-lg inline-block text-xs font-bold uppercase tracking-wider">
-                           Ciclo Completado
-                         </div>
-                         {order.tracking_number && (
-                           <div className="mt-4 bg-slate-800 p-3 rounded-lg">
-                             <p className="text-[10px] text-slate-500 uppercase">Tracking</p>
-                             <p className="font-mono text-white tracking-widest">{order.tracking_number}</p>
-                           </div>
-                         )}
+                  {/* ✅ CASO 6: ENVIADO - SEGUIMIENTO Y CIERRE */}
+                  {order.status === 'shipped' && (
+                    <div className="space-y-6">
+                      
+                      {/* Tracking Info Opcional */}
+                      {order.tracking_number && (
+                        <div className="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center">
+                           <p className="text-[10px] text-slate-400 uppercase tracking-widest">Tracking Number</p>
+                           <p className="font-mono font-bold text-lg text-white mt-1 select-all">{order.tracking_number}</p>
+                        </div>
+                      )}
+
+                      {/* Notificación Manual (Concierge) */}
+                      <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                        <label className="text-xs font-bold text-blue-400 uppercase mb-2 flex items-center gap-2">
+                          <MessageCircle size={14}/> Mensaje al Cliente
+                        </label>
+                        <textarea
+                          rows={3}
+                          placeholder="Ej: Hola! El repartidor ya está en tu colonia, estate pendiente."
+                          className="w-full bg-slate-900 text-white text-sm p-3 rounded-lg border border-slate-600 focus:border-blue-500 outline-none resize-none mb-3 placeholder-slate-500"
+                          onChange={(e) => setNewMessage(e.target.value)} 
+                          value={newMessage}
+                        ></textarea>
+                        <button 
+                          onClick={handleSendMessage}
+                          disabled={!newMessage.trim() || isSendingMsg}
+                          className="w-full py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          {isSendingMsg ? <Loader2 className="animate-spin" size={14}/> : <Send size={14}/>} 
+                          {isSendingMsg ? 'Enviando...' : 'Enviar Notificación'}
+                        </button>
                       </div>
-                   )}
+
+                      {/* Botón de Finalizar */}
+                      <div className="pt-2 border-t border-slate-700">
+                        <p className="text-[10px] text-slate-400 mb-3 text-center leading-relaxed">
+                          Presiona este botón solo cuando el cliente confirme que recibió su pedido correctamente.
+                        </p>
+                        <button 
+                          onClick={handleMarkDelivered} 
+                          disabled={isUpdating}
+                          className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          {isUpdating ? <Loader2 className="animate-spin"/> : <CheckCircle2 size={18}/>} 
+                          Finalizar Pedido (Entregado)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CASO 7: FINALIZADO */}
+                  {order.status === 'delivered' && (
+                     <div className="text-center py-4">
+                        <div className="bg-emerald-500/20 text-emerald-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
+                          <CheckCircle2 size={32}/>
+                        </div>
+                        <h3 className="font-bold text-lg text-white">Pedido Completado</h3>
+                        <p className="text-slate-400 text-xs mt-1">Este ciclo de venta se ha cerrado exitosamente.</p>
+                        
+                        {order.tracking_number && (
+                          <div className="mt-4 bg-slate-800 p-3 rounded-lg inline-block">
+                            <p className="text-[10px] text-slate-500 uppercase">Tracking Usado</p>
+                            <p className="font-mono text-white text-xs">{order.tracking_number}</p>
+                          </div>
+                        )}
+                     </div>
+                  )}
+
+                  {/* CASOS CANCELADOS */}
+                  {['cancelled', 'rejected'].includes(order.status) && (
+                     <div className="text-center py-4 opacity-50">
+                        <XCircle size={32} className="mx-auto mb-2 text-slate-500"/>
+                        <p className="font-bold">Orden Cancelada</p>
+                     </div>
+                  )}
+
                 </div>
 
                 {/* 2. RESUMEN FINANCIERO */}
@@ -458,7 +543,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
         </div>
       </div>
 
-      {/* MINI MODAL PROVEEDORES (Igual que antes) */}
+      {/* MINI MODAL PROVEEDORES */}
       {showSupplierModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" onClick={() => setShowSupplierModal(false)}></div>

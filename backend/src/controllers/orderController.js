@@ -10,7 +10,6 @@ const Document = require('../models/documentModel');
 const orderController = {
 
   // --- 1. CREAR SOLICITUD (Paso 1 del Flujo B2B) ---
-  // Cliente envía productos + dirección. SIN envío ni pago aún.
   create: async (req, res) => {
     try {
       const customer_id = req.user.id;
@@ -29,8 +28,6 @@ const orderController = {
       // Cálculo SOLO de productos (Subtotal)
       const itemsSubtotal = items.reduce((sum, item) => sum + (parseFloat(item.unit_price) * item.quantity), 0);
       
-      // Creamos la orden en estado 'pending_valuation'
-      // Nota: Shipping cost y Tax inician en 0
       const newOrder = await Order.create({
         customer_id,
         subtotal: itemsSubtotal,
@@ -64,7 +61,7 @@ const orderController = {
       // Limpiar Carrito
       await Cart.clearCart(customer_id);
 
-      // Notificar (Email de "Solicitud Recibida")
+      // Notificar
       NotificationService.notifyOrderCreated(newOrder.id).catch(err => console.error('Error email create:', err));
 
       res.status(201).json({
@@ -112,7 +109,6 @@ const orderController = {
 
       if (req.user.verification_level !== 'admin') return res.status(403).json({ error: 'No autorizado' });
 
-      // Actualizar Tax y cambiar estado a 'waiting_customer_approval'
       const updatedOrder = await Order.updateTaxAndStatus(id, tax_amount);
 
       // TODO: Notificar al cliente "Tu cotización está lista"
@@ -132,16 +128,11 @@ const orderController = {
       const { id } = req.params; // Order ID
       const { shipping_option_id } = req.body;
 
-      // Seguridad: Verificar que la orden pertenezca al usuario
       const order = await Order.findById(id);
       if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
       if (order.customer_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
 
-      // Lógica en Modelo: Fija el costo, actualiza el total y cambia a 'payment_pending'
       const finalOrder = await Order.selectShippingOption(id, shipping_option_id);
-
-      // Notificar al cliente (Confirmación de total a pagar)
-      // NotificationService.notifyOrderApproved(id); // Reusamos este template o creamos uno nuevo
 
       res.json({ success: true, order: finalOrder });
     } catch (error) {
@@ -150,7 +141,7 @@ const orderController = {
     }
   },
 
-  // --- OBTENER DETALLE (Modificado para incluir opciones) ---
+  // --- OBTENER DETALLE ---
   getById: async (req, res) => {
     try {
       const { id } = req.params;
@@ -158,17 +149,13 @@ const orderController = {
       
       if (!order) return res.status(404).json({ error: 'Orden no encontrada' });
 
-      // Seguridad
       if (order.customer_id !== req.user.id && req.user.verification_level !== 'admin') {
         return res.status(403).json({ error: 'No autorizado' });
       }
 
       const items = await OrderItem.findByOrder(id);
-      
-      // ✅ NUEVO: Obtener opciones de envío (si existen)
       const shippingOptions = await Order.getShippingOptions(id);
 
-      // Lógica de Proveedores
       const suppliersMap = new Map();
       items.forEach(item => {
         if (item.supplier_name) {
@@ -185,7 +172,7 @@ const orderController = {
       res.json({ 
         order, 
         items, 
-        shippingOptions, // Agregado a la respuesta
+        shippingOptions, 
         suppliers: uniqueSuppliers 
       });
 
@@ -195,7 +182,7 @@ const orderController = {
     }
   },
 
-  // --- MÉTODOS EXISTENTES (Mantener compatibilidad) ---
+  // --- MÉTODOS ESTÁNDAR ---
 
   getAll: async (req, res) => {
     try {
@@ -230,10 +217,14 @@ const orderController = {
          if (Order.updateTracking) await Order.updateTracking(id, tracking_number);
       }
 
-      // Notificaciones (Compatibilidad)
+      // Notificaciones (Compatibilidad y Nuevos Estados)
       try {
         if (status === 'rejected') await NotificationService.notifyOrderRejected(id);
         else if (status === 'shipped') await NotificationService.notifyOrderShipped(id, tracking_number);
+        else if (status === 'delivered') {
+            // ✅ Notificar entrega si existe el método en el servicio
+            if(NotificationService.notifyOrderDelivered) await NotificationService.notifyOrderDelivered(id);
+        }
       } catch (e) { console.error(e); }
 
       res.json({ message: 'Estado actualizado', order: updatedOrder });
@@ -266,6 +257,52 @@ const orderController = {
       res.json({ success: true, message: 'Evidencia recibida' });
     } catch (error) {
       res.status(500).json({ error: 'Error interno' });
+    }
+  },
+
+  // ✅ NUEVO: Enviar mensaje de seguimiento (Concierge)
+  sendUpdateMessage: async (req, res) => {
+    try {
+      if (req.user.verification_level !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+
+      const { id } = req.params; // Order ID
+      const { message } = req.body; 
+
+      if (!message) return res.status(400).json({ error: "El mensaje no puede estar vacío" });
+
+      const order = await Order.findById(id);
+      if (!order) return res.status(404).json({ error: "Orden no encontrada" });
+
+      // 1. Guardar en Timeline
+      await Order.addTimelineEntry(
+        id, 
+        req.user.id, 
+        order.status, 
+        message,
+        "Actualización de Seguimiento"
+      );
+
+      // 2. Enviar Correo (Intento genérico, asegúrate de tener el método en NotificationService)
+      try {
+        if(NotificationService.sendCustomEmail) {
+            await NotificationService.sendCustomEmail(
+                order.customer_email, 
+                `Actualización sobre tu pedido #${id.slice(0,8)}`,
+                message,
+                `Hola ${order.customer_name}, actualización de tu envío:`
+            );
+        } else {
+            console.log("⚠️ NotificationService.sendCustomEmail no implementado. Mensaje solo guardado en BD.");
+        }
+      } catch (err) {
+          console.error("Error enviando email manual:", err);
+      }
+
+      res.json({ success: true, message: "Mensaje enviado y registrado." });
+
+    } catch (error) {
+      console.error("Error enviando mensaje:", error);
+      res.status(500).json({ error: "Error interno" });
     }
   }
 };

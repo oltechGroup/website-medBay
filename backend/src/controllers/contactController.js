@@ -1,7 +1,7 @@
 // backend/src/controllers/contactController.js
 
 const nodemailer = require('nodemailer');
-const db = require('../config/database'); // ✅ Usamos la conexión centralizada
+const db = require('../config/database'); 
 const { 
   generateQuoteTemplate, 
   generateContactTemplate, 
@@ -22,10 +22,8 @@ const transporter = nodemailer.createTransport({
 
 // --- ENVIAR MENSAJE (Cliente -> Admin) ---
 const sendContactEmail = async (req, res) => {
-  // Extraemos todos los campos posibles
   const { 
     nombre, email, asunto, mensaje, tipo = 'Contacto General',
-    // Campos específicos de cotización manual (Formulario antiguo)
     product_id, product_sku, product_name, requested_quantity, requested_type, manufacturer
   } = req.body;
 
@@ -33,15 +31,14 @@ const sendContactEmail = async (req, res) => {
 
   try {
     let htmlContent = '';
-    let dbContent = {}; // Lo que se guardará en el JSONB
-    let source = 'notification'; // Por defecto es notificación general
+    let dbContent = {}; 
+    let source = 'notification'; 
     let sourceId = null;
 
     // === LÓGICA DE SELECCIÓN DE TEMPLATE (ENTRANTE) ===
     if (tipo === 'Solicitud de Cotización') {
-      // 1. Caso Cotización Manual
-      source = 'quote'; // Esto permite filtrar en el Inbox como cotización
-      sourceId = product_id || null; // Si hay ID de producto, lo usamos de referencia
+      source = 'quote'; 
+      sourceId = product_id ? String(product_id) : null; // Nos aseguramos que sea string para varchar(255)
 
       const quoteData = {
         userName: nombre,
@@ -55,7 +52,6 @@ const sendContactEmail = async (req, res) => {
       };
       htmlContent = generateQuoteTemplate(quoteData);
       
-      // Estructura para DB (Dashboard)
       dbContent = {
         mensaje,
         product_details: {
@@ -70,7 +66,6 @@ const sendContactEmail = async (req, res) => {
       };
 
     } else {
-      // 2. Caso Contacto General
       const contactData = {
         userName: nombre,
         userEmail: email,
@@ -79,14 +74,13 @@ const sendContactEmail = async (req, res) => {
       };
       htmlContent = generateContactTemplate(contactData);
 
-      // Estructura para DB (Dashboard)
       dbContent = {
         mensaje,
         contact_details: { ...req.body } 
       };
     }
 
-    // ✅ Guardar notificación en DB con campos nuevos (source, source_id)
+    // --- 1. PROCESO CRÍTICO: GUARDAR EN BASE DE DATOS ---
     await db.query(
       `INSERT INTO notifications 
        (type, sender_name, sender_email, subject, content, source, source_id, is_read) 
@@ -97,26 +91,32 @@ const sendContactEmail = async (req, res) => {
         email, 
         asunto, 
         JSON.stringify(dbContent),
-        source,    // 'quote' o 'notification'
-        sourceId   // ID opcional para vincular
+        source,    
+        sourceId   
       ]
     );
 
-    // Enviar Correo al Admin
-    await transporter.sendMail({
-      from: `"${nombre} | MedBay Web" <${process.env.EMAIL_USER}>`,
-      to: "medbay.info02@gmail.com", // Tu correo de admin
-      replyTo: email,
-      subject: `🔔 ${tipo}: ${asunto}`,
-      html: htmlContent,
-      attachments: [...getBrandingAttachments(), ...archivosAdjuntos]
-    });
+    // --- 2. PROCESO SECUNDARIO: ENVIAR CORREO AL ADMIN ---
+    // Lo blindamos para que si falla Nodemailer, el cliente igual vea el mensaje de éxito.
+    try {
+      await transporter.sendMail({
+        from: `"${nombre} | MedBay Web" <${process.env.EMAIL_USER}>`,
+        to: "medbay.info02@gmail.com", 
+        replyTo: email,
+        subject: `🔔 ${tipo}: ${asunto}`,
+        html: htmlContent,
+        attachments: [...getBrandingAttachments(), ...archivosAdjuntos]
+      });
+    } catch (emailError) {
+      console.error('⚠️ Advertencia: Mensaje guardado en BD, pero falló el envío de correo al Admin:', emailError);
+    }
 
+    // --- 3. RESPUESTA DE ÉXITO ---
     res.status(200).json({ success: true, message: 'Solicitud procesada correctamente.' });
 
   } catch (error) {
-    console.error('🔥 Error en sendContactEmail:', error);
-    res.status(500).json({ success: false, error: 'Error interno del servidor.' });
+    console.error('🔥 Error crítico en sendContactEmail (Base de datos):', error);
+    res.status(500).json({ success: false, error: 'Error interno al guardar el mensaje.' });
   }
 };
 
@@ -127,8 +127,7 @@ const replyToEmail = async (req, res) => {
     subject, 
     message, 
     originalSubject,
-    // Datos opcionales para respuesta de cotización
-    quoteDetails, // { name, sku, quantity... }
+    quoteDetails, 
     recipientName 
   } = req.body;
 
@@ -140,9 +139,7 @@ const replyToEmail = async (req, res) => {
     const finalSubject = subject || `RE: ${originalSubject || 'Soporte MedBay'}`;
     let htmlContent = '';
 
-    // === LÓGICA DE SELECCIÓN DE TEMPLATE (SALIENTE) ===
     if (quoteDetails) {
-      // ✅ 1. Respuesta a Cotización (Diseño Específico)
       htmlContent = generateQuoteResponseTemplate({
         userName: recipientName || 'Cliente',
         productName: quoteDetails.name,
@@ -151,7 +148,6 @@ const replyToEmail = async (req, res) => {
         message: message
       });
     } else {
-      // ✅ 2. Respuesta General (Diseño Estándar)
       htmlContent = generateResponseTemplate('Respuesta a su Solicitud', message, true);
     }
 
@@ -167,7 +163,8 @@ const replyToEmail = async (req, res) => {
 
   } catch (error) {
     console.error('🔥 Error en replyToEmail:', error);
-    res.status(500).json({ success: false, error: error.message });
+    // Como la única función de este endpoint es enviar un correo, si falla, SÍ devolvemos el error.
+    res.status(500).json({ success: false, error: 'No se pudo enviar el correo de respuesta.' });
   }
 };
 

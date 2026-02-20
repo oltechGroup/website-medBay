@@ -3,6 +3,7 @@
 const User = require('../models/userModel');
 const Document = require('../models/documentModel');
 const Address = require('../models/addressModel');
+const Order = require('../models/orderModel'); 
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const nodemailer = require('nodemailer'); 
@@ -42,7 +43,6 @@ const userController = {
 
       const documentFile = req.file; 
 
-      // Limpieza de datos
       const clean = (val) => (val && val !== 'null' && val !== 'undefined' && val.trim() !== '') ? val : null;
 
       const cleanCompany = clean(company_name);
@@ -74,7 +74,9 @@ const userController = {
 
       const password_hash = await bcrypt.hash(password, 12);
 
-      // --- 1. CREAR USUARIO ---
+      // --- 1. PROCESO CRÍTICO: BASE DE DATOS ---
+      // Si algo falla aquí, el registro se detiene y avisa al usuario.
+      
       const newUser = await User.create({
         email,
         password_hash,
@@ -86,7 +88,6 @@ const userController = {
         phone: cleanPhone
       });
 
-      // --- 2. CREAR DIRECCIÓN ---
       await Address.create({
         user_id: newUser.id,
         address_type: 'billing',
@@ -103,7 +104,6 @@ const userController = {
         is_fiscal: true
       });
 
-      // --- 3. CREAR DOCUMENTO ---
       let filePathDB = null;
       if (documentFile) {
         filePathDB = `/uploads/evidence/${documentFile.filename}`;
@@ -111,67 +111,78 @@ const userController = {
         await Document.create({
           owner_type: 'user',
           owner_id: newUser.id,
-          document_type: 'license', // Es registro, así que es licencia/acta
+          document_type: 'license', 
           file_path: filePathDB,
           status: 'uploaded',
           notes: `Registro inicial: ${roleFriendlyName}`
         });
       }
 
-      const fullAddress = [
-        `${street} #${street_number} ${cleanSuite ? 'Int. ' + cleanSuite : ''}`,
-        `Col. ${colony}, CP: ${postal_code}`,
-        `${city}, ${state}, ${country}`,
-        cleanBetween ? `Entre calles: ${cleanBetween}` : null,
-        cleanRef ? `Ref: ${cleanRef}` : null
-      ].filter(Boolean).join('\n');
+      // --- 2. PROCESO SECUNDARIO: NOTIFICACIONES ---
+      // Lo envolvemos en su propio try-catch. Si falla, el usuario de todos modos queda registrado.
+      try {
+        const fullAddress = [
+          `${street} #${street_number} ${cleanSuite ? 'Int. ' + cleanSuite : ''}`,
+          `Col. ${colony}, CP: ${postal_code}`,
+          `${city}, ${state}, ${country}`,
+          cleanBetween ? `Entre calles: ${cleanBetween}` : null,
+          cleanRef ? `Ref: ${cleanRef}` : null
+        ].filter(Boolean).join('\n');
 
-      // --- 4. NOTIFICACIÓN DASHBOARD ---
-      const notifContent = {
-        mensaje: `Nueva solicitud de registro recibida para validación.`,
-        extra_data: {
-          user_id: newUser.id,
-          role_name: roleFriendlyName,
-          company: cleanCompany || 'N/A',
-          tax_id: cleanTaxId || 'N/A',
-          phone: cleanPhone || 'N/A',
-          address: fullAddress,
-          file_path: filePathDB 
-        }
-      };
-      
-      await pool.query(
-        'INSERT INTO notifications (type, sender_name, sender_email, subject, content) VALUES ($1, $2, $3, $4, $5)',
-        [
-          'Registro Usuario', 
-          full_name, 
-          email, 
-          `Validación: ${roleFriendlyName}`, 
-          JSON.stringify(notifContent)
-        ]
-      );
+        const notifContent = {
+          mensaje: `Nueva solicitud de registro recibida para validación.`,
+          extra_data: {
+            user_id: newUser.id,
+            role_name: roleFriendlyName,
+            company: cleanCompany || 'N/A',
+            tax_id: cleanTaxId || 'N/A',
+            phone: cleanPhone || 'N/A',
+            address: fullAddress,
+            file_path: filePathDB 
+          }
+        };
+        
+        // Usamos source y source_id (que ya agregamos en SQL) para evitar el colapso
+        await pool.query(
+          'INSERT INTO notifications (type, sender_name, sender_email, subject, content, source, source_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [
+            'Registro Usuario', 
+            full_name, 
+            email, 
+            `Validación: ${roleFriendlyName}`, 
+            JSON.stringify(notifContent),
+            'notification', // source
+            newUser.id      // source_id
+          ]
+        );
 
-      // --- 5. CORREO AL ADMIN ---
-      const registerEmailData = {
-        fullName: full_name,
-        roleName: roleFriendlyName,
-        email: email,
-        phone: cleanPhone,
-        company: cleanCompany,
-        taxId: cleanTaxId,
-        fullAddress: fullAddress.replace(/\n/g, '<br>')
-      };
+        const registerEmailData = {
+          fullName: full_name,
+          roleName: roleFriendlyName,
+          email: email,
+          phone: cleanPhone,
+          company: cleanCompany,
+          taxId: cleanTaxId,
+          fullAddress: fullAddress.replace(/\n/g, '<br>')
+        };
 
-      const adminHtml = generateRegisterTemplate(registerEmailData);
+        const adminHtml = generateRegisterTemplate(registerEmailData);
 
-      await transporter.sendMail({
-        from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
-        to: "medbay.info02@gmail.com",
-        subject: `🔔 Nueva Solicitud: ${full_name} (${roleFriendlyName})`,
-        html: adminHtml, 
-        attachments: getBrandingAttachments()
-      });
+        await transporter.sendMail({
+          from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
+          to: "medbay.info02@gmail.com",
+          subject: `🔔 Nueva Solicitud: ${full_name} (${roleFriendlyName})`,
+          html: adminHtml, 
+          attachments: getBrandingAttachments()
+        });
 
+      } catch (notificationError) {
+        // Silenciamos el error de cara al usuario, pero lo vemos en consola
+        console.error('⚠️ Advertencia: Usuario creado, pero falló el envío de correo o notificación:', notificationError);
+      }
+
+      // --- 3. RESPUESTA AL FRONTEND ---
+      // Siempre llegará aquí si la BD guardó al usuario correctamente.
       res.status(201).json({
         success: true,
         message: 'Registro recibido exitosamente. En espera de validación.',
@@ -179,6 +190,7 @@ const userController = {
       });
 
     } catch (error) {
+      // Este catch solo atrapará errores graves (ej. BD caída, error en sintaxis SQL)
       console.error('🔥 Error crítico en registro:', error);
       res.status(500).json({ 
         error: 'Error interno del servidor al procesar el registro.',
@@ -189,13 +201,11 @@ const userController = {
 
   // --- GESTIÓN DE USUARIOS (Admin Dashboard) ---
 
-  // ✅ 1. OBTENER TODOS (Con Filtros y Paginación)
   getAllUsers: async (req, res) => { 
     try { 
       const { page = 1, limit = 10, search = '', role = 'all' } = req.query;
       const offset = (page - 1) * limit;
 
-      // Construcción dinámica del Query
       let query = `
         SELECT id, email, full_name, company_name, verification_level, account_status, phone, created_at, referral_code
         FROM users
@@ -204,14 +214,12 @@ const userController = {
       const params = [];
       let paramCount = 0;
 
-      // Filtro por Rol
       if (role !== 'all') {
         paramCount++;
         query += ` AND verification_level = $${paramCount}`;
         params.push(role);
       }
 
-      // Filtro de Búsqueda (Nombre, Email, Empresa)
       if (search) {
         paramCount++;
         query += ` AND (
@@ -223,14 +231,11 @@ const userController = {
         params.push(`%${search}%`);
       }
 
-      // Ordenamiento y Paginación
       query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
       params.push(limit, offset);
 
-      // Ejecutar Query Principal
       const result = await pool.query(query, params);
 
-      // Contar total para paginación (Query separado simplificado)
       let countQuery = `SELECT COUNT(*) FROM users WHERE 1=1`;
       const countParams = [];
       let countParamIdx = 0;
@@ -262,12 +267,10 @@ const userController = {
     } 
   },
 
-  // ✅ 2. CREAR STAFF (Vendedores/Admin) - Cuenta Activa Directa
   createStaff: async (req, res) => {
     try {
       const { full_name, email, password, phone, role, referral_code } = req.body;
 
-      // Validar que quien crea sea admin (Extra check, aunque el middleware ya lo hace)
       if (req.user.verification_level !== 'admin') {
         return res.status(403).json({ error: 'No autorizado' });
       }
@@ -277,10 +280,8 @@ const userController = {
 
       const password_hash = await bcrypt.hash(password, 10);
       
-      // Generar código de referencia si no viene uno
       const finalReferralCode = referral_code || `REF-${Math.floor(Math.random() * 10000)}`;
 
-      // Insertar directo con estado 'active'
       const query = `
         INSERT INTO users (email, password_hash, full_name, phone, verification_level, account_status, referral_code)
         VALUES ($1, $2, $3, $4, $5, 'active', $6)
@@ -300,12 +301,10 @@ const userController = {
     }
   },
 
-  // ✅ 3. OBTENER DETALLE USUARIO
   getUserById: async (req, res) => { 
     try { 
       const {id} = req.params; 
       
-      // Traemos usuario + documentos + dirección principal
       const userQuery = `
         SELECT u.*, 
           (SELECT json_agg(d.*) FROM documents d WHERE d.owner_id = u.id) as documents,
@@ -324,12 +323,9 @@ const userController = {
     } 
   },
 
-  // ✅ 4. ACTUALIZAR PERFIL (Usuario Propio) - SOLO TELÉFONO
   updateProfile: async (req, res) => {
     try {
       const userId = req.user.id;
-      // 🔒 SEGURIDAD: Solo extraemos 'phone' del body.
-      // Si el usuario intenta enviar 'verification_level', 'tax_id', etc., se ignora.
       const { phone } = req.body;
 
       if (!phone) {
@@ -360,11 +356,10 @@ const userController = {
     }
   },
 
-  // ✅ 5. ACTUALIZAR ESTADO (Aprobar/Rechazar)
   updateUserStatus: async (req, res) => {
     try {
       const { id } = req.params;
-      const { status } = req.body; // 'active', 'rejected', 'suspended'
+      const { status } = req.body;
 
       const result = await pool.query(
         'UPDATE users SET account_status = $1 WHERE id = $2 RETURNING id, email, account_status',
@@ -373,9 +368,6 @@ const userController = {
 
       if (result.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-      // Opcional: Enviar email de notificación al usuario sobre el cambio de estado
-      // NotificationService.notifyStatusChange(...) 
-
       res.json({ message: 'Estado actualizado', user: result.rows[0] });
     } catch (error) {
       console.error(error);
@@ -383,14 +375,71 @@ const userController = {
     }
   },
 
-  // ✅ 6. ELIMINAR USUARIO
   deleteUser: async (req, res) => {
     try {
       const { id } = req.params;
-      await User.delete(id); // Asumiendo que tu modelo User tiene delete()
+      await User.delete(id); 
       res.json({ message: 'Usuario eliminado' });
     } catch (error) {
       res.status(500).json({ error: 'Error eliminando usuario' });
+    }
+  },
+
+  // --- GESTIÓN DE COMISIONES ---
+
+  getCommissionsSummary: async (req, res) => {
+    try {
+      if (req.user.verification_level !== 'admin') {
+        return res.status(403).json({ error: 'Acceso denegado' });
+      }
+      
+      const report = await Order.getUnpaidCommissions();
+      res.json(report);
+    } catch (error) {
+      console.error('Error obteniendo comisiones:', error);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  },
+
+  payUserCommissions: async (req, res) => {
+    try {
+      if (req.user.verification_level !== 'admin') {
+        return res.status(403).json({ error: 'Acceso denegado' });
+      }
+
+      const { id } = req.params; 
+
+      const userRes = await pool.query('SELECT referral_code, full_name FROM users WHERE id = $1', [id]);
+      
+      if (userRes.rows.length === 0) return res.status(404).json({ error: 'Vendedor no encontrado' });
+      
+      const { referral_code, full_name } = userRes.rows[0];
+      
+      if (!referral_code) {
+        return res.status(400).json({ error: 'Este usuario no tiene código de vendedor asignado.' });
+      }
+
+      const result = await Order.markCommissionsAsPaid(referral_code);
+
+      if (result.updatedCount === 0) {
+        return res.json({ 
+          success: false, 
+          message: 'No se encontraron ventas entregadas pendientes de pago para este vendedor.' 
+        });
+      }
+
+      res.json({
+        success: true,
+        message: `Corte de caja exitoso para ${full_name}.`,
+        details: {
+          sales_processed: result.updatedCount,
+          orders_ids: result.orderIds
+        }
+      });
+
+    } catch (error) {
+      console.error('Error pagando comisiones:', error);
+      res.status(500).json({ error: 'Error interno al procesar el pago' });
     }
   }
 };

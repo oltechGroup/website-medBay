@@ -20,7 +20,6 @@ router.get('/my-orders', orderController.getMyOrders);
 router.post('/', orderController.create);
 
 // Paso 2: Seleccionar método de envío (Aceptación de cotización)
-// ✅ NUEVA RUTA
 router.post('/:id/select-shipping', orderController.selectShippingMethod);
 
 // Paso 3: Subir evidencia de pago (Foto/PDF)
@@ -32,19 +31,22 @@ router.post('/:id/evidence', uploadEvidence.single('file'), orderController.uplo
 // ==========================================
 
 // Obtener todas las órdenes
-router.get('/', orderController.getAll);
+router.get('/', authMiddleware.requireRole(['admin']), orderController.getAll);
 
 // Obtener detalle de una orden específica (Incluye shipping options)
-router.get('/:id', orderController.getById);
+router.get('/:id', authMiddleware.requireRole(['admin']), orderController.getById);
 
 // Actualizar estado general (Bitácora / Cambios manuales)
-router.put('/:id/status', orderController.updateStatus);
+router.put('/:id/status', authMiddleware.requireRole(['admin']), orderController.updateStatus);
 
 // Gestión de Valuación (Cotización)
-// ✅ NUEVA RUTA: Agregar una opción de envío a la orden
-router.post('/:id/shipping-options', orderController.addShippingOption);
+// Agregar una opción de envío a la orden
+router.post('/:id/shipping-options', authMiddleware.requireRole(['admin']), orderController.addShippingOption);
 
-// ✅ NUEVA RUTA: Finalizar valuación (Guardar Tax y Enviar al Cliente)
-router.post('/:id/valuation', orderController.submitValuation);
+// Finalizar valuación (Guardar Tax y Enviar al Cliente)
+router.post('/:id/valuation', authMiddleware.requireRole(['admin']), orderController.submitValuation);
+
+// ✅ NUEVA RUTA: Enviar mensaje de seguimiento (Concierge)
+router.post('/:id/message', authMiddleware.requireRole(['admin']), orderController.sendUpdateMessage);
 
 module.exports = router;
