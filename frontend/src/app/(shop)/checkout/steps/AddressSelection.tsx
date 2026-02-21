@@ -3,12 +3,12 @@
 
 import { useState } from "react";
 import { useAddresses, CreateAddressData } from "@/hooks/useAddresses";
-import { MapPin, Plus, Loader2, Building2, Trash2 } from "lucide-react";
+import { MapPin, Plus, Loader2, Building2, Trash2, CheckCircle2 } from "lucide-react";
 
 interface AddressSelectionProps {
   selectedAddressId: string | null;
   onSelect: (id: string) => void;
-  onNext: () => void;
+  onNext: () => void; // Lo mantenemos en la interfaz para no romper props padres, pero no lo usamos visualmente
 }
 
 export const AddressSelection = ({ selectedAddressId, onSelect, onNext }: AddressSelectionProps) => {
@@ -54,9 +54,14 @@ export const AddressSelection = ({ selectedAddressId, onSelect, onNext }: Addres
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-500">
       
-      <div className="mb-6 md:mb-8">
-        <h2 className="text-xl md:text-2xl font-black text-slate-800">Dirección de Envío</h2>
-        <p className="text-slate-500 text-sm md:text-base">Selecciona dónde recibirás tus insumos médicos.</p>
+      <div className="mb-6 md:mb-8 flex justify-between items-end">
+        <div>
+          <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2">
+            Dirección de Envío
+            {selectedAddressId && <CheckCircle2 size={20} className="text-emerald-500 animate-in zoom-in"/>}
+          </h2>
+          <p className="text-slate-500 text-sm md:text-base">Selecciona dónde recibirás tus insumos médicos.</p>
+        </div>
       </div>
 
       {/* === VISTA 1: LISTA DE DIRECCIONES === */}
@@ -124,15 +129,7 @@ export const AddressSelection = ({ selectedAddressId, onSelect, onNext }: Addres
             })}
           </div>
 
-          <div className="flex justify-end pt-4 md:pt-6">
-            <button 
-              onClick={onNext}
-              disabled={!selectedAddressId}
-              className="w-full md:w-auto bg-slate-900 text-white px-8 py-3.5 md:py-4 rounded-xl font-bold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl text-sm md:text-base"
-            >
-              Continuar a Logística
-            </button>
-          </div>
+          {/* EL BOTÓN FANTASMA FUE ELIMINADO DE AQUÍ */}
         </div>
       ) : (
         
@@ -148,7 +145,6 @@ export const AddressSelection = ({ selectedAddressId, onSelect, onNext }: Addres
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-2">
               <label className="text-[10px] md:text-xs font-bold text-slate-500 uppercase">Calle *</label>
-              {/* text-base para evitar zoom */}
               <input required name="street" value={formData.street} onChange={handleChange} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-blue-500 transition-colors text-base" placeholder="Ej. Av. Reforma" />
             </div>
             

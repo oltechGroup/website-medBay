@@ -27,7 +27,6 @@ interface CustomerOrderModalProps {
   order: Order;
   onUploadEvidence: (e: React.ChangeEvent<HTMLInputElement>, orderId: string) => Promise<void>;
   isUploading: boolean;
-  // ✅ Nuevas Props para el flujo B2B
   onSelectShipping: (opts: { orderId: string, shippingOptionId: string }) => Promise<void>;
   isSelecting: boolean;
 }
@@ -53,7 +52,6 @@ export default function CustomerOrderModal({
   useEffect(() => {
     if (isOpen && order.id) {
       setLoading(true);
-      // Hacemos fetch directo para obtener los datos frescos (items + opciones de envío)
       api.get(`/orders/${order.id}`)
         .then(res => {
           setItems(res.data.items || []);
@@ -62,18 +60,16 @@ export default function CustomerOrderModal({
         .catch(err => console.error("Error cargando detalles de orden:", err))
         .finally(() => setLoading(false));
     }
-  }, [isOpen, order.id]);
+  }, [isOpen, order.id, order.status]); 
 
   if (!isOpen) return null;
 
   // --- LÓGICA DE CÁLCULO DE TOTALES (PREVIEW) ---
-  // Buscamos la opción seleccionada localmente para mostrar el total simulado
   const selectedOption = shippingOptions.find(o => o.id === selectedOptionId);
   
   const currentSubtotal = parseFloat(order.subtotal || '0');
   const currentTax = parseFloat(order.tax || '0');
   
-  // Si ya seleccionó una opción localmente, usamos ese costo. Si no, el de la orden (que será 0 al inicio)
   const currentShippingCost = selectedOption 
     ? parseFloat(selectedOption.cost) 
     : parseFloat(order.shipping_cost || '0');
@@ -85,12 +81,10 @@ export default function CustomerOrderModal({
     if (!selectedOptionId) return;
     
     try {
-      // Llamamos a la función del hook para enviar la selección al backend
       await onSelectShipping({ 
         orderId: order.id, 
         shippingOptionId: selectedOptionId 
       });
-      // Si tiene éxito, cerramos el modal
       onClose();
     } catch (error) {
       console.error("Error al seleccionar envío:", error);
@@ -113,6 +107,16 @@ export default function CustomerOrderModal({
   };
 
   const statusInfo = getStatusBadge(order.status);
+
+  // Intentar parsear la dirección si viene como string
+  let parsedAddress = order.shipping_address_json;
+  if (typeof parsedAddress === 'string') {
+    try {
+      parsedAddress = JSON.parse(parsedAddress);
+    } catch (e) {
+      console.error("Error parseando dirección JSON", e);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
@@ -242,66 +246,85 @@ export default function CustomerOrderModal({
                   </div>
                 )}
 
-                {/* --- 2. DATOS BANCARIOS + EVIDENCIA (Solo si espera pago) --- */}
-                {order.status === 'payment_pending' && (
+                {/* --- 2. DATOS BANCARIOS + EVIDENCIA --- */}
+                {(order.status === 'payment_pending' || order.status === 'payment_review') && (
                   <div className="space-y-4">
                     
-                    {/* Tarjeta de Datos Bancarios (Chase) */}
-                    <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl">
-                      <div className="flex items-center gap-2 mb-4 text-blue-400">
-                        <Landmark size={20}/> 
-                        <span className="font-bold text-sm uppercase tracking-wider">Datos para Transferencia</span>
+                    {/* Tarjeta de Datos Bancarios */}
+                    {order.status === 'payment_pending' && (
+                      <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl animate-in fade-in zoom-in-95">
+                        <div className="flex items-center gap-2 mb-4 text-blue-400">
+                          <Landmark size={20}/> 
+                          <span className="font-bold text-sm uppercase tracking-wider">Datos para Transferencia</span>
+                        </div>
+                        
+                        <div className="space-y-3 text-sm">
+                          <div>
+                            <p className="text-slate-400 text-xs uppercase">Beneficiario</p>
+                            <p className="font-bold">{BANK_DETAILS.company}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-400 text-xs uppercase">Banco</p>
+                            <p className="font-bold">{BANK_DETAILS.bank}</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-slate-400 text-xs uppercase">Cuenta</p>
+                              <p className="font-mono font-bold tracking-wider text-emerald-400 select-all">{BANK_DETAILS.account}</p>
+                            </div>
+                            <div>
+                              <p className="text-slate-400 text-xs uppercase">Routing (ABA)</p>
+                              <p className="font-mono font-bold tracking-wider select-all">{BANK_DETAILS.routing}</p>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-slate-400 text-xs uppercase">SWIFT</p>
+                            <p className="font-mono font-bold tracking-wider select-all">{BANK_DETAILS.swift}</p>
+                          </div>
+                          <div className="pt-2 mt-2 border-t border-slate-700">
+                            <p className="text-slate-400 text-xs uppercase">Dirección</p>
+                            <p className="text-xs text-slate-300">{BANK_DETAILS.address}</p>
+                          </div>
+                        </div>
                       </div>
-                      
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <p className="text-slate-400 text-xs uppercase">Beneficiario</p>
-                          <p className="font-bold">{BANK_DETAILS.company}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-400 text-xs uppercase">Banco</p>
-                          <p className="font-bold">{BANK_DETAILS.bank}</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                           <div>
-                             <p className="text-slate-400 text-xs uppercase">Cuenta</p>
-                             <p className="font-mono font-bold tracking-wider text-emerald-400 select-all">{BANK_DETAILS.account}</p>
-                           </div>
-                           <div>
-                             <p className="text-slate-400 text-xs uppercase">Routing (ABA)</p>
-                             <p className="font-mono font-bold tracking-wider select-all">{BANK_DETAILS.routing}</p>
-                           </div>
-                        </div>
-                        <div>
-                          <p className="text-slate-400 text-xs uppercase">SWIFT</p>
-                          <p className="font-mono font-bold tracking-wider select-all">{BANK_DETAILS.swift}</p>
-                        </div>
-                        <div className="pt-2 mt-2 border-t border-slate-700">
-                           <p className="text-slate-400 text-xs uppercase">Dirección</p>
-                           <p className="text-xs text-slate-300">{BANK_DETAILS.address}</p>
-                        </div>
-                      </div>
-                    </div>
+                    )}
 
-                    {/* Subida de Archivo */}
-                    <div className="bg-white p-6 rounded-3xl border-2 border-blue-100 shadow-lg shadow-blue-100/50 text-center">
-                      <h4 className="font-bold text-slate-800 mb-1">Subir Comprobante</h4>
-                      <p className="text-xs text-slate-500 mb-4">Adjunta foto o PDF de tu transferencia.</p>
-                      
-                      {isUploading ? (
-                        <div className="py-3 flex justify-center text-blue-600"><Loader2 className="animate-spin"/></div>
-                      ) : (
-                        <label className="block w-full py-3 bg-blue-600 text-white rounded-xl font-bold cursor-pointer hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 active:scale-95 text-sm">
-                          Seleccionar Archivo
-                          <input 
-                            type="file" 
-                            className="hidden" 
-                            accept="image/*,application/pdf"
-                            onChange={(e) => onUploadEvidence(e, order.id)}
-                          />
-                        </label>
-                      )}
-                    </div>
+                    {/* ✅ TARJETA DE ÉXITO O SUBIDA DE ARCHIVO */}
+                    {order.status === 'payment_review' ? (
+                      <div className="bg-purple-50 p-6 rounded-3xl border-2 border-purple-200 shadow-lg shadow-purple-100/50 text-center animate-in fade-in slide-in-from-bottom-4">
+                        <div className="w-12 h-12 bg-purple-200 text-purple-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <CheckCircle2 size={24} />
+                        </div>
+                        <h4 className="font-bold text-purple-900 mb-1">¡Evidencia Recibida!</h4>
+                        <p className="text-xs text-purple-700 font-medium">
+                          Tu pago está siendo validado por nuestro equipo. 
+                          Recibirás una notificación en breve para proceder con el envío.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-white p-6 rounded-3xl border-2 border-blue-100 shadow-lg shadow-blue-100/50 text-center animate-in fade-in zoom-in">
+                        <h4 className="font-bold text-slate-800 mb-1">Subir Comprobante</h4>
+                        <p className="text-xs text-slate-500 mb-4">Adjunta foto o PDF de tu transferencia.</p>
+                        
+                        {isUploading ? (
+                          <div className="py-3 flex justify-center text-blue-600"><Loader2 className="animate-spin"/></div>
+                        ) : (
+                          <label className="block w-full py-3 bg-blue-600 text-white rounded-xl font-bold cursor-pointer hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 active:scale-95 text-sm">
+                            Seleccionar Archivo
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*,application/pdf"
+                              onChange={async (e) => {
+                                await onUploadEvidence(e, order.id);
+                                setTimeout(() => window.location.reload(), 1500);
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    )}
+
                   </div>
                 )}
 
@@ -332,16 +355,18 @@ export default function CustomerOrderModal({
                    </div>
                 </div>
 
-                {/* 4. DIRECCIÓN */}
+                {/* ✅ 4. DIRECCIÓN REAL (CORREGIDA PARA TYPESCRIPT) */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                    <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2 text-xs md:text-sm uppercase tracking-wide">
                      <MapPin size={16}/> Envío a
                    </h4>
-                   {order.shipping_address_json ? (
+                   {parsedAddress ? (
                      <div className="text-sm text-slate-600 space-y-1">
-                       <p className="font-bold text-slate-900">{order.shipping_address_json.street}</p>
-                       <p>{order.shipping_address_json.city}, {order.shipping_address_json.state}</p>
-                       <p className="font-bold text-xs uppercase mt-2 text-slate-400">{order.shipping_address_json.country} • CP {order.shipping_address_json.postal_code}</p>
+                       <p className="font-bold text-slate-900">{parsedAddress.street}</p>
+                       <p>{parsedAddress.city}</p>
+                       <p className="font-bold text-xs uppercase mt-2 text-slate-400">
+                         {parsedAddress.state}, {parsedAddress.country} • CP {parsedAddress.postal_code}
+                       </p>
                      </div>
                    ) : (
                      <p className="text-slate-400 italic text-sm">Dirección estándar</p>

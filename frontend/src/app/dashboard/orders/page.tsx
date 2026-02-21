@@ -27,7 +27,7 @@ export default function OrdersPage() {
       (order.customer_name?.toLowerCase().includes(searchLower) || "") ||
       (order.customer_email?.toLowerCase().includes(searchLower) || "") ||
       (order.id.toLowerCase().includes(searchLower) || "") ||
-      (order.customer_phone?.includes(searchLower) || ""); // También buscamos por teléfono
+      (order.customer_phone?.includes(searchLower) || ""); 
     
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
@@ -35,7 +35,8 @@ export default function OrdersPage() {
   });
 
   // --- CONTADORES PARA ALERTAS ---
-  const pendingReview = orders.filter(o => o.status === 'pending_review').length;
+  // ✅ CORRECCIÓN DE TYPESCRIPT: Cambiado de 'pending_review' a 'pending_valuation'
+  const pendingReview = orders.filter(o => o.status === 'pending_valuation').length;
   const paymentReview = orders.filter(o => o.status === 'payment_review').length;
 
   return (
@@ -55,7 +56,7 @@ export default function OrdersPage() {
           {pendingReview > 0 && (
             <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-xl border border-amber-100 shadow-sm animate-pulse">
               <AlertCircle size={18} />
-              <span className="text-xs font-bold">{pendingReview} por revisar stock</span>
+              <span className="text-xs font-bold">{pendingReview} por cotizar envío</span>
             </div>
           )}
           {paymentReview > 0 && (
@@ -91,10 +92,12 @@ export default function OrdersPage() {
             className="bg-white border border-slate-200 text-slate-600 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 outline-none cursor-pointer font-bold"
           >
             <option value="all">📦 Todos los estados</option>
-            <option value="pending_review">🟡 Revisión de Stock</option>
+            {/* ✅ Actualizado a los estados reales */}
+            <option value="pending_valuation">🟡 Cotizando Envío</option>
+            <option value="waiting_customer_approval">🟠 Esperando Aprobación</option>
             <option value="payment_pending">🔵 Esperando Pago</option>
             <option value="payment_review">🟣 Validando Pago</option>
-            <option value="processing">🟢 En Proceso / Preparando</option>
+            <option value="processing">🟢 Preparando Envío</option>
             <option value="shipped">🚚 Enviado</option>
             <option value="delivered">✅ Entregado</option>
             <option value="cancelled">❌ Cancelado</option>
@@ -155,7 +158,6 @@ export default function OrdersPage() {
                         <div className="flex items-center gap-1.5 text-xs text-slate-500">
                           <Mail size={12} className="text-slate-400"/> {order.customer_email}
                         </div>
-                        {/* ✅ AQUI ESTÁ EL TELÉFONO QUE PEDISTE */}
                         {order.customer_phone && (
                           <div className="flex items-center gap-1.5 text-xs text-slate-500">
                             <Phone size={12} className="text-slate-400"/> {order.customer_phone}

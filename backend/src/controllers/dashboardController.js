@@ -8,14 +8,16 @@ const dashboardController = {
   getUnifiedInbox: async (req, res) => {
     try {
       // 1. Obtener Notificaciones (Contacto, Registro, etc.)
+      // ✅ CORRECCIÓN: Filtramos para que SOLO traiga notificaciones puras y no duplique órdenes o cotizaciones
       const notificationsQuery = `
         SELECT id, type, sender_name, sender_email, subject, content, created_at, 'notification' as source 
         FROM notifications 
+        WHERE source = 'notification' OR source IS NULL
         ORDER BY created_at DESC
       `;
 
       // 2. Obtener Órdenes Activas
-      // ✅ CORRECCIÓN: Usamos 'o.placed_at' en lugar de 'o.created_at'
+      // ✅ CORRECCIÓN: Actualizamos a los nuevos estados del flujo B2B para que no se pierdan
       const ordersQuery = `
         SELECT 
           o.id, 
@@ -25,12 +27,12 @@ const dashboardController = {
           CONCAT('Orden #', LEFT(o.id::text, 8), ' - ', o.status) as subject,
           o.total as amount,
           o.currency,
-          o.placed_at as created_at, -- ✅ Alias para uniformidad
+          o.placed_at as created_at, -- Alias para uniformidad
           'order' as source,
           o.status
         FROM orders o
         JOIN users u ON o.customer_id = u.id
-        WHERE o.status IN ('pending_review', 'payment_review') 
+        WHERE o.status IN ('pending_valuation', 'payment_review', 'processing', 'waiting_customer_approval', 'payment_pending') 
         ORDER BY o.placed_at DESC
       `;
 

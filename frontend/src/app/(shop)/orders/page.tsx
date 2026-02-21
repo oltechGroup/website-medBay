@@ -7,7 +7,7 @@ import { formatCurrency, formatDate } from "@/lib/formatters";
 import { 
   Package, UploadCloud, FileText, CheckCircle2, 
   Clock, AlertCircle, Loader2, ChevronRight, Truck,
-  AlertTriangle, DollarSign
+  AlertTriangle, DollarSign, Landmark
 } from "lucide-react";
 
 // Importamos el Modal
@@ -20,16 +20,12 @@ export default function MyOrdersPage() {
     uploadEvidence, 
     getStatusInfo, 
     isUploading,
-    // ✅ 1. IMPORTAMOS LAS NUEVAS FUNCIONES DEL HOOK
     selectShippingOption,
     isSelectingShipping
   } = useMyOrders();
   
   // Estado para el Modal de Detalles
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  
-  // Estado para subida rápida (desde la tarjeta)
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, orderId: string) => {
     const file = e.target.files?.[0];
@@ -40,14 +36,11 @@ export default function MyOrdersPage() {
       return;
     }
 
-    setUploadingId(orderId);
     try {
       await uploadEvidence({ orderId, file });
     } catch (error) {
       console.error(error);
       alert("Error al subir el archivo.");
-    } finally {
-      setUploadingId(null);
     }
   };
 
@@ -94,10 +87,10 @@ export default function MyOrdersPage() {
             {orders.map((order) => {
               const statusInfo = getStatusInfo(order.status);
               
-              const showUpload = order.status === 'payment_pending';
-              const isUploadingThis = uploadingId === order.id;
-              // ✅ Nuevo indicador visual para aprobación
+              // Variables de estado
               const showApproval = order.status === 'waiting_customer_approval';
+              const needsPayment = order.status === 'payment_pending';
+              const isReviewingPayment = order.status === 'payment_review';
 
               return (
                 <div 
@@ -124,7 +117,6 @@ export default function MyOrdersPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-8">
                         <div>
                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Monto Total</p>
-                           {/* Si está en cotización, mostramos "Pendiente" */}
                            {order.status === 'pending_valuation' ? (
                              <p className="text-xl font-bold text-slate-400 italic">Por cotizar</p>
                            ) : (
@@ -135,7 +127,7 @@ export default function MyOrdersPage() {
                         <div>
                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Método de Pago</p>
                            <p className="text-xs md:text-sm font-bold text-slate-700 capitalize flex items-center gap-2">
-                             {order.payment_method ? order.payment_method.replace('_', ' ') : 'Por definir'}
+                             {order.payment_method ? order.payment_method.replace('_', ' ') : 'Transferencia Bancaria'}
                            </p>
                         </div>
                       </div>
@@ -144,7 +136,7 @@ export default function MyOrdersPage() {
                     {/* Acciones & Estado */}
                     <div className="w-full md:w-auto flex flex-col items-end gap-3 min-w-[200px]">
                       
-                      {/* --- CASO 1: APROBAR COTIZACIÓN (NUEVO VISUAL) --- */}
+                      {/* --- CASO 1: APROBAR COTIZACIÓN --- */}
                       {showApproval && (
                         <div className="w-full">
                            <button 
@@ -160,30 +152,29 @@ export default function MyOrdersPage() {
                         </div>
                       )}
 
-                      {/* --- CASO 2: PENDIENTE DE PAGO --- */}
-                      {showUpload && (
+                      {/* --- CASO 2: PENDIENTE DE PAGO (OBLIGA A ABRIR MODAL) --- */}
+                      {needsPayment && (
                         <div className="w-full">
-                           <div className="text-center md:text-right">
-                             {isUploadingThis ? (
-                               <div className="flex items-center justify-center md:justify-end gap-2 text-blue-600 font-bold text-xs py-3">
-                                 <Loader2 className="animate-spin" size={16}/> Subiendo...
-                               </div>
-                             ) : (
-                               <label className="w-full bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95">
-                                 <UploadCloud size={18} />
-                                 Subir Comprobante
-                                 <input 
-                                   type="file" 
-                                   className="hidden" 
-                                   accept="image/*,application/pdf"
-                                   onChange={(e) => handleFileChange(e, order.id)}
-                                 />
-                               </label>
-                             )}
-                             <p className="text-[10px] text-slate-500 mt-2 font-medium bg-slate-100 px-2 py-1 rounded inline-block">
-                               Stock reservado 24h
-                             </p>
+                          <button 
+                            onClick={() => setSelectedOrder(order)}
+                            className="w-full bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                          >
+                            <Landmark size={18} />
+                            Ver Cuentas y Pagar
+                          </button>
+                          <p className="text-[10px] text-slate-500 mt-2 font-medium text-center">
+                            Stock reservado por 24h
+                          </p>
+                        </div>
+                      )}
+
+                      {/* --- CASO 2.5: PAGO EN REVISIÓN --- */}
+                      {isReviewingPayment && (
+                         <div className="bg-purple-50 px-4 py-3 rounded-xl border border-purple-100 w-full text-center md:text-right">
+                           <div className="flex items-center justify-center md:justify-end gap-2 text-purple-700 font-bold text-xs md:text-sm">
+                             <FileText size={18}/> Evidencia Subida
                            </div>
+                           <p className="text-[10px] text-purple-600 font-medium mt-1">El equipo está validando el pago.</p>
                         </div>
                       )}
 
@@ -193,7 +184,7 @@ export default function MyOrdersPage() {
                            <div className="flex items-center justify-center md:justify-end gap-2 text-cyan-700 font-bold text-xs md:text-sm">
                              <Truck size={18}/> Pedido Enviado
                            </div>
-                           <p className="text-[10px] text-cyan-600 font-medium mt-1">Ver rastreo</p>
+                           <p className="text-[10px] text-cyan-600 font-medium mt-1">Ver rastreo en Detalles</p>
                         </div>
                       )}
 
@@ -219,7 +210,7 @@ export default function MyOrdersPage() {
           </div>
         )}
 
-        {/* ✅ MODAL CON LOGICA B2B CORREGIDA */}
+        {/* MODAL DEL CLIENTE */}
         {selectedOrder && (
           <CustomerOrderModal 
             isOpen={!!selectedOrder}
@@ -227,7 +218,6 @@ export default function MyOrdersPage() {
             order={selectedOrder}
             onUploadEvidence={handleFileChange}
             isUploading={isUploading}
-            // ✅ 2. PASAMOS LAS PROPS QUE FALTABAN
             onSelectShipping={selectShippingOption}
             isSelecting={isSelectingShipping}
           />
