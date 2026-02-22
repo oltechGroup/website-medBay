@@ -1,5 +1,4 @@
 //frontend/src/components/UseCategories.ts
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
@@ -20,7 +19,6 @@ export interface CreateCategoryData {
   description?: string;
 }
 
-// 🆕 NUEVAS INTERFACES PARA ASIGNACIÓN MASIVA
 export interface BatchAssignProductsData {
   categoryIds: string[];
   productIds: string[];
@@ -35,10 +33,11 @@ export interface CategoryStats {
 export const useCategories = () => {
   const queryClient = useQueryClient();
 
-  // ... (TODO TU CÓDIGO EXISTENTE SE MANTIENE INTACTO) ...
+  // Consulta principal de categorías
   const { 
     data: categories = [], 
     isLoading, 
+    isFetching, // 🟢 Agregado para consistencia y monitoreo de carga
     error,
     refetch 
   } = useQuery({
@@ -52,6 +51,8 @@ export const useCategories = () => {
         throw error;
       }
     },
+    // ⚡ Optimización: Evita que el catálogo parpadee o tarde al navegar
+    staleTime: 1000 * 60 * 10, // 10 minutos (las categorías no cambian seguido)
   });
 
   const createMutation = useMutation({
@@ -96,9 +97,7 @@ export const useCategories = () => {
     }
   });
 
-  // 🆕 NUEVAS QUERIES Y MUTATIONS PARA ASIGNACIÓN MASIVA
-
-  // Obtener categorías sin productos
+  // Consultas de administración (Estas pueden quedarse sin staleTime largo si prefieres)
   const categoriesWithoutProductsQuery = useQuery({
     queryKey: ['categories', 'without-products'],
     queryFn: async (): Promise<Category[]> => {
@@ -112,7 +111,6 @@ export const useCategories = () => {
     },
   });
 
-  // Obtener estadísticas de categorías
   const categoriesStatsQuery = useQuery({
     queryKey: ['categories', 'stats'],
     queryFn: async (): Promise<CategoryStats> => {
@@ -130,18 +128,16 @@ export const useCategories = () => {
     },
   });
 
-  // Asignación masiva de productos a categorías
   const batchAssignProductsMutation = useMutation({
     mutationFn: async (data: BatchAssignProductsData) => {
       const response = await api.post('/categories/batch/products', data);
       return response.data;
     },
     onSuccess: () => {
-      // Invalidar queries relacionadas
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       queryClient.invalidateQueries({ queryKey: ['categories', 'without-products'] });
       queryClient.invalidateQueries({ queryKey: ['categories', 'stats'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] }); // También productos porque cambian sus categorías
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
     onError: (error: any) => {
       console.error('Error in batch assign products:', error);
@@ -149,15 +145,14 @@ export const useCategories = () => {
     }
   });
 
-  // Wrappers simplificados para las nuevas funcionalidades
   const batchAssignProducts = async (categoryIds: string[], productIds: string[]) => {
     return batchAssignProductsMutation.mutateAsync({ categoryIds, productIds });
   };
 
   return {
-    // ... (TODOS TUS DATOS EXISTENTES SE MANTIENEN) ...
     categories,
     isLoading,
+    isFetching,
     error,
     refetch,
     createCategory: createMutation.mutateAsync,
@@ -170,7 +165,6 @@ export const useCategories = () => {
     updateError: updateMutation.error,
     deleteError: deleteMutation.error,
 
-    // 🆕 NUEVOS DATOS Y MÉTODOS PARA ASIGNACIÓN MASIVA
     categoriesWithoutProducts: categoriesWithoutProductsQuery.data,
     categoriesStats: categoriesStatsQuery.data,
     batchAssignProducts,

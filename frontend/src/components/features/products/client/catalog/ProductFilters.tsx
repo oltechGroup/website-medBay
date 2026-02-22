@@ -1,3 +1,4 @@
+//frontend/src/components/features/products/client/catalog/ProductFilters.tsx
 "use client";
 
 import { useState, useEffect } from "react";

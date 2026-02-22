@@ -1,3 +1,4 @@
+//frontend/src/components/features/products/client/catalog/ActiveFilters.tsx
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";

@@ -1,8 +1,6 @@
-//frontend/src/hooks/useManufacturers.ts
-
+//fronted/src/hooks/useManufacturers.ts
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { useAuth } from '@/hooks/useAuth';
 
 export interface Manufacturer {
   id: string;
@@ -25,12 +23,13 @@ export interface ManufacturersResponse {
 }
 
 export const useManufacturers = (page: number = 1, limit: number = 10, search: string = '') => {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { 
     data: response, 
     isLoading, 
+    isFetching, // 🟢 Agregado para detectar carga en segundo plano (paginación)
+    isPlaceholderData, // 🟢 Agregado para saber cuando estamos viendo datos viejos
     error,
     refetch 
   } = useQuery<ManufacturersResponse>({
@@ -42,9 +41,9 @@ export const useManufacturers = (page: number = 1, limit: number = 10, search: s
       const res = await api.get(`/manufacturers?${params}`);
       return res.data;
     },
-    enabled: !!user,
-    // CORRECCIÓN V5: Se usa placeholderData con la función importada
+    // 🔓 ELIMINADO: enabled: !!user (Ahora es público)
     placeholderData: keepPreviousData, 
+    staleTime: 1000 * 60 * 5, // 5 minutos de caché para evitar peticiones redundantes
   });
 
   const createMutation = useMutation({
@@ -63,10 +62,11 @@ export const useManufacturers = (page: number = 1, limit: number = 10, search: s
   });
 
   return {
-    // CORRECCIÓN TS: Aseguramos valores por defecto seguros
     manufacturers: response?.data || [],
     pagination: response?.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 },
     isLoading,
+    isFetching, // 🟢 Exportado para mejorar el feedback visual de la paginación
+    isPlaceholderData, // 🟢 Exportado
     error,
     createManufacturer: createMutation.mutateAsync,
     updateManufacturer: updateMutation.mutateAsync,
@@ -77,9 +77,8 @@ export const useManufacturers = (page: number = 1, limit: number = 10, search: s
   };
 };
 
-// Hook simple para selects
+// Hook para selects (sigue siendo público pero simplificado)
 export const useSuppliersBasic = () => {
-  const { user } = useAuth();
   const { data: suppliers, isLoading } = useQuery({
     queryKey: ['suppliers', 'basic'],
     queryFn: async (): Promise<Array<{ id: string; name: string; country_code: string; is_active: boolean }>> => {
@@ -91,7 +90,7 @@ export const useSuppliersBasic = () => {
         is_active: supplier.is_active
       }));
     },
-    enabled: !!user,
+    // 🔓 ELIMINADO: enabled: !!user para permitir visualización general
   });
   return { suppliers: suppliers || [], isLoading };
 };
