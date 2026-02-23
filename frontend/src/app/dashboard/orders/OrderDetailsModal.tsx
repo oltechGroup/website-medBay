@@ -33,7 +33,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   
   const [taxInput, setTaxInput] = useState<string>('');
-  const [hasEditedTax, setHasEditedTax] = useState(false); // ✅ Control para no sobreescribir el input
+  const [hasEditedTax, setHasEditedTax] = useState(false); 
   
   const [newOption, setNewOption] = useState({ name: '', days: '', cost: '' });
   
@@ -44,7 +44,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const [newMessage, setNewMessage] = useState("");
   const [isSendingMsg, setIsSendingMsg] = useState(false);
 
-  // ✅ ESTADOS PARA MODALES PERSONALIZADOS
+  // ✅ ESTADOS PARA MODAL DE CONFIRMACIÓN
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -53,8 +53,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     actionColor: string;
     onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', actionLabel: '', actionColor: '', onConfirm: () => {} });
-
-  const [trackingModal, setTrackingModal] = useState<{isOpen: boolean, value: string}>({ isOpen: false, value: '' });
 
   // Cargar datos
   const fetchOrder = () => {
@@ -65,7 +63,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
         setSuppliers(data.suppliers || []);
         setShippingOptions(data.shippingOptions || []);
         
-        // ✅ Solo actualiza el impuesto de la BD si el usuario no ha empezado a escribir
+        // Solo actualiza el impuesto de la BD si el usuario no ha empezado a escribir
         if (!hasEditedTax) {
            setTaxInput(data.order.tax || '0');
         }
@@ -87,7 +85,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const handleAddOption = async () => {
     if (!newOption.name || !newOption.cost) return alert("Nombre y Costo son obligatorios");
     
-    // ✅ Formateamos a 2 decimales limpios antes de enviar
+    // Formateamos a 2 decimales limpios antes de enviar
     const cleanCost = parseFloat(newOption.cost).toFixed(2);
 
     await addShippingOption({
@@ -120,8 +118,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     });
   };
 
-  // --- MANEJADORES ANTERIORES CON MODALES PROPIOS ---
-
   const handleRejectOrder = () => {
     setConfirmModal({
       isOpen: true,
@@ -152,15 +148,20 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     });
   };
 
-  const submitTracking = async () => {
-    if(!trackingModal.value) return;
-    setTrackingModal({ ...trackingModal, isOpen: false });
-    await updateStatus({ 
-      orderId, 
-      status: 'shipped', 
-      tracking_number: trackingModal.value 
+  // ✅ NUEVO: Marcar enviado directamente (Sin Tracking)
+  const handleMarkShippedDirectly = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Marcar como Enviado",
+      message: "¿Confirmas que el paquete ya está en camino hacia el cliente?",
+      actionLabel: "Confirmar Envío",
+      actionColor: "bg-blue-600 hover:bg-blue-700",
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, isOpen: false });
+        await updateStatus({ orderId, status: 'shipped' });
+        onClose();
+      }
     });
-    onClose();
   };
 
   const handleMarkDelivered = () => {
@@ -200,7 +201,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     }
   };
 
-  // ✅ Parsear Dirección Segura
+  // ✅ Parsear Dirección Segura y Completa
   let parsedAddress: any = null;
   if (order?.shipping_address_json) {
     if (typeof order.shipping_address_json === 'string') {
@@ -343,7 +344,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                              value={taxInput}
                              onChange={(e) => {
                                setTaxInput(e.target.value);
-                               setHasEditedTax(true); // ✅ Evita que se borre al actualizar opciones
+                               setHasEditedTax(true); 
                              }}
                              placeholder="0.00"
                              className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-white font-bold text-sm focus:border-blue-500 outline-none"
@@ -363,7 +364,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                                  <span className="font-bold block text-white">{opt.name}</span>
                                  <span className="text-slate-400">{opt.estimated_days}</span>
                                </div>
-                               {/* ✅ Formato a 2 decimales para envíos existentes */}
                                <span className="font-mono text-emerald-400 font-bold">${parseFloat(opt.cost).toFixed(2)}</span>
                             </div>
                           ))}
@@ -374,7 +374,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
 
                         <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 space-y-2">
                            <input 
-                             placeholder="Nombre (Ej: DHL Express)" 
+                             placeholder="Nombre (Ej: Express, Estándar)" 
                              value={newOption.name}
                              onChange={(e) => setNewOption({...newOption, name: e.target.value})}
                              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500"
@@ -458,12 +458,12 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                      </div>
                   )}
 
-                  {/* CASO 5: EN PROCESO */}
+                  {/* ✅ CASO 5: EN PROCESO (Boton Directo sin Tracking) */}
                   {order.status === 'processing' && (
                     <div className="space-y-3 text-center">
                       <p className="text-sm text-slate-300 mb-2">Prepara el paquete para envío.</p>
-                      <button onClick={() => setTrackingModal({isOpen: true, value: ''})} className="w-full py-3 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
-                        <Truck size={18}/> Ingresar Rastreo y Enviar
+                      <button onClick={handleMarkShippedDirectly} className="w-full py-3 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
+                        <Truck size={18}/> Marcar como Enviado
                       </button>
                     </div>
                   )}
@@ -471,12 +471,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                   {/* CASO 6: ENVIADO - SEGUIMIENTO Y CIERRE */}
                   {order.status === 'shipped' && (
                     <div className="space-y-6">
-                      {order.tracking_number && (
-                        <div className="bg-slate-800 p-3 rounded-xl border border-slate-700 text-center">
-                           <p className="text-[10px] text-slate-400 uppercase tracking-widest">Tracking / Guía</p>
-                           <p className="font-mono font-bold text-lg text-white mt-1 select-all">{order.tracking_number}</p>
-                        </div>
-                      )}
 
                       <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
                         <label className="text-xs font-bold text-blue-400 uppercase mb-2 flex items-center gap-2">
@@ -569,7 +563,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                   </div>
                 </div>
 
-                {/* ✅ 3. DIRECCIÓN COMPLETA */}
+                {/* ✅ 3. DIRECCIÓN COMPLETA Y FORMATEADA */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                    <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
                      <MapPin size={18} className="text-slate-400"/> Dirección de Envío
@@ -612,34 +606,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
             </button>
             <button onClick={confirmModal.onConfirm} className={`w-1/2 py-3 rounded-xl font-bold text-white transition-colors shadow-lg ${confirmModal.actionColor}`}>
               {confirmModal.actionLabel}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Modal Input de Rastreo */}
-    {trackingModal.isOpen && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in">
-        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setTrackingModal({...trackingModal, isOpen: false})}></div>
-        <div className="bg-white rounded-3xl shadow-2xl p-8 relative w-full max-w-md animate-in zoom-in-95">
-          <Truck size={40} className="mx-auto text-blue-500 mb-4"/>
-          <h3 className="font-black text-xl text-slate-800 text-center mb-2">Ingresar Rastreo</h3>
-          <p className="text-slate-500 text-sm text-center mb-6">Proporciona el número de guía de la paquetería.</p>
-          <input 
-            type="text" 
-            autoFocus
-            placeholder="Ej: 1Z9999999999999999"
-            value={trackingModal.value}
-            onChange={(e) => setTrackingModal({...trackingModal, value: e.target.value})}
-            className="w-full p-4 text-center font-mono font-bold text-lg bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 mb-6"
-          />
-          <div className="flex gap-3">
-            <button onClick={() => setTrackingModal({...trackingModal, isOpen: false})} className="w-1/3 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors">
-              Cerrar
-            </button>
-            <button onClick={submitTracking} disabled={!trackingModal.value} className="w-2/3 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg disabled:opacity-50">
-              Confirmar Envío
             </button>
           </div>
         </div>

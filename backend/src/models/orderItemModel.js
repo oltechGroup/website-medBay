@@ -41,9 +41,9 @@ const OrderItem = {
     const query = `
       SELECT 
         oi.*,
-        -- ✅ TRUCO MÁGICO: Si no hay producto asociado (es Cotización Manual), ponemos un texto por defecto
-        COALESCE(p.description, 'Producto Especial (Ver Cotización)') as product_name,  
-        COALESCE(p.global_sku, 'N/A') as global_sku,
+        -- ✅ TRUCO MAESTRO: 1. Busca en el catálogo. 2. Si no, busca en la cotización original. 3. Si no hay nada, pon 'Producto Especial'
+        COALESCE(p.description, q.product_request->>'product_name', 'Producto Especial (Cotización)') as product_name,  
+        COALESCE(p.global_sku, q.product_request->>'sku', 'N/A') as global_sku,
         -- Datos del Lote
         pl.lot_number,
         pl.expiry_date,
@@ -57,6 +57,10 @@ const OrderItem = {
         s.country as supplier_country 
 
       FROM order_items oi
+      -- ✅ Unimos con la Orden para saber si viene de una Cotización
+      JOIN orders ord ON oi.order_id = ord.id
+      -- ✅ Unimos con la Cotización para extraer los datos originales
+      LEFT JOIN quotes q ON ord.quote_id = q.id
       -- Unimos con Lotes
       LEFT JOIN product_lots pl ON oi.product_lot_id = pl.id
       -- Unimos con la tabla pivote product_suppliers
@@ -75,15 +79,17 @@ const OrderItem = {
     } catch (error) {
       console.error("Error detallado en findByOrder:", error.message);
       
-      // Fallback: Consulta simple también protegida con COALESCE
+      // Fallback también protegido
       const fallbackQuery = `
         SELECT 
           oi.*,
-          COALESCE(p.description, 'Producto Especial (Ver Cotización)') as product_name,
-          COALESCE(p.global_sku, 'N/A') as global_sku,
+          COALESCE(p.description, q.product_request->>'product_name', 'Producto Especial (Cotización)') as product_name,
+          COALESCE(p.global_sku, q.product_request->>'sku', 'N/A') as global_sku,
           pl.lot_number,
           pl.expiry_date
         FROM order_items oi
+        JOIN orders ord ON oi.order_id = ord.id
+        LEFT JOIN quotes q ON ord.quote_id = q.id
         LEFT JOIN product_lots pl ON oi.product_lot_id = pl.id
         LEFT JOIN product_suppliers ps ON oi.product_supplier_id = ps.id
         LEFT JOIN products p ON ps.product_id = p.id

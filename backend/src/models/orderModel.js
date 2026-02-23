@@ -205,9 +205,8 @@ const Order = {
     }
   },
 
-  // --- 6. ✅ TIMELINE Y MENSAJERÍA (NUEVO PARA CONCIERGE) ---
+  // --- 6. TIMELINE Y MENSAJERÍA ---
 
-  // Agregar un evento o mensaje a la línea de tiempo
   addTimelineEntry: async (orderId, userId, statusTo, notes, title) => {
     const query = `
       INSERT INTO order_timeline (order_id, changed_by, status_to, notes, title, created_at)
@@ -222,7 +221,6 @@ const Order = {
     }
   },
   
-  // Obtener historial completo de la orden
   getTimeline: async (orderId) => {
     const query = `
       SELECT t.*, u.full_name as changed_by_name 
@@ -248,9 +246,20 @@ const Order = {
         u.email as customer_email,
         u.full_name as customer_name,
         u.phone as customer_phone,
-        u.company_name as customer_company
+        u.company_name as customer_company,
+        -- ✅ AHORA SÍ: Dirección completa en la lista general de admin
+        json_build_object(
+          'street', sa.street,
+          'street_number', sa.street_number,
+          'colony', sa.colony,
+          'city', sa.city,
+          'state', sa.state,
+          'postal_code', sa.postal_code,
+          'country', sa.country
+        ) as shipping_address_json
       FROM orders o
       LEFT JOIN users u ON o.customer_id = u.id
+      LEFT JOIN addresses sa ON o.shipping_address_id = sa.id
       ORDER BY o.placed_at DESC
     `;
     try {
@@ -266,9 +275,20 @@ const Order = {
       SELECT 
         o.*,
         u.email as customer_email,
-        u.full_name as customer_name
+        u.full_name as customer_name,
+        -- ✅ AHORA SÍ: Dirección completa en la lista "Mis Pedidos" del cliente
+        json_build_object(
+          'street', sa.street,
+          'street_number', sa.street_number,
+          'colony', sa.colony,
+          'city', sa.city,
+          'state', sa.state,
+          'postal_code', sa.postal_code,
+          'country', sa.country
+        ) as shipping_address_json
       FROM orders o
       LEFT JOIN users u ON o.customer_id = u.id
+      LEFT JOIN addresses sa ON o.shipping_address_id = sa.id
       WHERE o.customer_id = $1
       ORDER BY o.placed_at DESC
     `;
@@ -293,6 +313,8 @@ const Order = {
         
         json_build_object(
           'street', sa.street,
+          'street_number', sa.street_number,
+          'colony', sa.colony,
           'city', sa.city,
           'state', sa.state,
           'postal_code', sa.postal_code,
@@ -302,6 +324,8 @@ const Order = {
         
         json_build_object(
           'street', ba.street,
+          'street_number', ba.street_number,
+          'colony', ba.colony,
           'city', ba.city,
           'state', ba.state,
           'postal_code', ba.postal_code,
