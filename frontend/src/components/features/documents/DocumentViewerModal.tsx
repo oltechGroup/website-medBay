@@ -9,8 +9,6 @@ import { getImageUrl } from "@/lib/formatters";
 import { OrderContext } from "./viewers/OrderContext";
 import { UserContext } from "./viewers/UserContext";
 
-// ✅ CAMBIO 1: Eliminamos AdminActions (Ya no gestionamos usuarios desde aquí)
-
 interface DocumentViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,7 +26,7 @@ export const DocumentViewerModal = ({
 }: DocumentViewerModalProps) => {
   const [mounted, setMounted] = useState(false);
   
-  // Estados para acción manual (rechazo con motivo)
+  // Statuses for manual action (rejection with reason)
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
 
@@ -43,7 +41,7 @@ export const DocumentViewerModal = ({
   const isPdf = doc.file_path.toLowerCase().endsWith('.pdf');
   const fileUrl = getImageUrl(doc.file_path);
 
-  // Contexto a mostrar (Detalles de la orden o del usuario)
+  // Context to display (Order or User details)
   const renderContext = () => {
     if (doc.document_type === 'payment_evidence' && doc.reference_id) {
       return <OrderContext orderId={doc.reference_id} />;
@@ -51,25 +49,24 @@ export const DocumentViewerModal = ({
     return <UserContext userId={doc.owner_id} />;
   };
 
-  // Título Personalizado
+  // Custom Title
   const getDocTitle = () => {
     switch (doc.document_type) {
-      case 'payment_evidence': return 'Evidencia de Pago';
-      case 'license': return 'Evidencia de Registro';
-      case 'business_registration': return 'Registro de Negocio';
-      default: return 'Documento';
+      case 'payment_evidence': return 'Payment Evidence';
+      case 'license': return 'Registration Evidence';
+      case 'business_registration': return 'Business Registration';
+      default: return 'Document';
     }
   };
 
-  // Acción de Validación/Rechazo
+  // Validation/Rejection Action
   const handleSimpleAction = async (status: DocStatus) => {
     if (status === 'rejected' && !rejectReason) {
       setShowRejectInput(true);
       return;
     }
     await onStatusChange(doc.id, status, rejectReason);
-    // Nota: El backend ya maneja si debe reactivar al usuario (caso actualización)
-    // o dejarlo pendiente (caso registro). Aquí solo cerramos el modal si se aprueba.
+    // Note: Backend handles reactivation or pending status. Modal closes only on approval.
     if (status === 'verified') onClose();
   };
 
@@ -79,11 +76,11 @@ export const DocumentViewerModal = ({
       
       <div className="relative w-full max-w-[95vw] h-[90vh] bg-slate-50 rounded-[2rem] shadow-2xl flex flex-col lg:flex-row overflow-hidden animate-in zoom-in-95 duration-200 border border-white/10">
         
-        {/* === COLUMNA IZQUIERDA: VISOR === */}
+        {/* === LEFT COLUMN: VIEWER === */}
         <div className="flex-1 bg-slate-900 relative flex flex-col min-h-[50vh] lg:min-h-full">
           <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-center pointer-events-none">
             <span className="bg-black/50 text-white backdrop-blur-md px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2 border border-white/10">
-              <FileText size={14}/> {isPdf ? 'Archivo PDF' : 'Imagen'}
+              <FileText size={14}/> {isPdf ? 'PDF File' : 'Image'}
             </span>
             <div className="flex gap-2 pointer-events-auto">
               <a href={fileUrl} target="_blank" rel="noreferrer" className="p-2.5 bg-black/50 text-white hover:bg-white hover:text-black rounded-full backdrop-blur-md transition-all border border-white/10"><ExternalLink size={18}/></a>
@@ -92,14 +89,14 @@ export const DocumentViewerModal = ({
           </div>
           <div className="flex-1 flex items-center justify-center p-4 lg:p-8 overflow-hidden">
             {isPdf ? (
-              <iframe src={fileUrl} className="w-full h-full rounded-xl bg-white shadow-2xl" title="Visor PDF" />
+              <iframe src={fileUrl} className="w-full h-full rounded-xl bg-white shadow-2xl" title="PDF Viewer" />
             ) : (
-              <img src={fileUrl} alt="Documento" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+              <img src={fileUrl} alt="Document" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
             )}
           </div>
         </div>
 
-        {/* === COLUMNA DERECHA: CONTEXTO Y ACCIONES === */}
+        {/* === RIGHT COLUMN: CONTEXT AND ACTIONS === */}
         <div className="w-full lg:w-[450px] bg-white border-l border-slate-200 flex flex-col h-full">
           
           <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-white z-10">
@@ -116,60 +113,59 @@ export const DocumentViewerModal = ({
             {renderContext()}
             {doc.notes && (
               <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-xl">
-                <p className="text-xs font-bold text-yellow-700 uppercase mb-1">Notas Previas</p>
+                <p className="text-xs font-bold text-yellow-700 uppercase mb-1">Previous Notes</p>
                 <p className="text-sm text-yellow-800 italic">"{doc.notes}"</p>
               </div>
             )}
           </div>
 
-          {/* === FOOTER INTELIGENTE === */}
-          {/* Solo mostramos footer si NO es pago (los pagos se validan en ordenes usualmente, aunque aquí permitimos validación técnica) */}
+          {/* === SMART FOOTER === */}
           {doc.document_type !== 'payment_evidence' && (
             <div className="p-6 border-t border-slate-100 bg-slate-50/50">
               
-              {/* ESTADO 1: DOCUMENTO YA VALIDADO (Verde) */}
+              {/* STATUS 1: DOCUMENT ALREADY VALIDATED (Green) */}
               {doc.status === 'verified' ? (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-center animate-in fade-in">
                   <p className="text-green-700 font-bold flex items-center justify-center gap-2">
-                    <CheckCircle2 size={20}/> Documento Validado
+                    <CheckCircle2 size={20}/> Document Validated
                   </p>
-                  <p className="text-xs text-green-600 mt-1">Este archivo cumple con los requisitos técnicos.</p>
+                  <p className="text-xs text-green-600 mt-1">This file meets the technical requirements.</p>
                 </div>
               ) : doc.status === 'rejected' && !showRejectInput ? (
-                /* ESTADO 2: DOCUMENTO RECHAZADO (Rojo) */
+                /* STATUS 2: DOCUMENT REJECTED (Red) */
                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center flex flex-col items-center animate-in fade-in">
                   <p className="text-red-700 font-bold flex items-center justify-center gap-2">
-                    <XCircle size={20}/> Documento Rechazado
+                    <XCircle size={20}/> Document Rejected
                   </p>
                   <button 
                     onClick={() => setShowRejectInput(true)}
                     className="text-xs text-red-600 mt-2 underline hover:text-red-800"
                   >
-                    Cambiar motivo de rechazo
+                    Change rejection reason
                   </button>
                 </div>
               ) : (
-                /* ESTADO 3: PENDIENTE O EDICIÓN DE RECHAZO (Acciones Estándar) */
+                /* STATUS 3: PENDING OR EDITING REJECTION (Standard Actions) */
                 <>
                   {showRejectInput ? (
                     <div className="space-y-3 animate-in slide-in-from-bottom-2">
-                      <label className="text-xs font-bold text-slate-700 ml-1">Motivo del rechazo:</label>
+                      <label className="text-xs font-bold text-slate-700 ml-1">Rejection reason:</label>
                       <textarea 
                         className="w-full p-3 rounded-xl border border-slate-300 text-sm focus:border-red-500 focus:ring-red-500 outline-none"
                         rows={3}
                         value={rejectReason}
                         onChange={(e) => setRejectReason(e.target.value)}
                         autoFocus
-                        placeholder="Indica por qué el documento no es válido..."
+                        placeholder="Indicate why the document is not valid..."
                       ></textarea>
                       <div className="flex gap-2">
-                        <button onClick={() => setShowRejectInput(false)} className="flex-1 py-3 text-slate-500 font-bold text-sm hover:bg-slate-200 rounded-xl">Cancelar</button>
+                        <button onClick={() => setShowRejectInput(false)} className="flex-1 py-3 text-slate-500 font-bold text-sm hover:bg-slate-200 rounded-xl">Cancel</button>
                         <button 
                           onClick={() => handleSimpleAction('rejected')}
                           disabled={isUpdating || !rejectReason.trim()}
                           className="flex-1 py-3 bg-red-600 text-white font-bold text-sm hover:bg-red-700 rounded-xl shadow-lg shadow-red-500/20 disabled:opacity-50 flex justify-center"
                         >
-                          {isUpdating ? <Loader2 className="animate-spin"/> : 'Confirmar Rechazo'}
+                          {isUpdating ? <Loader2 className="animate-spin"/> : 'Confirm Rejection'}
                         </button>
                       </div>
                     </div>
@@ -180,7 +176,7 @@ export const DocumentViewerModal = ({
                         disabled={isUpdating}
                         className="flex-1 py-4 border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
                       >
-                        <XCircle size={20}/> Rechazar
+                        <XCircle size={20}/> Reject
                       </button>
                       <button 
                         onClick={() => handleSimpleAction('verified')}
@@ -188,7 +184,7 @@ export const DocumentViewerModal = ({
                         className="flex-[2] py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
                       >
                         {isUpdating ? <Loader2 className="animate-spin"/> : <CheckCircle2 size={20}/>}
-                        Validar Documento
+                        Validate Document
                       </button>
                     </div>
                   )}

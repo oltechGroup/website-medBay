@@ -27,7 +27,7 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
     setMounted(true);
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-      // Reiniciar estados al cambiar de documento para una carga limpia
+      // Reset states when changing documents for a clean load
       setHasError(false);
       setIsLoading(true);
     }
@@ -36,16 +36,16 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
 
   if (!isOpen || !mounted) return null;
 
-  // ✅ Usamos la función global que ya tiene el dominio HTTPS correcto
+  // ✅ Using global function with correct HTTPS domain
   const fileUrl = getImageUrl(doc.file_path);
   const isPdf = doc.file_path.toLowerCase().endsWith('.pdf');
 
   const getDocTitle = () => {
     switch (doc.document_type) {
-      case 'payment_evidence': return 'Evidencia de Pago';
-      case 'license': return 'Registro Sanitario / Cédula';
-      case 'business_registration': return 'Acta Constitutiva';
-      default: return 'Documento';
+      case 'payment_evidence': return 'Payment Evidence';
+      case 'license': return 'Sanitary Registry / Professional ID';
+      case 'business_registration': return 'Articles of Incorporation';
+      default: return 'Document';
     }
   };
 
@@ -55,32 +55,32 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
       
       <div className="relative w-full max-w-[95vw] h-[90vh] bg-slate-50 rounded-[2rem] shadow-2xl flex flex-col lg:flex-row overflow-hidden animate-in zoom-in-95 duration-200 border border-white/10">
         
-        {/* === COLUMNA IZQUIERDA: VISOR === */}
+        {/* === LEFT COLUMN: VIEWER === */}
         <div className="flex-1 bg-slate-900 relative flex flex-col min-h-[50vh] lg:min-h-full">
           
-          {/* Toolbar Flotante */}
+          {/* Floating Toolbar */}
           <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center pointer-events-none">
             <span className="bg-black/50 text-white backdrop-blur-md px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2 border border-white/10">
-              <FileText size={14}/> {isPdf ? 'PDF' : 'IMAGEN'}
+              <FileText size={14}/> {isPdf ? 'PDF' : 'IMAGE'}
             </span>
             <div className="flex gap-2 pointer-events-auto">
-              <a href={fileUrl} target="_blank" rel="noreferrer" className="p-2.5 bg-black/50 text-white hover:bg-white hover:text-black rounded-full backdrop-blur-md transition-all border border-white/10" title="Abrir en pestaña nueva">
+              <a href={fileUrl} target="_blank" rel="noreferrer" className="p-2.5 bg-black/50 text-white hover:bg-white hover:text-black rounded-full backdrop-blur-md transition-all border border-white/10" title="Open in new tab">
                 <ExternalLink size={18}/>
               </a>
-              <a href={fileUrl} download className="p-2.5 bg-black/50 text-white hover:bg-white hover:text-black rounded-full backdrop-blur-md transition-all border border-white/10" title="Descargar">
+              <a href={fileUrl} download className="p-2.5 bg-black/50 text-white hover:bg-white hover:text-black rounded-full backdrop-blur-md transition-all border border-white/10" title="Download">
                 <Download size={18}/>
               </a>
             </div>
           </div>
 
-          {/* Area de Visualización con manejo de carga y error */}
+          {/* Visualization Area with loading and error handling */}
           <div className="flex-1 flex items-center justify-center p-4 lg:p-8 overflow-hidden bg-slate-800/50 relative">
             
             {isLoading && !hasError && (
               <div className="absolute inset-0 flex items-center justify-center z-10 bg-slate-900/20">
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-white/50 text-xs font-bold uppercase tracking-widest">Cargando archivo...</p>
+                  <p className="text-white/50 text-xs font-bold uppercase tracking-widest">Loading file...</p>
                 </div>
               </div>
             )}
@@ -90,10 +90,10 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
                 <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
                   <FileWarning size={32}/>
                 </div>
-                <h3 className="text-slate-800 font-bold mb-2">Vista previa no disponible</h3>
+                <h3 className="text-slate-800 font-bold mb-2">Preview not available</h3>
                 <p className="text-slate-500 text-xs mb-6 leading-relaxed">
-                  Por razones de seguridad del navegador, no podemos mostrar este archivo directamente aquí. 
-                  Puedes visualizarlo en una pestaña segura o descargarlo.
+                  For browser security reasons, we cannot display this file directly here. 
+                  You can view it in a secure tab or download it.
                 </p>
                 <a 
                   href={fileUrl} 
@@ -101,7 +101,7 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
                   rel="noreferrer"
                   className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition flex items-center justify-center gap-2 w-full shadow-lg shadow-blue-200"
                 >
-                  <ExternalLink size={16}/> Abrir en ventana segura
+                  <ExternalLink size={16}/> Open in secure window
                 </a>
               </div>
             ) : (
@@ -109,14 +109,14 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
                 <iframe 
                   src={`${fileUrl}#view=FitH`} 
                   className="w-full h-full rounded-xl bg-white shadow-2xl z-0" 
-                  title="Visor de Documentos"
+                  title="Document Viewer"
                   onLoad={() => setIsLoading(false)}
                   onError={() => { setHasError(true); setIsLoading(false); }} 
                 />
               ) : (
                 <img 
                   src={fileUrl} 
-                  alt="Vista previa del documento" 
+                  alt="Document preview" 
                   className="max-w-full max-h-full object-contain rounded-lg shadow-2xl z-0" 
                   onLoad={() => setIsLoading(false)}
                   onError={() => { setHasError(true); setIsLoading(false); }}
@@ -126,10 +126,10 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
           </div>
         </div>
 
-        {/* === COLUMNA DERECHA: CONTEXTO === */}
+        {/* === RIGHT COLUMN: CONTEXT === */}
         <div className="w-full lg:w-[450px] bg-white border-l border-slate-200 flex flex-col h-full shadow-[-10px_0_30px_rgba(0,0,0,0.02)]">
           
-          {/* Header del Modal */}
+          {/* Modal Header */}
           <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-white z-10">
             <div>
               <h2 className="text-xl font-black text-slate-800">{getDocTitle()}</h2>
@@ -149,8 +149,8 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
                     <CreditCard size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-emerald-800">Pago Registrado</p>
-                    <p className="text-xs text-emerald-600">Comprobante vinculado a tu compra</p>
+                    <p className="text-sm font-bold text-emerald-800">Payment Registered</p>
+                    <p className="text-xs text-emerald-600">Receipt linked to your purchase</p>
                   </div>
                 </div>
                 <OrderContext orderId={doc.reference_id} />
@@ -171,24 +171,24 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
                       doc.status === 'rejected' ? 'text-red-700' :
                       'text-amber-700'
                     }`}>
-                      {doc.status === 'verified' ? 'Validado con éxito' : 
-                       doc.status === 'rejected' ? 'Acción Requerida' : 'En proceso de revisión'}
+                      {doc.status === 'verified' ? 'Successfully Validated' : 
+                       doc.status === 'rejected' ? 'Action Required' : 'Under Review Process'}
                     </h3>
                   </div>
                   
                   <p className="text-sm text-slate-600 leading-relaxed">
                     {doc.status === 'verified' 
-                      ? "Este documento ha sido aprobado. Tu cuenta cuenta con las credenciales necesarias para operar en MedBay."
+                      ? "This document has been approved. Your account has the necessary credentials to operate on MedBay."
                       : doc.status === 'rejected'
-                      ? "Se han encontrado inconsistencias. Por favor, revisa el motivo a continuación y carga una nueva versión."
-                      : "Nuestro equipo está validando tu información. Recibirás una notificación en cuanto el proceso termine."
+                      ? "Inconsistencies have been found. Please review the reason below and upload a new version."
+                      : "Our team is validating your information. You will receive a notification as soon as the process is complete."
                     }
                   </p>
 
                   {doc.notes && doc.status === 'rejected' && (
                     <div className="mt-4 pt-4 border-t border-red-200/50">
                       <p className="text-xs font-bold text-red-800 uppercase mb-1 flex items-center gap-1">
-                        <AlertTriangle size={12}/> Motivo reportado:
+                        <AlertTriangle size={12}/> Reported reason:
                       </p>
                       <p className="text-sm text-red-700 italic font-medium">"{doc.notes}"</p>
                     </div>
@@ -197,18 +197,18 @@ export const ClientDocumentModal = ({ isOpen, onClose, document: doc }: ClientDo
 
                 <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <ShieldCheck size={14}/> Metadata del Archivo
+                    <ShieldCheck size={14}/> File Metadata
                   </h4>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">Tipo</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">Type</p>
                       <p className="text-sm font-bold text-slate-700 truncate">
-                        {doc.document_type === 'license' ? 'Certificación Médica' : 'Acta de Registro'}
+                        {doc.document_type === 'license' ? 'Medical Certification' : 'Registration Certificate'}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">Cargado el</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">Uploaded on</p>
                       <div className="flex items-center gap-1 text-sm font-bold text-slate-700">
                         <Calendar size={14} className="text-slate-400"/>
                         {formatDate(doc.created_at)}

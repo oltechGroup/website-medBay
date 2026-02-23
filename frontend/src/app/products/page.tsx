@@ -12,7 +12,7 @@ import {
   ChevronRight, 
   ArrowLeft,
   Filter,
-  Loader2 // 🟢 Agregado para un feedback visual extra
+  Loader2 
 } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { ClientProductCard } from "@/components/features/products/client/ClientProductCard";
@@ -34,7 +34,7 @@ function ProductsContent() {
   const maxPrice = searchParams.get("maxPrice") ? parseFloat(searchParams.get("maxPrice")!) : undefined;
   const sortBy = searchParams.get("sortBy") || "newest";
 
-  // 1. Hook de Productos (Ahora extraemos isFetching)
+  // 1. Products Hook
   const { products, pagination, isLoading, isFetching } = useProducts({
     page,
     limit: 10,
@@ -51,31 +51,31 @@ function ProductsContent() {
     switch (status) {
       case 'expired':
         return {
-          title: "Outlet / Caducados",
-          description: "Inventario en liquidación para prácticas o usos no clínicos.",
+          title: "Outlet / Expired",
+          description: "Liquidation inventory for training or non-clinical uses.",
           gradient: "from-red-950 via-red-900 to-red-800",
-          tag: "LIQUIDACIÓN CONTROLADA"
+          tag: "CONTROLLED LIQUIDATION"
         };
       case 'near_expiry':
         return {
-          title: "Próximos a Vencer",
-          description: "Productos 100% funcionales con fechas cortas a precios reducidos.",
+          title: "Near Expiry",
+          description: "100% functional products with short dates at reduced prices.",
           gradient: "from-amber-700 via-amber-600 to-orange-700",
-          tag: "OPORTUNIDAD ESTRATÉGICA"
+          tag: "STRATEGIC OPPORTUNITY"
         };
       case 'available':
         return {
-          title: "Catálogo Vigente",
-          description: "Suministros médicos con garantía completa y fechas óptimas.",
+          title: "Current Catalog",
+          description: "Medical supplies with full warranty and optimal dates.",
           gradient: "from-emerald-900 via-emerald-800 to-teal-800",
-          tag: "GARANTÍA DE FÁBRICA"
+          tag: "FACTORY WARRANTY"
         };
       default:
         return {
-          title: "Catálogo General",
-          description: "Explora nuestra selección completa de dispositivos médicos certificados.",
+          title: "General Catalog",
+          description: "Explore our full selection of certified medical devices.",
           gradient: "from-slate-900 via-slate-800 to-slate-900",
-          tag: "INVENTARIO GLOBAL"
+          tag: "GLOBAL INVENTORY"
         };
     }
   };
@@ -85,7 +85,7 @@ function ProductsContent() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
       
-      {/* ======= BANNER DE SECCIÓN ======= */}
+      {/* ======= SECTION BANNER ======= */}
       <div className={`relative bg-gradient-to-r ${config.gradient} text-white pt-32 pb-12 md:py-20 overflow-hidden`}>
         <div className="absolute inset-0 opacity-10 bg-[url('/Images/pattern.png')] bg-repeat"></div>
         <Package className="absolute -right-8 -bottom-8 w-40 h-40 md:-right-16 md:-bottom-16 md:w-80 md:h-80 text-white/5 pointer-events-none transform rotate-12" />
@@ -102,7 +102,7 @@ function ProductsContent() {
         </div>
       </div>
 
-      {/* ======= CONTENIDO PRINCIPAL ======= */}
+      {/* ======= MAIN CONTENT ======= */}
       <main className="w-[90%] max-w-[1400px] mx-auto py-6 md:py-10">
         
         <CatalogNavigation />
@@ -112,7 +112,7 @@ function ProductsContent() {
           <aside className="w-full lg:w-80 flex-shrink-0 lg:sticky lg:top-28">
             <div className="flex items-center gap-2 mb-4 md:mb-6 px-1">
                <Filter size={18} className="text-blue-600" />
-               <span className="font-black text-sm uppercase tracking-widest text-slate-400">Filtros Avanzados</span>
+               <span className="font-black text-sm uppercase tracking-widest text-slate-400">Advanced Filters</span>
             </div>
             <ProductFilters />
           </aside>
@@ -127,11 +127,11 @@ function ProductsContent() {
 
             <ActiveFilters />
 
-            {/* 🟢 Indicador de carga sutil para cambios de página/filtros */}
+            {/* Subtle loading indicator for page/filter changes */}
             {isFetching && !isLoading && (
               <div className="absolute top-0 right-0 flex items-center gap-2 text-blue-600 bg-blue-50 px-4 py-2 rounded-full z-20 animate-in fade-in zoom-in duration-300 shadow-sm border border-blue-100">
                 <Loader2 size={16} className="animate-spin" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Actualizando...</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">Updating...</span>
               </div>
             )}
 
@@ -156,20 +156,20 @@ function ProductsContent() {
                 <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 text-slate-300">
                   <Search size={40} className="md:w-12 md:h-12" />
                 </div>
-                <h3 className="text-xl md:text-2xl font-black text-slate-800 mb-2">Sin coincidencias</h3>
+                <h3 className="text-xl md:text-2xl font-black text-slate-800 mb-2">No matches found</h3>
                 <p className="text-slate-500 max-w-sm mx-auto mb-8 font-medium text-sm md:text-base">
-                  No encontramos productos en <span className="text-blue-600">{config.title}</span> que coincidan con tu búsqueda actual.
+                  We couldn't find any products in <span className="text-blue-600">{config.title}</span> that match your current search.
                 </p>
                 <button 
                   onClick={() => window.location.href = '/products'}
                   className="bg-slate-900 text-white px-6 md:px-8 py-3 rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/10 text-sm md:text-base"
                 >
-                  Reiniciar búsqueda
+                  Reset search
                 </button>
               </div>
             )}
 
-            {/* PAGINACIÓN */}
+            {/* PAGINATION */}
             {pagination && pagination.totalPages > 1 && (
               <div className={`flex flex-col sm:flex-row justify-center items-center mt-12 gap-4 w-full transition-opacity ${isFetching ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
                 <div className="flex w-full sm:w-auto justify-between gap-4">
@@ -177,7 +177,7 @@ function ProductsContent() {
                     href={`/products?page=${Math.max(1, page - 1)}&status=${status}&search=${searchTerm}&minPrice=${minPrice || ''}&maxPrice=${maxPrice || ''}&sortBy=${sortBy}&categoryId=${categoryId}&manufacturerId=${manufacturerId}`}
                     className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-black transition-all ${page === 1 ? 'pointer-events-none opacity-30' : 'hover:border-blue-500 hover:text-blue-600 shadow-sm'}`}
                   >
-                    <ArrowLeft size={16} /> Anterior
+                    <ArrowLeft size={16} /> Previous
                   </Link>
                   
                   <div className="sm:hidden flex items-center bg-white px-4 py-3 rounded-2xl border border-slate-100 shadow-inner">
@@ -190,12 +190,12 @@ function ProductsContent() {
                     href={`/products?page=${Math.min(pagination.totalPages, page + 1)}&status=${status}&search=${searchTerm}&minPrice=${minPrice || ''}&maxPrice=${maxPrice || ''}&sortBy=${sortBy}&categoryId=${categoryId}&manufacturerId=${manufacturerId}`}
                     className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-black transition-all ${page === pagination.totalPages ? 'pointer-events-none opacity-30' : 'hover:border-blue-500 hover:text-blue-600 shadow-sm'}`}
                   >
-                    Siguiente <ChevronRight size={16} />
+                    Next <ChevronRight size={16} />
                   </Link>
                 </div>
 
                 <div className="hidden sm:flex items-center bg-white px-4 py-3 rounded-2xl border border-slate-100 shadow-inner">
-                   <span className="text-xs font-black text-slate-400 mr-2 uppercase tracking-tighter">Página</span>
+                   <span className="text-xs font-black text-slate-400 mr-2 uppercase tracking-tighter">Page</span>
                    <span className="text-sm font-black text-blue-600">{page}</span>
                    <span className="mx-2 text-slate-300 font-light">/</span>
                    <span className="text-sm font-black text-slate-400">{pagination.totalPages}</span>

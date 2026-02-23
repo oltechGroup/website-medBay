@@ -26,20 +26,20 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      // 1. Ejecutamos la mutación (esto guarda cookies y actualiza Zustand)
+      // 1. Execute mutation (this saves cookies and updates Zustand)
       const response = await loginMutation.mutateAsync(data);
       
       const user = response.user;
 
-      // ✅ LA SOLUCIÓN DEFINITIVA: 
-      // Usamos window.location.href en lugar de router.push().
-      // Esto fuerza una recarga total del navegador, obligando al Middleware 
-      // y a todas las páginas protegidas a leer las cookies frescas desde el inicio.
+      // ✅ THE DEFINITIVE SOLUTION: 
+      // We use window.location.href instead of router.push().
+      // This forces a full browser reload, forcing the Middleware 
+      // and all protected pages to read fresh cookies from the start.
       
       const targetPath = user.verification_level === 'admin' ? '/dashboard' : '/';
 
-      // Agregamos un pequeñísimo retraso (100ms) para asegurar que 
-      // el navegador terminó de escribir las cookies antes de saltar.
+      // We add a tiny delay (100ms) to ensure the 
+      // browser finished writing cookies before jumping.
       setTimeout(() => {
         window.location.href = targetPath;
       }, 100);
@@ -47,7 +47,7 @@ export default function LoginPage() {
     } catch (error: any) {
       setError('root', {
         type: 'manual',
-        message: error.response?.data?.error || 'Error al iniciar sesión',
+        message: error.response?.data?.error || 'Login failed',
       });
     }
   };
@@ -55,7 +55,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full flex bg-white font-sans">
       
-      {/* --- SECCIÓN IZQUIERDA: VISUAL PREMIUM --- */}
+      {/* --- LEFT SECTION: PREMIUM VISUAL --- */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-slate-900">
         <img 
           src="/Images/11.png" 
@@ -72,13 +72,13 @@ export default function LoginPage() {
 
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-bold mb-6">
-              <ShieldCheck size={14} /> ACCESO SEGURO B2B
+              <ShieldCheck size={14} /> SECURE B2B ACCESS
             </div>
             <h1 className="text-5xl font-extrabold leading-tight mb-6">
-              Plataforma de <br /> <span className="text-blue-400">Grado Clínico.</span>
+              Clinical-Grade <br /> <span className="text-blue-400">Platform.</span>
             </h1>
             <p className="text-slate-300 text-lg max-w-md leading-relaxed">
-              Inicie sesión para gestionar suministros médicos, trazabilidad de lotes y adquisiciones estratégicas.
+              Log in to manage medical supplies, lot traceability, and strategic procurement.
             </p>
           </div>
 
@@ -88,7 +88,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* --- SECCIÓN DERECHA: FORMULARIO --- */}
+      {/* --- RIGHT SECTION: FORM --- */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 bg-slate-50">
         <div className="max-w-md w-full space-y-10 animate-in fade-in slide-in-from-right-4 duration-700">
           
@@ -97,12 +97,12 @@ export default function LoginPage() {
                 <img src="/icons/logomed.png" alt="Logo" className="w-16 h-16" />
             </div>
             <h2 className="text-4xl font-black text-slate-900 tracking-tight">
-              Bienvenido de nuevo
+              Welcome back
             </h2>
             <p className="mt-3 text-slate-500 font-medium">
-              ¿No tienes una cuenta? {' '}
+              Don't have an account? {' '}
               <Link href="/register" className="text-blue-600 hover:text-blue-700 underline-offset-4 hover:underline transition-all">
-                Regístrate aquí
+                Register here
               </Link>
             </p>
           </div>
@@ -110,9 +110,9 @@ export default function LoginPage() {
           <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-5">
               <Input
-                label="Correo Institucional"
+                label="Corporate Email"
                 type="email"
-                placeholder="ejemplo@medbay.com"
+                placeholder="example@medbay.com"
                 className="bg-white border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 rounded-xl transition-all h-12"
                 error={errors.email?.message}
                 {...register('email')}
@@ -120,7 +120,7 @@ export default function LoginPage() {
 
               <div className="relative group transition-all duration-300">
                 <Input
-                  label="Contraseña"
+                  label="Password"
                   type="password"
                   placeholder="••••••••"
                   className="bg-white border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 rounded-xl transition-all h-12"
@@ -138,11 +138,8 @@ export default function LoginPage() {
             )}
 
             <div className="flex items-center justify-end">
-              {/* ✅ TIP: Si esta página te da 404 en consola, es porque aún no creas 
-                  el archivo src/app/(auth)/forgot-password/page.tsx. 
-                  Next.js intenta pre-cargarlo al verlo aquí. */}
               <Link href="/forgot-password" className="text-sm font-semibold text-slate-500 hover:text-blue-600 transition-colors">
-                ¿Olvidaste tu contraseña?
+                Forgot your password?
               </Link>
             </div>
 
@@ -151,14 +148,14 @@ export default function LoginPage() {
               className="w-full bg-slate-900 hover:bg-blue-600 text-white h-14 rounded-xl text-lg font-bold shadow-xl transition-all flex items-center justify-center gap-3 group"
               loading={loginMutation.isPending}
             >
-              Iniciar Sesión
+              Log In
               {!loginMutation.isPending && <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />}
             </Button>
           </form>
 
           <div className="pt-8 border-t border-slate-200 flex flex-col items-center gap-4">
              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center">
-               Conexión Encriptada de Grado Médico
+               Medical-Grade Encrypted Connection
              </p>
              <div className="flex gap-6 opacity-30 grayscale">
                 <img src="/icons/logomednegro.png" className="h-6 object-contain" alt="Trust Logo" />

@@ -17,16 +17,16 @@ interface ColumnMapperProps {
 }
 
 const REQUIRED_FIELDS = [
-  { key: 'descripcion', label: 'Descripción', description: 'Corazón del producto (Obligatorio)', canSkip: false },
-  { key: 'codigo', label: 'Código / SKU', description: 'Identificador del proveedor', canSkip: true },
-  { key: 'fabricante', label: 'Fabricante', description: 'Marca o laboratorio', canSkip: true },
-  { key: 'cantidad', label: 'Cantidad', description: 'Stock de este lote', canSkip: true },
-  { key: 'precio', label: 'Precio', description: 'Costo unitario', canSkip: true },
-  { key: 'fecha_caducidad', label: 'Fecha Caducidad', description: 'Vencimiento del producto', canSkip: true },
+  { key: 'descripcion', label: 'Description', description: 'Core of the product (Required)', canSkip: false },
+  { key: 'codigo', label: 'Code / SKU', description: 'Supplier identifier', canSkip: true },
+  { key: 'fabricante', label: 'Manufacturer', description: 'Brand or laboratory', canSkip: true },
+  { key: 'cantidad', label: 'Quantity', description: 'Stock for this lot', canSkip: true },
+  { key: 'precio', label: 'Price', description: 'Unit cost', canSkip: true },
+  { key: 'fecha_caducidad', label: 'Expiration Date', description: 'Product expiration', canSkip: true },
 ];
 
 const OPTIONAL_FIELDS = [
-  { key: 'imagen_url', label: 'Imagen (URL)', description: 'URL de la imagen del producto' },
+  { key: 'imagen_url', label: 'Image (URL)', description: 'Product image URL' },
 ];
 
 export const ColumnMapper: React.FC<ColumnMapperProps> = ({
@@ -81,25 +81,25 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       
-      {/* Header Informativo */}
+      {/* Informative Header */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 shadow-sm">
         <div className="flex items-center space-x-4">
           <div className="bg-blue-100 p-3 rounded-full">
             <Map className="h-6 w-6 text-blue-600" />
           </div>
           <div className="flex-1">
-            <h3 className="font-bold text-blue-900 text-lg">Configuración de Importación</h3>
+            <h3 className="font-bold text-blue-900 text-lg">Import Configuration</h3>
             <p className="text-sm text-blue-700 mt-1">
-              Asocia las columnas de tu Excel. Si un dato no existe (como Cantidad o Precio), marca <strong>"No aplica"</strong> y el sistema lo gestionará automáticamente.
+              Map your Excel columns. If a data point doesn't exist (like Quantity or Price), mark it as <strong>"Not applicable"</strong> and the system will handle it automatically.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Sección de Mapeo */}
+      {/* Mapping Section */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
         <h4 className="font-bold text-gray-900 mb-6 text-xl flex items-center border-b pb-4">
-          <CheckCircle className="mr-2 h-6 w-6 text-green-600"/> Definición de Atributos
+          <CheckCircle className="mr-2 h-6 w-6 text-green-600"/> Attribute Definition
         </h4>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -132,7 +132,7 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
                           : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700'
                       }`}
                     >
-                      {isNotApplicable ? 'Habilitar' : 'Omitir'}
+                      {isNotApplicable ? 'Enable' : 'Skip'}
                     </button>
                   )}
                 </div>
@@ -143,7 +143,7 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
                 
                 {isNotApplicable ? (
                   <div className="w-full py-2.5 px-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-500 text-sm font-medium flex items-center justify-center">
-                    <MinusCircle className="w-4 h-4 mr-2" /> No aplica
+                    <MinusCircle className="w-4 h-4 mr-2" /> Not applicable
                   </div>
                 ) : (
                   <div className="relative">
@@ -154,11 +154,11 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
                         !mappings[field.key] ? 'border-amber-400' : 'border-gray-300'
                       }`}
                     >
-                      <option value="">Selecciona columna...</option>
+                      <option value="">Select column...</option>
                       {availableColumns.map((column) => (
                         <option 
                           key={column} 
-                          value={column}
+                          value={column} 
                           disabled={isColumnMapped(column) && mappings[field.key] !== column}
                           className="text-gray-900"
                         >
@@ -166,7 +166,7 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
                         </option>
                       ))}
                     </select>
-                    {/* Indicador visual de dropdown */}
+                    {/* Visual dropdown indicator */}
                     <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-500">
                       <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
                     </div>
@@ -176,7 +176,7 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
                 {isMapped && (
                   <div className="mt-3 flex items-center text-green-700 bg-green-50 px-2 py-1 rounded text-xs font-bold w-fit animate-in fade-in slide-in-from-left-2">
                     <CheckCircle className="h-3 w-3 mr-1.5" />
-                    LISTO
+                    READY
                   </div>
                 )}
               </div>
@@ -184,9 +184,9 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
           })}
         </div>
 
-        {/* Campos Opcionales */}
+        {/* Optional Fields */}
         <div className="mt-10 pt-8 border-t border-gray-100">
-          <h4 className="font-bold text-gray-800 mb-6 text-lg">Información Adicional (Opcional)</h4>
+          <h4 className="font-bold text-gray-800 mb-6 text-lg">Additional Information (Optional)</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {OPTIONAL_FIELDS.map((field) => (
               <div key={field.key} className="border border-gray-200 rounded-xl p-5 bg-gray-50/50 hover:bg-white transition-colors">
@@ -198,7 +198,7 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
                     onChange={(e) => handleMappingChange(field.key, e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:ring-1 focus:ring-blue-500 outline-none"
                   >
-                    <option value="">No asignar...</option>
+                    <option value="">Do not assign...</option>
                     {availableColumns.map((column) => (
                       <option key={column} value={column} disabled={isColumnMapped(column) && mappings[field.key] !== column}>
                         {column}
@@ -212,15 +212,15 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
         </div>
       </div>
 
-      {/* Tabla de Previsualización Mejorada */}
+      {/* Improved Preview Table */}
       <div className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
         <div className="bg-gray-900 px-6 py-4 flex justify-between items-center text-white">
            <div className="flex items-center space-x-2">
               <Table className="h-5 w-5 text-blue-400" />
-              <span className="font-bold text-sm tracking-wide">VISTA PREVIA DE DATOS</span>
+              <span className="font-bold text-sm tracking-wide">DATA PREVIEW</span>
            </div>
            <span className="text-xs font-bold bg-gray-700 px-3 py-1 rounded-full border border-gray-600">
-             Total: {totalRows.toLocaleString()} filas
+             Total: {totalRows.toLocaleString()} rows
            </span>
         </div>
         
@@ -271,7 +271,7 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
                           isMapped ? 'bg-blue-50/30 font-medium text-gray-900' : ''
                         }`}
                       >
-                        {row[col]?.toString() || <span className="text-gray-300 italic">vacío</span>}
+                        {row[col]?.toString() || <span className="text-gray-300 italic">empty</span>}
                       </td>
                     );
                   })}
@@ -281,21 +281,21 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
           </table>
         </div>
         <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 text-xs text-gray-500 text-center font-medium">
-          Mostrando las primeras 5 filas para verificación
+          Showing the first 5 rows for verification
         </div>
       </div>
 
-      {/* Botón de Acción Final */}
+      {/* Final Action Button */}
       <div className="sticky bottom-4 z-10">
         <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-xl ring-1 ring-black/5">
           <div className="flex items-center space-x-3">
             {isMappingComplete() ? (
               <div className="flex items-center text-green-800 font-bold text-sm bg-green-100 px-4 py-2 rounded-lg border border-green-200 shadow-sm">
-                <CheckCircle className="h-5 w-5 mr-2" /> Configuración lista
+                <CheckCircle className="h-5 w-5 mr-2" /> Configuration ready
               </div>
             ) : (
               <div className="flex items-center text-amber-800 font-bold text-sm bg-amber-100 px-4 py-2 rounded-lg border border-amber-200 shadow-sm">
-                <AlertCircle className="h-5 w-5 mr-2" /> Completa los campos obligatorios (*)
+                <AlertCircle className="h-5 w-5 mr-2" /> Complete the required fields (*)
               </div>
             )}
           </div>
@@ -313,11 +313,11 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
             {isProcessing ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-white mr-2"></div>
-                Procesando...
+                Processing...
               </>
             ) : (
               <>
-                <Download className="h-5 w-5 mr-2" /> Iniciar Importación
+                <Download className="h-5 w-5 mr-2" /> Start Import
               </>
             )}
           </button>

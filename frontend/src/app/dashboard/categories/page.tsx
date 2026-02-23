@@ -26,9 +26,9 @@ export default function CategoriesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestión de Categorías</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Category Management</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Organiza tus productos en categorías y subcategorías
+            Organize your products into categories and subcategories
           </p>
         </div>
         <div className="flex space-x-3 mt-4 sm:mt-0">
@@ -39,7 +39,7 @@ export default function CategoriesPage() {
             <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Asignar Productos
+            Assign Products
           </button>
           <button
             onClick={() => router.push('/dashboard/categories/new')}
@@ -48,7 +48,7 @@ export default function CategoriesPage() {
             <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Nueva Categoría
+            New Category
           </button>
         </div>
       </div>

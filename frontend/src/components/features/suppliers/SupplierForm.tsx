@@ -1,3 +1,4 @@
+//frontend/src/components/features/suppliers/SupplierForm.tsx
 'use client';
 
 import { useState } from 'react';
@@ -63,14 +64,14 @@ export default function SupplierForm({ supplier, onSubmit, isLoading, error }: S
         is_active: isActive,
       });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Error al procesar la solicitud';
+      const errorMessage = error.response?.data?.error || 'Error processing the request';
       setServerError(errorMessage);
     }
   };
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-      {/* MOSTRAR ERRORES DEL SERVIDOR */}
+      {/* SHOW SERVER ERRORS */}
       {(serverError || error) && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center">
@@ -89,47 +90,47 @@ export default function SupplierForm({ supplier, onSubmit, isLoading, error }: S
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        <h3 className="text-lg font-medium text-gray-900 mb-6">Información Básica</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-6">Basic Information</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* ✅ NOMBRE DEL PROVEEDOR - CON ASTERISCO ROJO */}
+          {/* ✅ SUPPLIER NAME */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nombre del proveedor <span className="text-red-500">*</span>
+              Supplier Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               {...register('name', { 
-                required: 'El nombre es requerido',
+                required: 'Name is required',
                 minLength: {
                   value: 2,
-                  message: 'El nombre debe tener al menos 2 caracteres'
+                  message: 'The name must be at least 2 characters long'
                 }
               })}
               className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white ${
                 errors.name ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder="Ej: Proveedores Médicos S.A."
+              placeholder="e.g.: Medical Suppliers Inc."
             />
             {errors.name && (
               <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
             )}
           </div>
 
-          {/* ✅ PAÍS OBLIGATORIO */}
+          {/* ✅ COUNTRY */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              País <span className="text-red-500">*</span>
+              Country <span className="text-red-500">*</span>
             </label>
             <select
               {...register('country_code', { 
-                required: 'El país es requerido' 
+                required: 'Country is required' 
               })}
               className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white ${
                 errors.country_code ? 'border-red-500' : 'border-gray-300'
               }`}
             >
-              <option value="">Selecciona un país</option>
+              <option value="">Select a country</option>
               {countries?.map((country) => (
                 <option key={country.code} value={country.code}>
                   {country.name} ({country.currency_code} - {country.currency_symbol})
@@ -142,7 +143,7 @@ export default function SupplierForm({ supplier, onSubmit, isLoading, error }: S
           </div>
         </div>
 
-        {/* Estado activo/inactivo */}
+        {/* ACTIVE/INACTIVE STATUS */}
         <div className="mt-6">
           <label className="flex items-center space-x-3">
             <input
@@ -151,33 +152,33 @@ export default function SupplierForm({ supplier, onSubmit, isLoading, error }: S
               onChange={(e) => setIsActive(e.target.checked)}
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm font-medium text-gray-900">Proveedor activo</span>
+            <span className="text-sm font-medium text-gray-900">Active supplier</span>
           </label>
           <p className="text-sm text-gray-500 mt-1">
-            Los proveedores inactivos no estarán disponibles en las listas de selección.
+            Inactive suppliers will not be available in selection lists.
           </p>
         </div>
       </div>
 
-      {/* Información de contacto */}
+      {/* CONTACT INFORMATION */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        <h3 className="text-lg font-medium text-gray-900 mb-6">Información de Contacto</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-6">Contact Information</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Teléfono */}
+          {/* PHONE */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Teléfono
+              Phone
             </label>
             <input
               type="text"
               {...register('contact_info.telefono')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-              placeholder="Ej: +52 55 1234 5678"
+              placeholder="e.g.: +1 555 123 4567"
             />
           </div>
 
-          {/* Email */}
+          {/* EMAIL */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Email
@@ -186,78 +187,78 @@ export default function SupplierForm({ supplier, onSubmit, isLoading, error }: S
               type="email"
               {...register('contact_info.email')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-              placeholder="Ej: contacto@proveedor.com"
+              placeholder="e.g.: contact@supplier.com"
             />
           </div>
 
-          {/* Persona de contacto */}
+          {/* CONTACT PERSON */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Persona de contacto
+              Contact person
             </label>
             <input
               type="text"
               {...register('contact_info.persona_contacto')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-              placeholder="Ej: Juan Pérez"
+              placeholder="e.g.: John Doe"
             />
           </div>
 
-          {/* Sitio web */}
+          {/* WEBSITE */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Sitio web
+              Website
             </label>
             <input
               type="text"
               {...register('contact_info.website')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-              placeholder="Ej: https://proveedor.com"
+              placeholder="e.g.: https://supplier.com"
             />
           </div>
         </div>
 
-        {/* Dirección */}
+        {/* ADDRESS */}
         <div className="mt-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Dirección
+            Address
           </label>
           <textarea
             {...register('contact_info.direccion')}
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-            placeholder="Ej: Av. Principal #123, Col. Centro, Ciudad de México"
+            placeholder="e.g.: 123 Main St, Suite 400, New York, NY"
           />
         </div>
 
-        {/* Notas adicionales */}
+        {/* ADDITIONAL NOTES */}
         <div className="mt-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Notas adicionales
+            Additional notes
           </label>
           <textarea
             {...register('contact_info.notas')}
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-            placeholder="Información adicional sobre el proveedor..."
+            placeholder="Additional information about the supplier..."
           />
         </div>
       </div>
 
-      {/* Botones de acción */}
+      {/* ACTION BUTTONS */}
       <div className="flex justify-end space-x-4 pt-6">
         <Button
           type="button"
           variant="outline"
           onClick={() => window.history.back()}
         >
-          Cancelar
+          Cancel
         </Button>
         <Button
           type="submit"
           loading={isLoading}
         >
-          {supplier ? 'Actualizar proveedor' : 'Crear proveedor'}
+          {supplier ? 'Update supplier' : 'Create supplier'}
         </Button>
       </div>
     </form>

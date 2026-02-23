@@ -15,8 +15,8 @@ export default function ExpiredCatalogPage() {
     <CatalogView
       supplierId={supplierId}
       status="expired"
-      title="Lotes Caducados"
-      description="Lotes vencidos del proveedor"
+      title="Expired Lots"
+      description="Expired lots from the supplier"
       colorScheme={{
         primary: 'red',
         icon: Calendar,

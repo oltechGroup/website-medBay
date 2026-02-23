@@ -11,7 +11,7 @@ export default function ImportPage() {
   const [activeTab, setActiveTab] = useState<'import' | 'history'>('import');
 
   const handleRefresh = () => {
-    window.location.reload(); // La forma más segura de resetear todo el estado
+    window.location.reload(); // The safest way to reset all state
   };
 
   return (
@@ -20,9 +20,9 @@ export default function ImportPage() {
         
         <div className="mb-8 flex justify-between items-end">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Importación de Inventario</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Inventory Import</h1>
             <p className="text-gray-600 mt-2">
-              Carga masiva de productos drop-shipping desde Excel.
+              Bulk upload of drop-shipping products from Excel.
             </p>
           </div>
           
@@ -36,7 +36,7 @@ export default function ImportPage() {
                 }`}
               >
                 <FileInput className="w-4 h-4 mr-2" />
-                Importar
+                Import
               </button>
               <button
                 onClick={() => setActiveTab('history')}
@@ -45,7 +45,7 @@ export default function ImportPage() {
                 }`}
               >
                 <History className="w-4 h-4 mr-2" />
-                Historial
+                History
               </button>
             </div>
           </div>

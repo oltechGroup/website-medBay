@@ -59,9 +59,9 @@ export default function GlobalImportStatus() {
   const isSuccess = activeImport.status === 'completed' || activeImport.status === 'finished';
   const isFinished = isError || isWarning || isSuccess;
 
-  // ✅ CORRECCIÓN TYPE SCRIPT: Casteo seguro de estadísticas
+  // ✅ STATS LOGIC PRESERVED
   const stats = (activeImport.error_messages?.stats || {}) as Partial<ImportStats>;
-  const createdLots = stats.created_lots || 0; // Usamos variable local segura
+  const createdLots = stats.created_lots || 0; 
   const errorCount = activeImport.error_messages?.errors?.length || 0;
 
   const handleNavigate = () => {
@@ -106,11 +106,11 @@ export default function GlobalImportStatus() {
                   isError ? 'text-red-900' : isSuccess ? 'text-emerald-900' : 'text-slate-900'
               }`}>
                 {isFinished 
-                    ? (isError ? 'Importación Fallida' : isWarning ? 'Finalizado con Alertas' : 'Importación Exitosa') 
-                    : 'Importando Inventario...'}
+                    ? (isError ? 'Import Failed' : isWarning ? 'Completed with Alerts' : 'Import Successful') 
+                    : 'Importing Inventory...'}
               </h4>
               <p className="text-xs text-slate-500 mt-1 font-medium flex items-center gap-1">
-                {isFinished ? 'Clic para ver detalles' : 'Procesando en segundo plano'} <ArrowRight size={10}/>
+                {isFinished ? 'Click to view details' : 'Processing in background'} <ArrowRight size={10}/>
               </p>
             </div>
           </div>
@@ -122,13 +122,13 @@ export default function GlobalImportStatus() {
           </button>
         </div>
 
-        {/* Cuerpo */}
+        {/* Body */}
         <div className="p-4 pt-3">
             {!isFinished ? (
-                // --- ESTADO: PROCESANDO ---
+                // --- STATE: PROCESSING ---
                 <div className="space-y-2">
                     <div className="flex justify-between text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                        <span>Progreso</span>
+                        <span>Progress</span>
                         <span>{percentage}%</span>
                     </div>
                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
@@ -138,26 +138,26 @@ export default function GlobalImportStatus() {
                         />
                     </div>
                     <p className="text-xs text-slate-500 italic truncate">
-                        {activeImport.current_operation || 'Procesando datos...'}
+                        {activeImport.current_operation || 'Processing data...'}
                     </p>
                 </div>
             ) : (
-                // --- ESTADO: TERMINADO (RESUMEN) ---
+                // --- STATE: FINISHED (SUMMARY) ---
                 <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-white/60 p-2 rounded border border-black/5 flex flex-col items-center justify-center text-center">
                         <span className="font-bold text-slate-700 text-lg">{createdLots}</span>
-                        <span className="text-slate-500 flex items-center gap-1"><Package size={10}/> Lotes</span>
+                        <span className="text-slate-500 flex items-center gap-1"><Package size={10}/> Lots</span>
                     </div>
                     
                     {errorCount > 0 ? (
                         <div className="bg-red-100/50 p-2 rounded border border-red-200 flex flex-col items-center justify-center text-center">
                             <span className="font-bold text-red-700 text-lg">{errorCount}</span>
-                            <span className="text-red-600 flex items-center gap-1"><AlertCircle size={10}/> Errores</span>
+                            <span className="text-red-600 flex items-center gap-1"><AlertCircle size={10}/> Errors</span>
                         </div>
                     ) : (
                         <div className="bg-emerald-100/50 p-2 rounded border border-emerald-200 flex flex-col items-center justify-center text-center">
                             <span className="font-bold text-emerald-700 text-lg">100%</span>
-                            <span className="text-emerald-600">Completado</span>
+                            <span className="text-emerald-600">Completed</span>
                         </div>
                     )}
                 </div>

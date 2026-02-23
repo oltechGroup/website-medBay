@@ -5,7 +5,7 @@
 import { useProducts } from '@/hooks/useProducts';
 
 export const ProductStatsCards = () => {
-  // ✅ CORRECCIÓN: Llamar useProducts UNA sola vez
+  // ✅ FIX: Call useProducts only ONCE
   const { stats: statistics, isLoading } = useProducts();
   
   if (isLoading) {
@@ -26,11 +26,11 @@ export const ProductStatsCards = () => {
     );
   }
 
-  // Estado sin datos
+  // State without data
   if (!statistics) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mb-8">
-        <p className="text-yellow-600">No se pudieron cargar las estadísticas</p>
+        <p className="text-yellow-600">Statistics could not be loaded</p>
       </div>
     );
   }
@@ -41,7 +41,7 @@ export const ProductStatsCards = () => {
     products_without_images 
   } = statistics;
 
-  // Cálculos seguros
+  // Safe calculations
   const withImagesPercentage = total_products > 0 
     ? Math.round((products_with_images / total_products) * 100)
     : 0;
@@ -52,11 +52,11 @@ export const ProductStatsCards = () => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      {/* Total de Productos */}
+      {/* Total Products */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">Total de Productos</p>
+            <p className="text-sm font-medium text-gray-600">Total Products</p>
             <p className="text-2xl font-bold text-gray-900">{total_products}</p>
           </div>
           <div className="p-3 bg-blue-100 rounded-xl">
@@ -67,14 +67,14 @@ export const ProductStatsCards = () => {
         </div>
       </div>
 
-      {/* Productos con Imágenes */}
+      {/* Products with Images */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">Con Imágenes</p>
+            <p className="text-sm font-medium text-gray-600">With Images</p>
             <p className="text-2xl font-bold text-gray-900">{products_with_images}</p>
             <p className="text-xs text-gray-500 mt-1">
-              {withImagesPercentage}% del total
+              {withImagesPercentage}% of total
             </p>
           </div>
           <div className="p-3 bg-green-100 rounded-xl">
@@ -85,14 +85,14 @@ export const ProductStatsCards = () => {
         </div>
       </div>
 
-      {/* Productos sin Imágenes */}
+      {/* Products without Images */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">Sin Imágenes</p>
+            <p className="text-sm font-medium text-gray-600">Without Images</p>
             <p className="text-2xl font-bold text-gray-900">{products_without_images}</p>
             <p className="text-xs text-gray-500 mt-1">
-              {withoutImagesPercentage}% del total
+              {withoutImagesPercentage}% of total
             </p>
           </div>
           <div className="p-3 bg-orange-100 rounded-xl">

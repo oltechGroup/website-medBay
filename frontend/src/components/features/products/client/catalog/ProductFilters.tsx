@@ -11,25 +11,25 @@ export const ProductFilters = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Hooks de datos (Lógica intacta)
+  // Data hooks (Logic remains intact)
   const { manufacturers } = useManufacturers(1, 300); 
   const { categories } = useCategories();
 
-  // Estados locales
+  // Local states
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
   
-  // Buscadores locales
+  // Local search inputs
   const [mfgSearch, setMfgSearch] = useState(""); 
   const [catSearch, setCatSearch] = useState("");
 
-  // Sincronizar precios si cambian en URL
+  // Synchronize prices if they change in the URL
   useEffect(() => {
     setMinPrice(searchParams.get("minPrice") || "");
     setMaxPrice(searchParams.get("maxPrice") || "");
   }, [searchParams]);
 
-  // Aplicar filtro genérico
+  // Apply generic filter
   const applyFilter = (key: string, value: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value) {
@@ -41,7 +41,7 @@ export const ProductFilters = () => {
     router.push(`/products?${params.toString()}`);
   };
 
-  // Aplicar filtro de precio
+  // Apply price filter
   const handlePriceApply = () => {
     const params = new URLSearchParams(searchParams.toString());
     if (minPrice) params.set("minPrice", minPrice); else params.delete("minPrice");
@@ -50,7 +50,7 @@ export const ProductFilters = () => {
     router.push(`/products?${params.toString()}`);
   };
 
-  // Filtrado local
+  // Local filtering
   const filteredManufacturers = manufacturers.filter(m => 
     m.name.toLowerCase().includes(mfgSearch.toLowerCase())
   );
@@ -62,19 +62,19 @@ export const ProductFilters = () => {
   const currentCategory = searchParams.get("categoryId");
   const currentManufacturer = searchParams.get("manufacturerId");
 
-  // Verificar si hay filtros activos
+  // Check if there are active filters
   const hasActiveFilters = currentCategory || currentManufacturer || minPrice || maxPrice;
 
   return (
     <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-white p-5 md:p-6 w-full lg:w-80 flex-shrink-0 h-auto lg:h-fit lg:sticky lg:top-28 transition-all">
       
-      {/* Header del Panel */}
+      {/* Panel Header */}
       <div className="flex items-center justify-between mb-6 md:mb-8 pb-4 border-b border-gray-100">
         <div className="flex items-center gap-2 text-slate-900">
           <div className="p-2 bg-slate-100 rounded-lg text-slate-500">
              <Filter size={16} />
           </div>
-          <h2 className="font-black text-sm uppercase tracking-widest">Filtros</h2>
+          <h2 className="font-black text-sm uppercase tracking-widest">Filters</h2>
         </div>
         {hasActiveFilters && (
           <button 
@@ -84,15 +84,15 @@ export const ProductFilters = () => {
             }}
             className="flex items-center gap-1 text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md hover:bg-red-100 transition-colors uppercase tracking-wide"
           >
-            <X size={12} /> Limpiar
+            <X size={12} /> Clear
           </button>
         )}
       </div>
 
-      {/* 1. RANGO DE PRECIO */}
+      {/* 1. PRICE RANGE */}
       <div className="mb-8 md:mb-10">
         <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wider flex items-center gap-2">
-            <DollarSign size={14} className="text-blue-500"/> Rango de Precio
+            <DollarSign size={14} className="text-blue-500"/> Price Range
         </h3>
         <div className="flex items-center gap-3 mb-3">
           <div className="relative flex-1 group">
@@ -121,22 +121,22 @@ export const ProductFilters = () => {
           onClick={handlePriceApply}
           className="w-full py-3 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10 active:scale-95"
         >
-          Aplicar Rango
+          Apply Range
         </button>
       </div>
 
-      {/* 2. CATEGORÍAS */}
+      {/* 2. CATEGORIES */}
       <div className="mb-8 md:mb-10">
         <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wider flex items-center gap-2">
-            Categorías
+            Categories
             <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-mono">{filteredCategories.length}</span>
         </h3>
         
-        {/* Buscador de Categorías */}
+        {/* Category Search */}
         <div className="relative mb-4 group">
           <input 
             type="text"
-            placeholder="Buscar categoría..."
+            placeholder="Search category..."
             className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-blue-400 focus:bg-white transition-all"
             value={catSearch}
             onChange={(e) => setCatSearch(e.target.value)}
@@ -161,7 +161,7 @@ export const ProductFilters = () => {
                     {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full shadow-sm" />}
                     <input 
                       type="radio" 
-                      name="category"
+                      name="category" 
                       className="hidden"
                       checked={isSelected}
                       onChange={() => applyFilter("categoryId", isSelected ? null : cat.id)}
@@ -173,24 +173,24 @@ export const ProductFilters = () => {
             })
           ) : (
             <div className="text-center py-4 opacity-50">
-               <p className="text-xs font-bold text-slate-400">Sin resultados</p>
+               <p className="text-xs font-bold text-slate-400">No results</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* 3. FABRICANTES */}
+      {/* 3. MANUFACTURERS */}
       <div>
         <h3 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-wider flex items-center gap-2">
-            Marcas
+            Brands
             <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-mono">{filteredManufacturers.length}</span>
         </h3>
         
-        {/* Buscador de Marcas */}
+        {/* Brand Search */}
         <div className="relative mb-4 group">
           <input 
             type="text"
-            placeholder="Buscar marca..."
+            placeholder="Search brand..."
             className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-blue-400 focus:bg-white transition-all"
             value={mfgSearch}
             onChange={(e) => setMfgSearch(e.target.value)}
@@ -226,7 +226,7 @@ export const ProductFilters = () => {
             })
           ) : (
             <div className="text-center py-4 opacity-50">
-               <p className="text-xs font-bold text-slate-400">Sin resultados</p>
+               <p className="text-xs font-bold text-slate-400">No results</p>
             </div>
           )}
         </div>

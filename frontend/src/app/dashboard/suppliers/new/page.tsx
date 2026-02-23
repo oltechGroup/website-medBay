@@ -1,3 +1,4 @@
+//frontend/src/app/dashboard/suppliers/new/page.tsx
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -20,29 +21,29 @@ export default function NewSupplierPage() {
       await createSupplier(data);
       router.push('/dashboard/suppliers');
     } catch (error: any) {
-      // ✅ CAPTURAR ERROR ESPECÍFICO DEL SERVIDOR
-      const errorMessage = error.response?.data?.error || 'Error al crear el proveedor';
+      // ✅ CAPTURE SPECIFIC SERVER ERROR
+      const errorMessage = error.response?.data?.error || 'Error creating the supplier';
       setServerError(errorMessage);
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header con navegación */}
+      {/* Header with navigation */}
       <div className="flex items-center space-x-4">
         <Link href="/dashboard/suppliers">
           <Button variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver
+            Back
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Agregar Proveedor</h1>
-          <p className="text-gray-600 mt-2">Completa la información del nuevo proveedor</p>
+          <h1 className="text-3xl font-bold text-gray-900">Add Supplier</h1>
+          <p className="text-gray-600 mt-2">Complete the new supplier's information</p>
         </div>
       </div>
 
-      {/* ✅ MOSTRAR ERROR GENERAL SI HAY */}
+      {/* ✅ SHOW GENERAL ERROR IF ANY */}
       {serverError && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
           <div className="flex items-center">
@@ -60,12 +61,12 @@ export default function NewSupplierPage() {
         </div>
       )}
 
-      {/* Formulario */}
+      {/* Form */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Información del Proveedor</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Supplier Information</h2>
           <p className="text-gray-600 text-sm mt-1">
-            Todos los campos marcados con <span className="text-red-500">*</span> son obligatorios
+            All fields marked with <span className="text-red-500">*</span> are required
           </p>
         </div>
         <div className="p-6">
@@ -77,15 +78,15 @@ export default function NewSupplierPage() {
         </div>
       </div>
 
-      {/* Información adicional */}
+      {/* Additional information */}
       <div className="bg-blue-50 rounded-xl border border-blue-200 p-6">
-        <h3 className="text-lg font-semibold text-blue-900 mb-2">💡 Información importante</h3>
+        <h3 className="text-lg font-semibold text-blue-900 mb-2">💡 Important information</h3>
         <ul className="text-blue-800 space-y-2 text-sm">
-          <li>• El <strong>nombre del proveedor</strong> es obligatorio y debe ser único en el sistema</li>
-          <li>• El <strong>país es obligatorio</strong> - determinará la moneda del proveedor</li>
-          <li>• Si intentas crear un proveedor con un nombre ya existente, el sistema te avisará</li>
-          <li>• Los proveedores inactivos no aparecerán en las listas de selección</li>
-          <li>• Puedes completar la información de contacto más tarde si es necesario</li>
+          <li>• The <strong>supplier name</strong> is required and must be unique in the system</li>
+          <li>• The <strong>country is required</strong> - it will determine the supplier's currency</li>
+          <li>• If you try to create a supplier with an existing name, the system will notify you</li>
+          <li>• Inactive suppliers will not appear in selection lists</li>
+          <li>• You can complete the contact information later if necessary</li>
         </ul>
       </div>
     </div>

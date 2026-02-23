@@ -10,11 +10,11 @@ import {
 import { formatCurrency } from '@/lib/formatters';
 import ReplyModal from './ReplyModal'; 
 
-// Importamos los detalles existentes (Reutilizamos lógica visual)
+// Import existing details
 import ContactDetails from './details/ContactDetails';
 import RegisterDetails from './details/RegisterDetails'; 
 
-// Definimos la interfaz flexible basada en el InboxItem
+// Flexible interface based on InboxItem
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,38 +28,38 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
 
   if (!isOpen || !data) return null;
 
-  // --- 1. DETERMINAR TIPO Y FUENTE ---
+  // --- 1. DETERMINE TYPE AND SOURCE ---
   const source = data.source || 'notification'; // 'order' | 'quote' | 'notification'
   const type = data.type; // 'Nueva Orden', 'Solicitud de Cotización', 'Registro Usuario', etc.
 
-  // --- 2. PREPARAR DATOS SEGÚN FUENTE ---
+  // --- 2. PREPARE DATA ACCORDING TO SOURCE ---
   let content: any = {};
   
   if (source === 'notification') {
-    // Si viene de la tabla notifications, el content es un JSON string o objeto
+    // If it comes from notifications table, content is a JSON string or object
     content = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
   } else {
-    // Si es orden o quote, la data ya viene estructurada desde el dashboardController
+    // If it is order or quote, data is already structured
     content = data.data;
   }
 
-  // --- 3. LÓGICA DE REDIRECCIÓN (Gestión Centralizada) ---
+  // --- 3. REDIRECTION LOGIC (Centralized Management) ---
   const handleManageRedirect = () => {
     if (source === 'order') {
       router.push('/dashboard/orders');
     } else if (source === 'quote') {
       router.push('/dashboard/quotes');
     } else if (type === 'Registro Usuario') {
-      // ✅ CAMBIO: Redirigir a la tabla de usuarios para validación centralizada
+      // Redirect to users table for centralized validation
       router.push('/dashboard/users');
     }
     onClose();
   };
 
-  // --- 4. RENDERIZADO DE CONTENIDO ESPECÍFICO ---
+  // --- 4. RENDER SPECIFIC CONTENT ---
   const renderSpecificContent = () => {
     
-    // A) VISTA DE ORDEN
+    // A) ORDER VIEW
     if (source === 'order') {
       return (
         <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 space-y-4">
@@ -68,13 +68,13 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
               <ShoppingCart size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-800">Solicitud de Compra</h3>
+              <h3 className="text-lg font-black text-slate-800">Purchase Request</h3>
               <p className="text-emerald-700 font-medium text-sm">{data.subject}</p>
             </div>
           </div>
           
           <div className="bg-white p-4 rounded-xl border border-emerald-100 flex justify-between items-center">
-            <span className="text-xs font-bold text-slate-400 uppercase">Monto Total</span>
+            <span className="text-xs font-bold text-slate-400 uppercase">Total Amount</span>
             <span className="text-2xl font-black text-slate-900">
               {formatCurrency(content.total)} <span className="text-sm text-slate-400">{content.currency}</span>
             </span>
@@ -82,13 +82,13 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
 
           <div className="flex gap-2 text-xs text-slate-500 bg-white/50 p-3 rounded-lg">
             <AlertCircle size={14} className="text-emerald-600"/>
-            Esta orden requiere revisión de stock o validación de pago.
+            This order requires stock review or payment validation.
           </div>
         </div>
       );
     }
 
-    // B) VISTA DE COTIZACIÓN
+    // B) QUOTE VIEW
     if (source === 'quote') {
       return (
         <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 space-y-4">
@@ -97,7 +97,7 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
               <MessageSquareQuote size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-800">Cotización Requerida</h3>
+              <h3 className="text-lg font-black text-slate-800">Quote Requested</h3>
               <p className="text-amber-700 font-medium text-sm">{content.product_name}</p>
             </div>
           </div>
@@ -108,8 +108,8 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
               <p className="font-mono font-bold text-slate-700">{content.sku || 'N/A'}</p>
             </div>
             <div className="bg-white p-3 rounded-xl border border-amber-100">
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Cantidad</p>
-              <p className="font-bold text-slate-700">{content.quantity_asked} pzas</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Quantity</p>
+              <p className="font-bold text-slate-700">{content.quantity_asked} pcs</p>
             </div>
           </div>
 
@@ -122,16 +122,16 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
       );
     }
 
-    // C) REGISTRO DE USUARIO (Solo visualización)
+    // C) USER REGISTRATION (Visualization Only)
     if (type === 'Registro Usuario') {
       return <RegisterDetails details={content.extra_data} />;
     }
 
-    // D) CONTACTO GENERAL
+    // D) GENERAL CONTACT
     return <ContactDetails details={content.contact_details} message={content.mensaje} />;
   };
 
-  // --- 5. CONFIGURACIÓN VISUAL DEL HEADER ---
+  // --- 5. HEADER VISUAL CONFIGURATION ---
   const getHeaderStyles = () => {
     if (source === 'order') return { bg: 'bg-emerald-50', text: 'text-emerald-600', icon: <ShoppingCart size={24}/> };
     if (source === 'quote') return { bg: 'bg-amber-50', text: 'text-amber-600', icon: <MessageSquareQuote size={24}/> };
@@ -169,7 +169,7 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
           <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50 p-8">
              <div className="flex flex-col gap-6">
                 
-                {/* 1. Tarjeta Remitente */}
+                {/* 1. Sender Card */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -177,7 +177,7 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
                             {data.sender_name.charAt(0).toUpperCase()}
                          </div>
                          <div>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">De</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">From</p>
                             <h4 className="text-lg font-bold text-slate-800">{data.sender_name}</h4>
                             <p className="text-sm text-slate-500">{data.sender_email}</p>
                          </div>
@@ -191,34 +191,34 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
                    </div>
                 </div>
 
-                {/* 2. Contenido Dinámico */}
+                {/* 2. Dynamic Content */}
                 {renderSpecificContent()}
 
              </div>
           </div>
 
-          {/* FOOTER (ACCIONES) */}
+          {/* FOOTER (ACTIONS) */}
           <div className="p-6 border-t border-slate-200 bg-white z-20">
               
-              {/* CASO 1: GESTIÓN (Orden / Cotización / Registro) - ✅ AHORA INCLUYE REGISTRO */}
+              {/* CASE 1: MANAGEMENT (Order / Quote / Registration) */}
               {(source === 'order' || source === 'quote' || type === 'Registro Usuario') && (
                 <button 
                   onClick={handleManageRedirect}
                   className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-blue-600 shadow-xl shadow-slate-900/10 transition-all flex items-center justify-center gap-2"
                 >
-                  {type === 'Registro Usuario' ? 'Ir a Gestión de Usuarios' : 'Gestionar Solicitud'} 
+                  {type === 'Registro Usuario' ? 'Go to User Management' : 'Manage Request'} 
                   <ExternalLink size={20} />
                 </button>
               )}
 
-              {/* CASO 2: MENSAJE NORMAL (Responder/Leído) */}
+              {/* CASE 2: NORMAL MESSAGE (Reply/Read) */}
               {source === 'notification' && type !== 'Registro Usuario' && (
                 <div className="flex gap-4">
                    <button onClick={onConfirmRead} className="flex-1 py-4 border-2 border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-slate-100 hover:text-slate-800 transition-colors flex items-center justify-center gap-2">
-                     <CheckCircle2 size={20} /> Marcar Leído
+                     <CheckCircle2 size={20} /> Mark as Read
                    </button>
                    <button onClick={() => setIsReplyOpen(true)} className="flex-1 py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-blue-600 shadow-xl shadow-slate-200 transition-colors flex items-center justify-center gap-2">
-                     <MessageCircle size={20} /> Responder
+                     <MessageCircle size={20} /> Reply
                    </button>
                 </div>
               )}
@@ -227,7 +227,7 @@ export default function NotificationModal({ isOpen, onClose, onConfirmRead, data
         </div>
       </div>
       
-      {/* MODAL DE RESPUESTA SIMPLE (Solo para notificaciones) */}
+      {/* SIMPLE REPLY MODAL */}
       <ReplyModal 
         isOpen={isReplyOpen} 
         onClose={() => setIsReplyOpen(false)} 

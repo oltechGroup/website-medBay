@@ -26,7 +26,7 @@ export default function RegisterPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   
-  // ✅ NUEVO ESTADO: Para manejar errores generales del servidor sin mezclar con React Hook Form
+  // ✅ NEW STATE: To handle general server errors without mixing with React Hook Form
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -59,7 +59,7 @@ export default function RegisterPage() {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
       setFiles((prev) => [...prev, ...newFiles]);
-      setServerError(null); // Limpiamos error al cambiar algo
+      setServerError(null); // Clear error when something changes
     }
   };
 
@@ -67,13 +67,13 @@ export default function RegisterPage() {
     setFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  // ✅ CORRECCIÓN PRINCIPAL
+  // ✅ MAIN HANDLER
   const onSubmit = async (data: RegisterFormData) => {
-    setServerError(null); // Reseteamos errores previos
+    setServerError(null); // Reset previous errors
     
     try {
       if (files.length === 0) {
-        setServerError('Es obligatorio adjuntar evidencia documental (Cédula o Acta).');
+        setServerError('It is mandatory to attach documentary evidence (ID or Deed).');
         return;
       }
 
@@ -109,55 +109,55 @@ export default function RegisterPage() {
     } catch (error: any) {
       console.error("Error submitting form:", error);
 
-      // 1. Detectar conflicto (409) - Correo duplicado
+      // 1. Detect conflict (409) - Duplicated email
       if (error.response && error.response.status === 409) {
         setError('email', { 
           type: 'manual',
-          message: 'Este correo electrónico ya está registrado o en revisión.'
+          message: 'This email address is already registered or under review.'
         });
       } 
-      // 2. Error del servidor (500) o mala petición (400)
+      // 2. Server error (500) or bad request (400)
       else {
-        const backendMsg = error.response?.data?.error || error.response?.data?.details || 'Error interno al procesar tu registro. Por favor, intenta de nuevo.';
+        const backendMsg = error.response?.data?.error || error.response?.data?.details || 'Internal error processing your registration. Please try again.';
         setServerError(backendMsg);
       }
     }
   };
 
   const onInvalid = (errors: any) => {
-    console.error("⛔ VALIDACIÓN FALLIDA:", errors);
-    // Limpiamos el error del servidor si hay errores de validación de campos para no confundir
+    console.error("⛔ VALIDATION FAILED:", errors);
+    // Clear server error if there are field validation errors to avoid confusion
     setServerError(null); 
   };
 
-  // --- VISTA 1: SELECCIÓN DE ROL ---
+  // --- VIEW 1: ROLE SELECTION ---
   if (!selectedRole) {
     return (
       <div className="min-h-screen w-full flex bg-slate-50 font-sans items-center justify-center p-6">
         <div className="max-w-4xl w-full animate-in fade-in zoom-in-95 duration-500">
            <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-blue-600 mb-8 font-bold transition-colors">
-              <ArrowLeft size={20} /> Volver al inicio
+              <ArrowLeft size={20} /> Back to home
            </Link>
            <div className="text-center mb-12">
-              <h1 className="text-4xl font-black text-slate-900 mb-4">¿Cómo deseas operar en MedBay?</h1>
-              <p className="text-slate-500 text-lg">Selecciona tu perfil para configurar tu cuenta.</p>
+              <h1 className="text-4xl font-black text-slate-900 mb-4">How do you want to operate on MedBay?</h1>
+              <p className="text-slate-500 text-lg">Select your profile to set up your account.</p>
            </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <button onClick={() => setSelectedRole('medical_professional')} className="group relative bg-white p-8 rounded-[2rem] border-2 border-slate-100 hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 transition-all text-left">
                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                    <Stethoscope size={32} />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800 mb-2">Profesional de Salud</h3>
-                <p className="text-slate-500 leading-relaxed mb-6">Médicos independientes. Facturación Persona Física.</p>
-                <div className="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-center group-hover:bg-blue-600 group-hover:text-white transition-colors">Seleccionar</div>
+                <h3 className="text-2xl font-bold text-slate-800 mb-2">Health Professional</h3>
+                <p className="text-slate-500 leading-relaxed mb-6">Independent doctors. Individual Billing.</p>
+                <div className="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-center group-hover:bg-blue-600 group-hover:text-white transition-colors">Select</div>
               </button>
               <button onClick={() => setSelectedRole('business_verified')} className="group relative bg-white p-8 rounded-[2rem] border-2 border-slate-100 hover:border-indigo-500 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all text-left">
                 <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                    <Building2 size={32} />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800 mb-2">Empresa / Clínica</h3>
-                <p className="text-slate-500 leading-relaxed mb-6">Hospitales y Farmacias. Facturación Moral.</p>
-                <div className="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">Seleccionar</div>
+                <h3 className="text-2xl font-bold text-slate-800 mb-2">Company / Clinic</h3>
+                <p className="text-slate-500 leading-relaxed mb-6">Hospitals and Pharmacies. Corporate Billing.</p>
+                <div className="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">Select</div>
               </button>
            </div>
         </div>
@@ -165,11 +165,11 @@ export default function RegisterPage() {
     );
   }
 
-  // --- VISTA 2: FORMULARIO ---
+  // --- VIEW 2: FORM ---
   return (
     <div className="min-h-screen w-full flex bg-white font-sans relative">
       
-      {/* MODAL DE ÉXITO (Overlay) */}
+      {/* SUCCESS MODAL (Overlay) */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
            <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl text-center relative overflow-hidden animate-in zoom-in-95 duration-300">
@@ -179,21 +179,21 @@ export default function RegisterPage() {
                 <CheckCircle2 size={40} strokeWidth={2.5} />
              </div>
              
-             <h2 className="text-3xl font-black text-slate-800 mb-4">¡Solicitud Recibida!</h2>
+             <h2 className="text-3xl font-black text-slate-800 mb-4">Request Received!</h2>
              
              <div className="space-y-4 text-slate-600 text-sm leading-relaxed mb-8">
                  <p>
-                   Gracias por registrarte en <span className="font-bold text-slate-800">MedBay</span>. Hemos recibido tu documentación exitosamente.
+                   Thank you for registering at <span className="font-bold text-slate-800">MedBay</span>. We have successfully received your documentation.
                  </p>
                  <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex gap-3 text-left">
                     <Clock className="text-blue-600 shrink-0" size={20} />
                     <div>
-                       <p className="font-bold text-blue-800 text-xs uppercase tracking-wide mb-1">Proceso de Validación</p>
-                       <p className="text-blue-700">Tu cuenta pasará por una revisión regulatoria que puede tomar hasta <span className="font-bold">48 horas hábiles</span>.</p>
+                       <p className="font-bold text-blue-800 text-xs uppercase tracking-wide mb-1">Validation Process</p>
+                       <p className="text-blue-700">Your account will go through a regulatory review that can take up to <span className="font-bold">48 business hours</span>.</p>
                     </div>
                  </div>
                  <p className="flex items-center justify-center gap-2 font-medium">
-                    <Mail size={16} /> Te notificaremos vía correo electrónico.
+                    <Mail size={16} /> We will notify you via email.
                  </p>
              </div>
 
@@ -201,79 +201,79 @@ export default function RegisterPage() {
                onClick={() => router.push('/')}
                className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-lg flex items-center justify-center gap-2 group"
              >
-               Entendido, volver al inicio 
+               Got it, back to home 
                <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform rotate-180" />
              </button>
            </div>
         </div>
       )}
 
-      {/* Sidebar Visual */}
+      {/* Visual Sidebar */}
       <div className="hidden lg:flex lg:w-1/3 relative overflow-hidden bg-slate-900">
-        <img src="/Images/7.png" alt="Fondo" className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay scale-105" />
+        <img src="/Images/7.png" alt="Background" className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay scale-105" />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent"></div>
         <div className="relative z-10 p-12 flex flex-col justify-between h-full text-white">
            <button onClick={() => { setSelectedRole(null); setFiles([]); setServerError(null); }} className="flex items-center gap-2 text-slate-300 hover:text-white font-bold transition-colors w-fit">
-              <ArrowLeft size={20} /> Cambiar Perfil
+              <ArrowLeft size={20} /> Change Profile
            </button>
            <div>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur rounded-full text-sm font-bold mb-6 border border-white/20">
-                {selectedRole === 'medical_professional' ? <Stethoscope size={16}/> : <Building2 size={16}/>}
-                {selectedRole === 'medical_professional' ? 'Profesional Salud' : 'Cuenta Empresarial'}
-              </div>
-              <h1 className="text-4xl font-black leading-tight mb-4">Información <br/><span className="text-blue-400">Fiscal y Legal.</span></h1>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                La dirección ingresada será registrada como tu <strong>Domicilio Fiscal Principal</strong> y no podrá ser eliminada posteriormente, ya que está ligada a la validación de tu identidad.
-              </p>
+             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur rounded-full text-sm font-bold mb-6 border border-white/20">
+               {selectedRole === 'medical_professional' ? <Stethoscope size={16}/> : <Building2 size={16}/>}
+               {selectedRole === 'medical_professional' ? 'Health Professional' : 'Business Account'}
+             </div>
+             <h1 className="text-4xl font-black leading-tight mb-4">Tax and <br/><span className="text-blue-400">Legal Information.</span></h1>
+             <p className="text-slate-400 text-sm leading-relaxed">
+               The entered address will be registered as your <strong>Primary Tax Address</strong> and cannot be deleted later, as it is linked to the validation of your identity.
+             </p>
            </div>
         </div>
       </div>
 
-      {/* Formulario */}
+      {/* Form Area */}
       <div className="w-full lg:w-2/3 flex items-center justify-center p-6 sm:p-12 bg-slate-50 overflow-y-auto">
         <div className="max-w-3xl w-full animate-in fade-in slide-in-from-right-8 duration-500">
           
           <div className="mb-8">
-            <h2 className="text-3xl font-black text-slate-900">Registro de Cuenta</h2>
-            <p className="text-slate-500 mt-2">Completa todos los campos obligatorios para la auditoría de admisión.</p>
+            <h2 className="text-3xl font-black text-slate-900">Account Registration</h2>
+            <p className="text-slate-500 mt-2">Complete all mandatory fields for the admission audit.</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-8">
             
-            {/* 1. DATOS DE ACCESO */}
+            {/* 1. ACCESS DATA */}
             <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-5">
-               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex gap-2"><ShieldCheck size={14}/> Credenciales de Acceso</h3>
+               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex gap-2"><ShieldCheck size={14}/> Access Credentials</h3>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="md:col-span-2">
-                    <Input label="Nombre Completo / Representante Legal" placeholder="Como aparece en documento oficial" error={errors.full_name?.message} {...register('full_name')} />
+                    <Input label="Full Name / Legal Representative" placeholder="As it appears on official document" error={errors.full_name?.message} {...register('full_name')} />
                   </div>
-                  <Input label="Correo Electrónico" type="email" placeholder="contacto@dominio.com" error={errors.email?.message} {...register('email')} />
-                  <Input label="Teléfono de Contacto" type="tel" placeholder="(55) 0000 0000" error={errors.phone?.message} {...register('phone')} />
-                  <Input label="Contraseña" type="password" placeholder="••••••••" error={errors.password?.message} {...register('password')} />
-                  <Input label="Confirmar Contraseña" type="password" placeholder="••••••••" error={errors.confirmPassword?.message} {...register('confirmPassword')} />
+                  <Input label="Email Address" type="email" placeholder="contact@domain.com" error={errors.email?.message} {...register('email')} />
+                  <Input label="Contact Phone" type="tel" placeholder="(55) 0000 0000" error={errors.phone?.message} {...register('phone')} />
+                  <Input label="Password" type="password" placeholder="••••••••" error={errors.password?.message} {...register('password')} />
+                  <Input label="Confirm Password" type="password" placeholder="••••••••" error={errors.confirmPassword?.message} {...register('confirmPassword')} />
                </div>
             </section>
 
-            {/* 2. DATOS FISCALES & DIRECCIÓN */}
+            {/* 2. TAX DATA & ADDRESS */}
             <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-5">
-               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex gap-2"><MapPin size={14}/> Domicilio Fiscal y Datos Legales</h3>
+               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex gap-2"><MapPin size={14}/> Tax Address and Legal Data</h3>
                
                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-5 border-b border-slate-100">
                   {selectedRole === 'business_verified' && (
                     <div className="md:col-span-2">
-                       <Input label="Razón Social (Nombre de la Empresa)" placeholder="Ej. Hospitales Unidos S.A. de C.V." error={errors.company_name?.message} {...register('company_name')} />
+                       <Input label="Business Name (Company Name)" placeholder="e.g. United Hospitals Inc." error={errors.company_name?.message} {...register('company_name')} />
                     </div>
                   )}
-                  <Input label="RFC / Tax ID" placeholder="Registro Federal de Contribuyentes" error={errors.tax_id?.message} {...register('tax_id')} />
+                  <Input label="RFC / Tax ID" placeholder="Tax Registration Number" error={errors.tax_id?.message} {...register('tax_id')} />
                   
                   <div className="space-y-1">
-                     <label className="text-sm font-bold text-slate-700 ml-1">País</label>
+                     <label className="text-sm font-bold text-slate-700 ml-1">Country</label>
                      <select 
                        className={`w-full h-11 px-4 rounded-xl border bg-white text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all ${errors.country ? 'border-red-300 focus:border-red-500' : 'border-slate-200 focus:border-blue-500'}`}
                        {...register('country')}
                        disabled={isLoadingCountries}
                      >
-                        <option value="">Selecciona...</option>
+                        <option value="">Select...</option>
                         {countries.map((c) => (
                           <option key={c.code} value={c.code}>{c.name}</option>
                         ))}
@@ -284,50 +284,50 @@ export default function RegisterPage() {
 
                <div className="grid grid-cols-1 md:grid-cols-6 gap-5">
                   <div className="md:col-span-2">
-                     <Input label="Código Postal" placeholder="00000" error={errors.postal_code?.message} {...register('postal_code')} />
+                     <Input label="ZIP / Postal Code" placeholder="00000" error={errors.postal_code?.message} {...register('postal_code')} />
                   </div>
                   <div className="md:col-span-2">
-                     <Input label="Estado / Provincia" placeholder="Estado" error={errors.state?.message} {...register('state')} />
+                     <Input label="State / Province" placeholder="State" error={errors.state?.message} {...register('state')} />
                   </div>
                   <div className="md:col-span-2">
-                     <Input label="Ciudad / Municipio" placeholder="Ciudad" error={errors.city?.message} {...register('city')} />
+                     <Input label="City / Municipality" placeholder="City" error={errors.city?.message} {...register('city')} />
                   </div>
 
                   <div className="md:col-span-3">
-                     <Input label="Colonia / Barrio" placeholder="Colonia" error={errors.colony?.message} {...register('colony')} />
+                     <Input label="Neighborhood / Colony" placeholder="Colony" error={errors.colony?.message} {...register('colony')} />
                   </div>
                   <div className="md:col-span-3">
-                     <Input label="Calle" placeholder="Nombre de la calle" error={errors.street?.message} {...register('street')} />
+                     <Input label="Street" placeholder="Street name" error={errors.street?.message} {...register('street')} />
                   </div>
 
                   <div className="md:col-span-2">
-                     <Input label="No. Exterior" placeholder="123" error={errors.street_number?.message} {...register('street_number')} />
+                     <Input label="Street Number" placeholder="123" error={errors.street_number?.message} {...register('street_number')} />
                   </div>
                   <div className="md:col-span-2">
-                     <Input label="No. Interior (Opcional)" placeholder="Depto 4B" error={errors.suite_number?.message} {...register('suite_number')} />
+                     <Input label="Suite / Unit (Optional)" placeholder="Apt 4B" error={errors.suite_number?.message} {...register('suite_number')} />
                   </div>
                   <div className="md:col-span-2">
-                     <Input label="Entre Calles" placeholder="Calle A y Calle B" error={errors.between_streets?.message} {...register('between_streets')} />
+                     <Input label="Cross Streets" placeholder="Street A and Street B" error={errors.between_streets?.message} {...register('between_streets')} />
                   </div>
 
                   <div className="md:col-span-6">
-                     <Input label="Referencias de ubicación" placeholder="Color de fachada, frente a parque, etc." error={errors.reference_point?.message} {...register('reference_point')} />
+                     <Input label="Location References" placeholder="Building color, across from park, etc." error={errors.reference_point?.message} {...register('reference_point')} />
                   </div>
                </div>
             </section>
 
-            {/* 3. EVIDENCIA */}
+            {/* 3. EVIDENCE */}
             <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex gap-2"><FileText size={14}/> Documentación</h3>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex gap-2"><FileText size={14}/> Documentation</h3>
                   <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold">PDF, JPG, PNG</span>
                </div>
                
                <label className={`flex flex-col items-center justify-center w-full min-h-[128px] border-2 border-dashed rounded-2xl cursor-pointer transition-all ${files.length > 0 ? 'border-blue-400 bg-blue-50/30' : 'border-slate-300 bg-white hover:border-blue-400 hover:bg-blue-50/50'}`}>
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                      <UploadCloud className={`w-8 h-8 mb-2 ${files.length > 0 ? 'text-blue-500' : 'text-slate-400'}`} />
-                     <p className="text-sm text-slate-500"><span className="font-bold">Haz clic para adjuntar</span></p>
-                     <p className="text-xs text-slate-400 mt-1">Cédula, Acta Constitutiva o Licencia</p>
+                     <p className="text-sm text-slate-500"><span className="font-bold">Click to attach</span></p>
+                     <p className="text-xs text-slate-400 mt-1">ID, Deed, or License</p>
                   </div>
                   <input type="file" className="hidden" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange} />
                </label>
@@ -350,23 +350,23 @@ export default function RegisterPage() {
                )}
             </section>
 
-            {/* ✅ CORRECCIÓN VISUAL: Mensaje de error inteligente */}
+            {/* ERROR MESSAGE */}
             {(Object.keys(errors).length > 0 || serverError) && (
               <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
                  <AlertCircle className="text-red-600 shrink-0 mt-0.5" size={18}/>
                  <div>
                     <h4 className="text-red-800 font-bold text-sm">
                       {serverError 
-                        ? 'Atención' 
-                        : (errors.email?.type === 'manual' ? 'Problema con el registro' : 'Faltan datos obligatorios')
+                        ? 'Attention' 
+                        : (errors.email?.type === 'manual' ? 'Registration Issue' : 'Missing Mandatory Data')
                       }
                     </h4>
                     <p className="text-xs text-red-600 mt-1">
                       {serverError 
-                        ? serverError // Muestra el mensaje exacto que enviamos (ej. "Falta documento")
+                        ? serverError 
                         : (errors.email?.type === 'manual'
-                            ? 'El correo ingresado ya existe. Revisa el campo para más detalles.'
-                            : 'Revisa los campos en rojo (Dirección, RFC o Documentos).')
+                            ? 'The entered email already exists. Check the field for more details.'
+                            : 'Please review the fields in red (Address, Tax ID, or Documents).')
                       }
                     </p>
                  </div>
@@ -374,7 +374,7 @@ export default function RegisterPage() {
             )}
 
             <Button type="submit" className="w-full h-14 bg-slate-900 hover:bg-blue-600 text-white font-bold rounded-xl shadow-xl transition-all text-lg" loading={registerMutation.isPending}>
-              Finalizar Registro
+              Complete Registration
             </Button>
           </form>
         </div>

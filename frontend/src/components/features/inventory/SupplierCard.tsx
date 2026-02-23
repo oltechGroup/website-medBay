@@ -22,11 +22,10 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({ supplier, onClick })
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'No hay importaciones';
-    return new Date(dateString).toLocaleDateString('es-MX');
+    if (!dateString) return 'No imports found';
+    return new Date(dateString).toLocaleDateString('en-US');
   };
 
-  // ✅ CORREGIDO: Usar las propiedades correctas de SupplierMetrics
   const totalLots = supplier.total_lots || 1;
   const availablePercent = ((supplier.available_lots || 0) / totalLots) * 100;
   const nearExpiryPercent = ((supplier.near_expiry_lots || 0) / totalLots) * 100;
@@ -45,54 +44,53 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({ supplier, onClick })
           </div>
           <div>
             <h3 className="font-semibold text-gray-900 text-lg">{supplier.supplier_name}</h3>
-            <p className="text-sm text-gray-500">Última importación: {formatDate(supplier.last_import)}</p>
+            <p className="text-sm text-gray-500">Last import: {formatDate(supplier.last_import)}</p>
           </div>
         </div>
         <ArrowRight className="h-5 w-5 text-gray-400" />
       </div>
 
-      {/* 🎯 MÉTRICAS CLARAS - 3 COLUMNAS COMPACTAS */}
+      {/* 🎯 CLEAR METRICS - 3 COMPACT COLUMNS */}
       <div className="grid grid-cols-3 gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
-        {/* 🏷️ PRODUCTOS ÚNICOS */}
+        {/* 🏷️ UNIQUE PRODUCTS */}
         <div className="text-center">
           <div className="flex items-center justify-center space-x-1 text-xs font-medium text-purple-800 mb-1">
             <Tag className="h-3 w-3" />
-            <span>Productos</span>
+            <span>Products</span>
           </div>
           <p className="text-lg font-bold text-gray-900">{supplier.unique_products || 0}</p>
-          <p className="text-xs text-gray-500">únicos</p>
+          <p className="text-xs text-gray-500">unique</p>
         </div>
 
-        {/* 📦 LOTES ACTIVOS */}
+        {/* 📦 ACTIVE LOTS */}
         <div className="text-center">
           <div className="flex items-center justify-center space-x-1 text-xs font-medium text-blue-800 mb-1">
             <Box className="h-3 w-3" />
-            <span>Lotes</span>
+            <span>Lots</span>
           </div>
           <p className="text-lg font-bold text-gray-900">{supplier.active_lots || 0}</p>
-          <p className="text-xs text-gray-500">activos</p>
+          <p className="text-xs text-gray-500">active</p>
         </div>
 
-        {/* 🛒 UNIDADES EN STOCK */}
+        {/* 🛒 UNITS IN STOCK */}
         <div className="text-center">
           <div className="flex items-center justify-center space-x-1 text-xs font-medium text-green-800 mb-1">
             <ShoppingCart className="h-3 w-3" />
-            <span>Unidades</span>
+            <span>Units</span>
           </div>
           <p className="text-lg font-bold text-gray-900">
-            {(supplier.total_units || 0).toLocaleString('es-MX')}
+            {(supplier.total_units || 0).toLocaleString('en-US')}
           </p>
-          <p className="text-xs text-gray-500">en stock</p>
+          <p className="text-xs text-gray-500">in stock</p>
         </div>
       </div>
 
-      {/* 📊 MÉTRICAS DE ESTADO - 4 CATEGORÍAS CON COLORES - CORREGIDO */}
+      {/* 📊 STATUS METRICS - 4 CATEGORIES WITH COLORS */}
       <div className="grid grid-cols-2 gap-3 mb-4">
-        {/* ✅ CORREGIDO: available_lots en lugar de regular_lots */}
         <div className="text-center">
           <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor('available')}`}>
             <Package className="h-3 w-3 mr-1" />
-            En Fecha
+            On Date
           </div>
           <p className="text-xl font-bold text-gray-900 mt-1">{supplier.available_lots || 0}</p>
         </div>
@@ -100,7 +98,7 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({ supplier, onClick })
         <div className="text-center">
           <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor('near_expiry')}`}>
             <Calendar className="h-3 w-3 mr-1" />
-            Fecha Corta
+            Short Date
           </div>
           <p className="text-xl font-bold text-gray-900 mt-1">{supplier.near_expiry_lots || 0}</p>
         </div>
@@ -108,7 +106,7 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({ supplier, onClick })
         <div className="text-center">
           <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor('expired')}`}>
             <Calendar className="h-3 w-3 mr-1" />
-            Caducados
+            Expired
           </div>
           <p className="text-xl font-bold text-gray-900 mt-1">{supplier.expired_lots || 0}</p>
         </div>
@@ -122,60 +120,60 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({ supplier, onClick })
         </div>
       </div>
 
-      {/* 📊 BARRA DE PROGRESO MEJORADA - CORREGIDA */}
+      {/* 📊 IMPROVED PROGRESS BAR */}
       {supplier.total_lots > 0 && (
         <>
           <div className="flex w-full bg-gray-200 rounded-full h-2 mb-2 overflow-hidden">
-            {/* Segmento Available (En Fecha) */}
+            {/* Available Segment (On Date) */}
             {availablePercent > 0 && (
               <div 
                 className="bg-green-500 h-2 transition-all duration-300"
                 style={{ width: `${availablePercent}%` }}
-                title={`${supplier.available_lots} lotes en fecha`}
+                title={`${supplier.available_lots} lots on date`}
               />
             )}
             
-            {/* Segmento Near Expiry (Fecha Corta) */}
+            {/* Near Expiry Segment (Short Date) */}
             {nearExpiryPercent > 0 && (
               <div 
                 className="bg-amber-500 h-2 transition-all duration-300"
                 style={{ width: `${nearExpiryPercent}%` }}
-                title={`${supplier.near_expiry_lots} lotes cerca de expirar`}
+                title={`${supplier.near_expiry_lots} lots near expiry`}
               />
             )}
             
-            {/* Segmento Expired (Caducados) */}
+            {/* Expired Segment */}
             {expiredPercent > 0 && (
               <div 
                 className="bg-red-500 h-2 transition-all duration-300"
                 style={{ width: `${expiredPercent}%` }}
-                title={`${supplier.expired_lots} lotes expirados`}
+                title={`${supplier.expired_lots} expired lots`}
               />
             )}
           </div>
 
-          {/* Leyenda de la barra de progreso - CORREGIDA */}
+          {/* Progress bar legend */}
           <div className="flex justify-between text-xs text-gray-600">
             <div className="flex items-center">
               <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
-              <span>En fecha: {supplier.available_lots || 0}</span>
+              <span>On date: {supplier.available_lots || 0}</span>
             </div>
             <div className="flex items-center">
               <div className="w-2 h-2 bg-amber-500 rounded-full mr-1"></div>
-              <span>Fecha corta: {supplier.near_expiry_lots || 0}</span>
+              <span>Short date: {supplier.near_expiry_lots || 0}</span>
             </div>
             <div className="flex items-center">
               <div className="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
-              <span>Caducados: {supplier.expired_lots || 0}</span>
+              <span>Expired: {supplier.expired_lots || 0}</span>
             </div>
           </div>
         </>
       )}
 
-      {/* Mensaje cuando no hay lotes */}
+      {/* Message when there are no lots */}
       {(!supplier.total_lots || supplier.total_lots === 0) && (
         <div className="text-center py-2">
-          <p className="text-sm text-gray-500">No hay lotes activos</p>
+          <p className="text-sm text-gray-500">No active lots</p>
         </div>
       )}
     </div>

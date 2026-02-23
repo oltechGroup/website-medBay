@@ -8,7 +8,6 @@ interface ReplyModalProps {
   recipientName: string;
   recipientEmail: string;
   originalSubject: string;
-  // ✅ NUEVO: Recibimos detalles si es una cotización
   quoteDetails?: {
     name: string;
     sku: string;
@@ -42,8 +41,7 @@ export default function ReplyModal({
           targetEmail: recipientEmail,
           originalSubject: originalSubject,
           message: message,
-          recipientName: recipientName, // Para personalizar el saludo
-          // ✅ ENVIAMOS LOS DETALLES AL BACKEND
+          recipientName: recipientName, 
           quoteDetails: quoteDetails 
         }),
       });
@@ -56,7 +54,7 @@ export default function ReplyModal({
           onClose(); 
         }, 2000);
       } else {
-        throw new Error('Error al enviar');
+        throw new Error('Send error');
       }
     } catch (error) {
       console.error(error);
@@ -74,62 +72,62 @@ export default function ReplyModal({
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2 text-blue-600">
             <CornerUpLeft size={20} />
-            <h3 className="font-bold text-slate-800">Redactar Respuesta</h3>
+            <h3 className="font-bold text-slate-800">Compose Reply</h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full transition-colors">
             <X size={20} className="text-slate-400" />
           </button>
         </div>
 
-        {/* Formulario */}
+        {/* Form */}
         <form onSubmit={handleSendReply} className="p-6 space-y-4">
           
-          {/* Info Destinatario */}
+          {/* Recipient Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-              <span className="block text-xs font-bold text-slate-400 uppercase">Para:</span>
+              <span className="block text-xs font-bold text-slate-400 uppercase">To:</span>
               <span className="font-semibold text-slate-700">{recipientName}</span>
               <span className="block text-xs text-slate-500">{recipientEmail}</span>
             </div>
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-              <span className="block text-xs font-bold text-slate-400 uppercase">Asunto:</span>
+              <span className="block text-xs font-bold text-slate-400 uppercase">Subject:</span>
               <span className="font-semibold text-slate-700 truncate">RE: {originalSubject}</span>
             </div>
           </div>
 
-          {/* ✅ Contexto de Cotización (Visual para el Admin) */}
+          {/* Quote Context */}
           {quoteDetails && (
              <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg flex items-center gap-3 text-sm">
                 <Package className="text-blue-600" size={18} />
                 <div>
-                   <p className="font-bold text-blue-800 text-xs uppercase">Respondiendo sobre:</p>
+                   <p className="font-bold text-blue-800 text-xs uppercase">Replying regarding:</p>
                    <p className="text-slate-700 font-medium">{quoteDetails.name} (x{quoteDetails.quantity})</p>
                 </div>
              </div>
           )}
 
-          {/* Área de Texto */}
+          {/* Text Area */}
           <div>
-            <label className="text-xs font-bold text-slate-700 uppercase ml-1">Tu Mensaje</label>
+            <label className="text-xs font-bold text-slate-700 uppercase ml-1">Your Message</label>
             <textarea 
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Escribe la respuesta oficial (precio, disponibilidad, tiempos de entrega)..."
+              placeholder="Write the official response (price, availability, delivery times)..."
               className="w-full mt-1 bg-white border border-slate-200 rounded-xl p-4 text-slate-800 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all resize-none h-40 font-medium"
               required
               disabled={status === 'sending' || status === 'success'}
             ></textarea>
           </div>
 
-          {/* Mensajes de Estado */}
+          {/* Status Messages */}
           {status === 'success' && (
             <div className="bg-green-50 text-green-700 px-4 py-2 rounded-lg text-sm font-bold text-center border border-green-200">
-              ¡Respuesta enviada correctamente!
+              Reply sent successfully!
             </div>
           )}
           {status === 'error' && (
             <div className="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm font-bold text-center border border-red-200">
-              Error al enviar. Revisa la consola.
+              Error sending. Check the console.
             </div>
           )}
 
@@ -141,7 +139,7 @@ export default function ReplyModal({
               disabled={status === 'sending'}
               className="px-5 py-2.5 rounded-xl text-slate-500 font-bold hover:bg-slate-100 transition-colors text-sm"
             >
-              Cancelar
+              Cancel
             </button>
             <button 
               type="submit"
@@ -151,11 +149,11 @@ export default function ReplyModal({
               {status === 'sending' ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
-                  Enviando...
+                  Sending...
                 </>
               ) : (
                 <>
-                  Enviar Respuesta
+                  Send Reply
                   <Send size={18} />
                 </>
               )}

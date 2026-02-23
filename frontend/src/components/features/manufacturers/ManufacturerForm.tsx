@@ -1,13 +1,26 @@
+//frontend/src/components/features/manufacturers/ManufacturerForm.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
-import { Manufacturer, CreateManufacturerData, UpdateManufacturerData } from '@/hooks/useManufacturers';
+import { Manufacturer } from '@/hooks/useManufacturers';
+
+// Definimos las interfaces aquí para evitar el error de importación
+interface ManufacturerFormData {
+  name: string;
+  website?: string | null;
+  contact_info?: {
+    email?: string;
+    phone?: string;
+    contact_person?: string;
+    address?: string;
+  };
+}
 
 interface ManufacturerFormProps {
   manufacturer?: Manufacturer | null;
-  onSubmit: (data: CreateManufacturerData | UpdateManufacturerData) => Promise<void>;
+  onSubmit: (data: ManufacturerFormData) => Promise<void>;
   isSubmitting?: boolean;
 }
 
@@ -25,7 +38,7 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Inicializar formulario con datos existentes si estamos editando
+  // Initialize form with existing data if editing
   useEffect(() => {
     if (manufacturer) {
       setFormData({
@@ -58,7 +71,6 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
       }));
     }
 
-    // Limpiar error del campo cuando el usuario empiece a escribir
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
@@ -71,12 +83,11 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
     const newErrors: { [key: string]: string } = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'El nombre del fabricante es requerido';
+      newErrors.name = 'Manufacturer name is required';
     }
 
-    // Validación opcional de email si se proporciona
     if (formData.contact_info.email && !/\S+@\S+\.\S+/.test(formData.contact_info.email)) {
-      newErrors['contact_info.email'] = 'El formato del email es inválido';
+      newErrors['contact_info.email'] = 'Invalid email format';
     }
 
     setErrors(newErrors);
@@ -91,13 +102,11 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
     }
 
     try {
-      // Preparar datos para enviar (eliminar campos vacíos del contact_info)
-      const submitData: any = {
+      const submitData: ManufacturerFormData = {
         name: formData.name.trim(),
         website: formData.website.trim() || null
       };
 
-      // Solo incluir contact_info si hay al menos un campo con valor
       const contactInfo = { ...formData.contact_info };
       Object.keys(contactInfo).forEach(key => {
         if (!contactInfo[key as keyof typeof contactInfo]) {
@@ -111,7 +120,7 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
 
       await onSubmit(submitData);
     } catch (error) {
-      console.error('Error al enviar el formulario:', error);
+      console.error('Error submitting form:', error);
     }
   };
 
@@ -128,29 +137,29 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
           className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors duration-200"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Volver a fabricantes</span>
+          <span>Back to manufacturers</span>
         </button>
         <h1 className="text-2xl font-bold text-gray-900">
-          {manufacturer ? 'Editar Fabricante' : 'Crear Nuevo Fabricante'}
+          {manufacturer ? 'Edit Manufacturer' : 'Create New Manufacturer'}
         </h1>
         <p className="text-gray-600 mt-2">
           {manufacturer 
-            ? 'Actualiza la información del fabricante.' 
-            : 'Completa la información para agregar un nuevo fabricante al sistema.'
+            ? 'Update the manufacturer information.' 
+            : 'Fill in the information to add a new manufacturer to the system.'
           }
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Información Básica */}
+        {/* Basic Information */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-medium text-gray-900 mb-6">Información Básica</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-6">Basic Information</h3>
           
           <div className="grid grid-cols-1 gap-6">
-            {/* Nombre */}
+            {/* Name */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre del Fabricante <span className="text-red-500">*</span>
+                Manufacturer Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -160,7 +169,7 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 bg-white ${
                   errors.name ? 'border-red-300' : 'border-gray-300'
                 }`}
-                placeholder="Ej: Pfizer, Roche, Bayer"
+                placeholder="e.g.: Pfizer, Roche, Bayer"
               />
               {errors.name && (
                 <p className="mt-1 text-sm text-red-600">{errors.name}</p>
@@ -170,7 +179,7 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
             {/* Website */}
             <div>
               <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-2">
-                Sitio Web
+                Website
               </label>
               <input
                 type="url"
@@ -178,15 +187,15 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
                 value={formData.website}
                 onChange={(e) => handleInputChange('website', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 bg-white"
-                placeholder="Ej: https://www.ejemplo.com"
+                placeholder="e.g.: https://www.example.com"
               />
             </div>
           </div>
         </div>
 
-        {/* Información de Contacto */}
+        {/* Contact Information */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-medium text-gray-900 mb-6">Información de Contacto</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-6">Contact Information</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Email */}
@@ -202,17 +211,17 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 bg-white ${
                   errors['contact_info.email'] ? 'border-red-300' : 'border-gray-300'
                 }`}
-                placeholder="ejemplo@empresa.com"
+                placeholder="example@company.com"
               />
               {errors['contact_info.email'] && (
                 <p className="mt-1 text-sm text-red-600">{errors['contact_info.email']}</p>
               )}
             </div>
 
-            {/* Teléfono */}
+            {/* Phone */}
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                Teléfono
+                Phone
               </label>
               <input
                 type="tel"
@@ -224,10 +233,10 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
               />
             </div>
 
-            {/* Persona de Contacto */}
+            {/* Contact Person */}
             <div>
               <label htmlFor="contact_person" className="block text-sm font-medium text-gray-700 mb-2">
-                Persona de Contacto
+                Contact Person
               </label>
               <input
                 type="text"
@@ -235,14 +244,14 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
                 value={formData.contact_info.contact_person}
                 onChange={(e) => handleInputChange('contact_info.contact_person', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-gray-900 bg-white"
-                placeholder="Nombre del contacto principal"
+                placeholder="Main contact name"
               />
             </div>
 
-            {/* Dirección */}
+            {/* Address */}
             <div className="md:col-span-2">
               <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
-                Dirección
+                Address
               </label>
               <textarea
                 id="address"
@@ -250,20 +259,20 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
                 value={formData.contact_info.address}
                 onChange={(e) => handleInputChange('contact_info.address', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 resize-none text-gray-900 bg-white"
-                placeholder="Dirección completa del fabricante"
+                placeholder="Manufacturer's full address"
               />
             </div>
           </div>
         </div>
 
-        {/* Acciones */}
+        {/* Actions */}
         <div className="flex items-center justify-between pt-6 border-t border-gray-200">
           <button
             type="button"
             onClick={handleBack}
             className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
           >
-            Cancelar
+            Cancel
           </button>
           
           <button
@@ -274,12 +283,12 @@ export const ManufacturerForm = ({ manufacturer, onSubmit, isSubmitting }: Manuf
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Guardando...</span>
+                <span>Saving...</span>
               </>
             ) : (
               <>
                 <Save className="h-4 w-4" />
-                <span>{manufacturer ? 'Actualizar' : 'Crear'} Fabricante</span>
+                <span>{manufacturer ? 'Update' : 'Create'} Manufacturer</span>
               </>
             )}
           </button>

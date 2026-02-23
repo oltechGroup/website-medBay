@@ -13,7 +13,7 @@ interface CountryTableProps {
   totalItems: number;
 }
 
-// Función helper para formatear exchange_rate de forma segura
+// Helper function to safely format exchange_rate
 const formatExchangeRate = (rate: any): string => {
   if (rate === null || rate === undefined) return '0.0000';
   const num = typeof rate === 'string' ? parseFloat(rate) : rate;
@@ -33,7 +33,7 @@ export function CountryTable({
     return (
       <div className="p-8 text-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="text-gray-600 mt-2">Cargando países...</p>
+        <p className="text-gray-600 mt-2">Loading countries...</p>
       </div>
     );
   }
@@ -41,7 +41,7 @@ export function CountryTable({
   if (countries.length === 0) {
     return (
       <div className="p-8 text-center">
-        <p className="text-gray-600">No se encontraron países</p>
+        <p className="text-gray-600">No countries found</p>
       </div>
     );
   }
@@ -53,22 +53,22 @@ export function CountryTable({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                País
+                Country
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Moneda
+                Currency
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tasa vs USD
+                Rate vs USD
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Símbolo
+                Symbol
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actualizado
+                Updated
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Acciones
+                Actions
               </th>
             </tr>
           </thead>
@@ -91,7 +91,7 @@ export function CountryTable({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
-                    {/* CORRECCIÓN: Usar la función segura */}
+                    {/* Safe formatting function */}
                     {formatExchangeRate(country.exchange_rate)}
                   </div>
                 </td>
@@ -99,7 +99,7 @@ export function CountryTable({
                   {country.currency_symbol}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(country.updated_at).toLocaleDateString()}
+                  {new Date(country.updated_at).toLocaleDateString('en-US')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end space-x-2">
@@ -123,13 +123,13 @@ export function CountryTable({
         </table>
       </div>
 
-      {/* Paginación */}
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-700">
-              Mostrando {(currentPage - 1) * 10 + 1} a{' '}
-              {Math.min(currentPage * 10, totalItems)} de {totalItems} países
+              Showing {(currentPage - 1) * 10 + 1} to{' '}
+              {Math.min(currentPage * 10, totalItems)} of {totalItems} countries
             </div>
             <div className="flex space-x-2">
               <button

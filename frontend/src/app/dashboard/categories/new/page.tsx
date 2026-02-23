@@ -18,9 +18,9 @@ export default function NewCategoryPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Crear Nueva Categoría</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Create New Category</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Define una nueva categoría para organizar tus productos
+            Define a new category to organize your products
           </p>
         </div>
         <button
@@ -30,7 +30,7 @@ export default function NewCategoryPage() {
           <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          Volver atrás
+          Go back
         </button>
       </div>
 
@@ -53,7 +53,7 @@ export default function NewCategoryPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
               <a href="/dashboard/categories" className="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700">
-                Categorías
+                Categories
               </a>
             </div>
           </li>
@@ -62,7 +62,7 @@ export default function NewCategoryPage() {
               <svg className="flex-shrink-0 h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-              <span className="ml-4 text-sm font-medium text-gray-500">Nueva Categoría</span>
+              <span className="ml-4 text-sm font-medium text-gray-500">New Category</span>
             </div>
           </li>
         </ol>

@@ -17,7 +17,7 @@ export default function NewLotPage() {
       router.push('/dashboard/inventory/lots');
     } catch (error) {
       console.error('Error creating lot:', error);
-      throw error; // El formulario manejará el error
+      throw error; // The form will handle the error
     }
   };
 

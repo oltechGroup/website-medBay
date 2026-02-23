@@ -1,26 +1,29 @@
+// frontend/src/app/dashboard/manufacturers/new/page.tsx
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ManufacturerForm } from '@/components/features/manufacturers/ManufacturerForm';
-import { useManufacturers, CreateManufacturerData } from '@/hooks/useManufacturers';
+import { useManufacturers } from '@/hooks/useManufacturers';
 
 export default function NewManufacturerPage() {
   const router = useRouter();
+  
+  // Destructuring based on the hook's verified return type
   const { createManufacturer, isCreating } = useManufacturers();
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (data: CreateManufacturerData) => {
+  const handleSubmit = async (data: any) => {
     try {
       setError(null);
       await createManufacturer(data);
-      // Redirigir a la lista después de crear exitosamente
+      // Redirect to list after successful creation
       router.push('/dashboard/manufacturers');
     } catch (err: any) {
-      console.error('Error al crear fabricante:', err);
+      console.error('Error creating manufacturer:', err);
       setError(
         err.response?.data?.error || 
-        'Error al crear el fabricante. Por favor, intenta de nuevo.'
+        'Error creating the manufacturer. Please try again.'
       );
     }
   };
@@ -28,7 +31,7 @@ export default function NewManufacturerPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Mostrar error general */}
+        {/* General Error Display */}
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
             <div className="flex items-center">

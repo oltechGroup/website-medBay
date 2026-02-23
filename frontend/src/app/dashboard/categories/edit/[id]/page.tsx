@@ -65,9 +65,9 @@ export default function EditCategoryPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Categoría No Encontrada</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Category Not Found</h1>
             <p className="text-sm text-gray-600 mt-1">
-              La categoría que intentas editar no existe
+              The category you are trying to edit does not exist
             </p>
           </div>
           <button
@@ -77,7 +77,7 @@ export default function EditCategoryPage() {
             <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Volver a Categorías
+            Back to Categories
           </button>
         </div>
 
@@ -85,9 +85,9 @@ export default function EditCategoryPage() {
           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h3 className="mt-4 text-lg font-medium text-gray-900">Categoría no encontrada</h3>
+          <h3 className="mt-4 text-lg font-medium text-gray-900">Category not found</h3>
           <p className="mt-2 text-sm text-gray-500">
-            La categoría con ID <code className="text-red-500 bg-red-50 px-1 py-0.5 rounded">{categoryId}</code> no existe o fue eliminada.
+            The category with ID <code className="text-red-500 bg-red-50 px-1 py-0.5 rounded">{categoryId}</code> does not exist or was deleted.
           </p>
           <div className="mt-6">
             <button
@@ -97,7 +97,7 @@ export default function EditCategoryPage() {
               <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
-              Ver todas las categorías
+              View all categories
             </button>
           </div>
         </div>
@@ -111,10 +111,10 @@ export default function EditCategoryPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Editar Categoría: {category?.name}
+            Edit Category: {category?.name}
           </h1>
           <p className="text-sm text-gray-600 mt-1">
-            Actualiza la información de esta categoría
+            Update the information for this category
           </p>
         </div>
         <button
@@ -124,7 +124,7 @@ export default function EditCategoryPage() {
           <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          Volver atrás
+          Go back
         </button>
       </div>
 
@@ -147,7 +147,7 @@ export default function EditCategoryPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
               <a href="/dashboard/categories" className="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700">
-                Categorías
+                Categories
               </a>
             </div>
           </li>
@@ -156,7 +156,7 @@ export default function EditCategoryPage() {
               <svg className="flex-shrink-0 h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-              <span className="ml-4 text-sm font-medium text-gray-500">Editar {category?.name}</span>
+              <span className="ml-4 text-sm font-medium text-gray-500">Edit {category?.name}</span>
             </div>
           </li>
         </ol>

@@ -28,34 +28,30 @@ import {
 } from 'lucide-react';
 
 interface DashboardSidebarProps {
-  isOpen: boolean;           // Estado del menú móvil (Off-canvas)
-  onClose: () => void;       // Cerrar menú móvil
-  isCollapsed: boolean;      // Estado colapsado (Escritorio)
+  isOpen: boolean;           // Mobile menu state (Off-canvas)
+  onClose: () => void;       // Close mobile menu
+  isCollapsed: boolean;      // Collapsed state (Desktop)
   onToggleCollapse: () => void; 
 }
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  // ✅ Mantenemos Cotizaciones aquí
-  { name: 'Cotizaciones', href: '/dashboard/quotes', icon: MessageSquareQuote },
-  { name: 'Órdenes', href: '/dashboard/orders', icon: ShoppingCart },
-  { name: 'Productos', href: '/dashboard/products', icon: Package },
-  { name: 'Categorías', href: '/dashboard/categories', icon: FolderTree },
-  { name: 'Fabricantes', href: '/dashboard/manufacturers', icon: Factory },
-  { name: 'Inventario', href: '/dashboard/inventory', icon: Warehouse },
-  { name: 'Proveedores', href: '/dashboard/suppliers', icon: Building },
-  { name: 'Países', href: '/dashboard/countries', icon: Globe },
-  
-  // ✅ CAMBIO: Renombrado a 'Usuarios' para la nueva gestión unificada (Clientes + Staff)
-  { name: 'Usuarios', href: '/dashboard/users', icon: Users },
-  
-  { name: 'Importar', href: '/dashboard/import', icon: Upload },
-  { name: 'Reportes', href: '/dashboard/reports', icon: BarChart3 },
-  { name: 'Documentos', href: '/dashboard/documents', icon: FileText },
+  { name: 'Quotes', href: '/dashboard/quotes', icon: MessageSquareQuote },
+  { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
+  { name: 'Products', href: '/dashboard/products', icon: Package },
+  { name: 'Categories', href: '/dashboard/categories', icon: FolderTree },
+  { name: 'Manufacturers', href: '/dashboard/manufacturers', icon: Factory },
+  { name: 'Inventory', href: '/dashboard/inventory', icon: Warehouse },
+  { name: 'Suppliers', href: '/dashboard/suppliers', icon: Building },
+  { name: 'Countries', href: '/dashboard/countries', icon: Globe },
+  { name: 'Users', href: '/dashboard/users', icon: Users },
+  { name: 'Import', href: '/dashboard/import', icon: Upload },
+  { name: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
+  { name: 'Documents', href: '/dashboard/documents', icon: FileText },
 ];
 
 const settingsNav = [
-  { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
+  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
 export default function DashboardSidebar({ 
@@ -67,10 +63,10 @@ export default function DashboardSidebar({
   const pathname = usePathname();
   const { user, logout } = useAuth();
   
-  // En móvil, siempre queremos ver el texto y el diseño completo
+  // In mobile, we always want to see the full menu and text
   const showFullMenu = isOpen || !isCollapsed;
 
-  // Helper para renderizar items
+  // Helper to render items
   const NavItem = ({ item }: { item: any }) => {
     const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
     
@@ -78,7 +74,7 @@ export default function DashboardSidebar({
       <Link
         href={item.href}
         onClick={() => {
-          // En móvil, cerrar al hacer clic
+          // In mobile, close upon click
           if (window.innerWidth < 1024) onClose();
         }}
         className={cn(
@@ -86,7 +82,6 @@ export default function DashboardSidebar({
           isActive
             ? "bg-blue-50 text-blue-700 font-bold shadow-sm ring-1 ring-blue-100"
             : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium",
-          // Centrado solo si está colapsado Y NO estamos en móvil (isOpen)
           (!showFullMenu) ? "justify-center px-2" : ""
         )}
         title={!showFullMenu ? item.name : undefined}
@@ -99,12 +94,12 @@ export default function DashboardSidebar({
           )} 
         />
         
-        {/* Mostramos texto si está expandido o si estamos en móvil */}
+        {/* Show text if expanded or in mobile */}
         {showFullMenu && (
           <span className="truncate z-10 relative animate-in fade-in duration-200">{item.name}</span>
         )}
 
-        {/* Línea activa lateral */}
+        {/* Active side line */}
         {isActive && showFullMenu && (
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-600 rounded-r-full"></div>
         )}
@@ -118,21 +113,20 @@ export default function DashboardSidebar({
       <aside
         className={cn(
           "fixed top-0 left-0 z-[70] h-screen bg-white border-r border-slate-200 shadow-2xl lg:shadow-none transition-transform duration-300 ease-in-out flex flex-col",
-          // 🔧 FIX MÓVIL: Agregamos 'w-72' (288px) como base para móvil.
           "w-72", 
           isCollapsed ? "lg:w-20" : "lg:w-64",
           
-          // Posición Móvil (Off-canvas logic)
+          // Mobile Position (Off-canvas logic)
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        {/* === HEADER DEL SIDEBAR === */}
+        {/* === SIDEBAR HEADER === */}
         <div className={cn(
           "flex items-center h-[72px] flex-shrink-0 transition-all duration-300 relative",
           (!showFullMenu) ? "justify-center bg-white" : "justify-between px-6 bg-gradient-to-r from-blue-600 to-blue-700"
         )}>
           
-          {/* LOGO EXPANDIDO */}
+          {/* EXPANDED LOGO */}
           <div className={cn("flex items-center gap-3 transition-opacity duration-200", (!showFullMenu) && "hidden opacity-0")}>
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm shadow-inner border border-white/10">
                <img 
@@ -147,12 +141,12 @@ export default function DashboardSidebar({
             </div>
           </div>
 
-          {/* LOGO COLAPSADO */}
+          {/* COLLAPSED LOGO */}
           {(!showFullMenu) && (
             <div 
               className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center cursor-pointer shadow-md hover:bg-blue-700 transition-colors"
               onClick={onToggleCollapse}
-              title="Expandir menú"
+              title="Expand menu"
             >
                <img 
                  src="/icons/logomedblanco.png" 
@@ -162,7 +156,7 @@ export default function DashboardSidebar({
             </div>
           )}
 
-          {/* Botón Cerrar (Solo visible en Móvil) */}
+          {/* Close Button (Mobile only) */}
           <button 
             onClick={onClose}
             className="lg:hidden p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors backdrop-blur-sm absolute right-4 top-1/2 -translate-y-1/2"
@@ -171,14 +165,14 @@ export default function DashboardSidebar({
           </button>
         </div>
 
-        {/* === CONTENIDO SCROLLEABLE === */}
+        {/* === SCROLLABLE CONTENT === */}
         <div className="flex-1 overflow-y-auto custom-scrollbar py-6 space-y-8">
           
-          {/* Grupo Gestión */}
+          {/* Management Group */}
           <div>
             {showFullMenu && (
               <p className="px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 animate-in fade-in">
-                Gestión
+                Management
               </p>
             )}
             <nav className="space-y-0.5">
@@ -188,11 +182,11 @@ export default function DashboardSidebar({
             </nav>
           </div>
 
-          {/* Grupo Sistema */}
+          {/* System Group */}
           <div>
             {showFullMenu && (
               <p className="px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 animate-in fade-in">
-                Sistema
+                System
               </p>
             )}
             <nav className="space-y-0.5">
@@ -203,20 +197,20 @@ export default function DashboardSidebar({
           </div>
         </div>
 
-        {/* === FOOTER DEL SIDEBAR === */}
+        {/* === SIDEBAR FOOTER === */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex-shrink-0">
           
-          {/* Caso Colapsado */}
+          {/* Collapsed Case */}
           {(!showFullMenu) ? (
             <button 
               onClick={onToggleCollapse}
               className="w-full flex justify-center p-2 hover:bg-white rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-200 text-slate-500 hover:text-blue-600"
-              title="Expandir menú"
+              title="Expand menu"
             >
               <ChevronRight size={20} />
             </button>
           ) : (
-            // Caso Expandido
+            // Expanded Case
             <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2">
                <div className="flex items-center gap-3 px-2 py-1">
                  <div className="w-10 h-10 rounded-full bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-600 font-bold text-sm overflow-hidden">
@@ -235,16 +229,16 @@ export default function DashboardSidebar({
                     onClick={onToggleCollapse}
                     className="hidden lg:flex flex-1 items-center justify-center gap-2 py-2.5 text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors shadow-sm"
                   >
-                    <ChevronLeft size={14} /> Ocultar
+                    <ChevronLeft size={14} /> Hide
                   </button>
                   
                   <button 
                     onClick={() => logout()}
                     className="flex-1 lg:flex-none lg:w-10 flex items-center justify-center py-2.5 text-red-500 bg-white border border-red-100 rounded-xl hover:bg-red-50 transition-colors shadow-sm"
-                    title="Cerrar Sesión"
+                    title="Logout"
                   >
                     <LogOut size={16} />
-                    <span className="lg:hidden ml-2 text-xs font-bold">Salir</span>
+                    <span className="lg:hidden ml-2 text-xs font-bold">Logout</span>
                   </button>
                </div>
             </div>

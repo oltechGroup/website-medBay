@@ -1,12 +1,9 @@
 // frontend/src/components/features/products/ProductImageUpload.tsx
 
-// frontend/src/components/features/products/ProductImageUpload.tsx
-'use client';
-
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Product, ProductImage, useProducts } from '@/hooks/useProducts';
 
-// 🌎 CONFIGURACIÓN URL
+// 🌎 URL CONFIGURATION
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.medbaysupply.com';
 
 interface ProductImageUploadProps {
@@ -31,17 +28,17 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     isUploadingImagesWithMetadata 
   } = useProducts();
   
-  // Estados principales
+  // Main states
   const [selectedImages, setSelectedImages] = useState<{ [productId: string]: ImageWithMetadata[] }>({});
   const [uploadStatus, setUploadStatus] = useState<{ [productId: string]: 'idle' | 'uploading' | 'success' | 'error' }>({});
   const [uploadErrors, setUploadErrors] = useState<{ [productId: string]: string }>({});
   const [existingImages, setExistingImages] = useState<{ [productId: string]: ProductImage[] }>({});
   const [loadingImages, setLoadingImages] = useState<{ [productId: string]: boolean }>({});
   
-  // Estado para visualización del Drag & Drop (archivo externo)
+  // State for Drag & Drop visualization (external file)
   const [dragActive, setDragActive] = useState<{ [productId: string]: boolean }>({});
 
-  // Refs para reordenamiento interno
+  // Refs for internal reordering
   const dragItem = useRef<{ index: number, productId: string } | null>(null);
   const dragOverItem = useRef<{ index: number, productId: string } | null>(null);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
@@ -50,7 +47,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     fileInputRefs.current[productId] = el;
   }, []);
 
-  // 👇 HELPER PARA URLs
+  // 👇 URL HELPER
   const getFullImageUrl = (path: string) => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
@@ -58,7 +55,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     return `${API_URL}/${cleanPath}`;
   };
 
-  // Carga inicial de imágenes existentes (si las hay)
+  // Initial load of existing images (if any)
   useEffect(() => {
     let isMounted = true;
     const loadExistingImages = async () => {
@@ -88,12 +85,12 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     return () => { isMounted = false; };
   }, [productsWithoutImages]);
 
-  // --- LÓGICA DE PROCESAMIENTO DE ARCHIVOS ---
+  // --- FILE PROCESSING LOGIC ---
   const processFiles = (productId: string, files: FileList | null) => {
     if (!files) return;
     const fileArray = Array.from(files);
     
-    // Validar tipo y tamaño (Max 5MB)
+    // Validate type and size (Max 5MB)
     const validFiles = fileArray.filter(file => 
       file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024
     );
@@ -115,11 +112,11 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     setUploadStatus(prev => ({ ...prev, [productId]: 'idle' }));
     setUploadErrors(prev => ({ ...prev, [productId]: '' }));
     
-    // Reset input value para permitir subir el mismo archivo si se borró
+    // Reset input value to allow uploading the same file if deleted
     if (fileInputRefs.current[productId]) fileInputRefs.current[productId]!.value = '';
   };
 
-  // --- MANEJADORES DE EVENTOS DE DRAG & DROP (ARCHIVOS EXTERNOS) ---
+  // --- DRAG & DROP EVENT HANDLERS (EXTERNAL FILES) ---
   const handleDragEnter = (e: React.DragEvent, productId: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -147,7 +144,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     }
   };
 
-  // --- MANEJADORES EXISTENTES ---
+  // --- EXISTING HANDLERS ---
   const handleFileSelect = (productId: string, files: FileList | null) => {
     processFiles(productId, files);
   };
@@ -177,7 +174,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     });
   };
 
-  // Reordenamiento visual (Drag & Drop interno)
+  // Visual reordering (Internal Drag & Drop)
   const handleSort = (productId: string) => {
     const currentList = [...(selectedImages[productId] || [])];
     const dragIndex = dragItem.current?.index;
@@ -200,7 +197,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     dragOverItem.current = null;
   };
 
-  // Subida al servidor
+  // Server upload
   const handleUploadWithMetadata = async (productId: string) => {
     const imagesToUpload = selectedImages[productId];
     if (!imagesToUpload || imagesToUpload.length === 0) return;
@@ -235,7 +232,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     } catch (error: any) {
       console.error('Error uploading:', error);
       setUploadStatus(prev => ({ ...prev, [productId]: 'error' }));
-      setUploadErrors(prev => ({ ...prev, [productId]: error.response?.data?.error || 'Error al subir.' }));
+      setUploadErrors(prev => ({ ...prev, [productId]: error.response?.data?.error || 'Upload error.' }));
     }
   };
 
@@ -252,7 +249,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
   };
 
   const handleDeleteImage = async (productId: string, imageId: string) => {
-    if (!confirm('¿Eliminar imagen?')) return;
+    if (!confirm('Delete image?')) return;
     try {
       await deleteImage(imageId);
       setExistingImages(prev => ({
@@ -264,7 +261,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     }
   };
 
-  // --- SUBCOMPONENTE: Imágenes Nuevas (Seleccionadas) ---
+  // --- SUBCOMPONENT: New Images (Selected) ---
   const SelectedImagesManager = ({ productId, images }: { productId: string; images: ImageWithMetadata[] }) => {
     if (images.length === 0) return null;
 
@@ -272,11 +269,11 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
       <div className="mt-6">
         <div className="flex justify-between items-center mb-3">
           <h4 className="text-sm font-semibold text-blue-700 flex items-center gap-2">
-            <span>📸 Listas para subir</span>
+            <span>📸 Ready to upload</span>
             <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">{images.length}</span>
           </h4>
           <button onClick={() => handleRemoveAllSelectedImages(productId)} className="text-xs text-red-500 hover:text-red-700 hover:underline">
-            Borrar selección
+            Clear selection
           </button>
         </div>
         
@@ -293,7 +290,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
             >
               <img src={image.preview} alt="preview" className="w-full h-full object-cover" />
               
-              <div className="absolute top-1 left-1 bg-blue-600 text-white text-[10px] font-bold px-1.5 rounded shadow-sm">NUEVA</div>
+              <div className="absolute top-1 left-1 bg-blue-600 text-white text-[10px] font-bold px-1.5 rounded shadow-sm">NEW</div>
 
               <button
                 type="button"
@@ -302,7 +299,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
                 className={`absolute top-1 right-1 p-1 rounded-full backdrop-blur-sm shadow-sm transition-all ${
                   image.isPrimary ? 'bg-yellow-400 text-white' : 'bg-white/70 text-gray-400 hover:bg-white hover:text-yellow-400'
                 }`}
-                title="Marcar como principal"
+                title="Mark as primary"
               >
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" /></svg>
               </button>
@@ -322,22 +319,22 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     );
   };
 
-  // --- SUBCOMPONENTE: Imágenes Existentes ---
+  // --- SUBCOMPONENT: Existing Images ---
   const ExistingImagesManager = ({ productId, images }: { productId: string; images: ProductImage[] }) => {
     if (loadingImages[productId]) return <div className="mt-4 flex gap-2 animate-pulse"><div className="w-16 h-16 bg-gray-200 rounded-lg"/><div className="w-16 h-16 bg-gray-200 rounded-lg"/></div>;
     if (images.length === 0) return null;
 
     return (
       <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Galería guardada</h4>
+        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Saved gallery</h4>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
           {images.map((image) => (
             <div key={image.id} className="group relative aspect-square bg-white rounded-lg overflow-hidden border border-gray-200 shadow-sm">
               <img 
                 src={getFullImageUrl(image.image_url)} 
-                alt="Producto" 
+                alt="Product" 
                 className="w-full h-full object-cover" 
-                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "https://placehold.co/400x400/f1f5f9/475569?text=Sin+Imagen"; }}
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "https://placehold.co/400x400/f1f5f9/475569?text=No+Image"; }}
               />
               
               {image.is_primary && (
@@ -346,11 +343,11 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
 
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
                 {!image.is_primary && (
-                  <button onClick={() => handleSetPrimaryAfterUpload(productId, image.id)} className="p-1.5 bg-white rounded-full text-yellow-500 hover:scale-110 transition" title="Hacer portada">
+                  <button onClick={() => handleSetPrimaryAfterUpload(productId, image.id)} className="p-1.5 bg-white rounded-full text-yellow-500 hover:scale-110 transition" title="Set as cover">
                    <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
                   </button>
                 )}
-                <button onClick={() => handleDeleteImage(productId, image.id)} className="p-1.5 bg-white rounded-full text-red-500 hover:scale-110 transition" title="Eliminar">
+                <button onClick={() => handleDeleteImage(productId, image.id)} className="p-1.5 bg-white rounded-full text-red-500 hover:scale-110 transition" title="Delete image">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
               </div>
@@ -361,7 +358,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
     );
   };
 
-  // --- RENDER PRINCIPAL ---
+  // --- MAIN RENDER ---
   if (productsWithoutImages.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
@@ -370,8 +367,8 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
         </div>
-        <h3 className="text-xl font-bold text-gray-900">¡Todo listo!</h3>
-        <p className="mt-2 text-gray-500">Todos los productos visibles tienen sus imágenes.</p>
+        <h3 className="text-xl font-bold text-gray-900">All set!</h3>
+        <p className="mt-2 text-gray-500">All visible products have their images.</p>
       </div>
     );
   }
@@ -424,7 +421,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
                         </svg>
                     </div>
                     <span className={`font-medium text-sm ${isActive ? 'text-blue-800' : 'text-gray-700'}`}>
-                      {isActive ? '¡Suelta las imágenes aquí!' : 'Click o Arrastra imágenes aquí'}
+                      {isActive ? 'Drop images here!' : 'Click or Drag images here'}
                     </span>
                   </div>
               ) : (
@@ -434,7 +431,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
                         className="text-sm text-blue-600 font-medium hover:text-blue-800 flex items-center gap-1"
                       >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-                          Agregar más
+                          Add more
                       </button>
                   </div>
               )}
@@ -450,7 +447,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
                     </div>
                   ) : (
                     <div className="text-sm text-gray-500">
-                        {productSelectedImages.length} nuevas
+                        {productSelectedImages.length} new
                     </div>
                   )}
 
@@ -463,7 +460,7 @@ export const ProductImageUpload = ({ productsWithoutImages, onUploadComplete }: 
                           ${productStatus === 'success' ? 'bg-green-500 hover:bg-green-600' : ''}
                       `}
                   >
-                      {productStatus === 'uploading' ? 'Subiendo...' : productStatus === 'success' ? '¡Listo!' : 'Subir'}
+                      {productStatus === 'uploading' ? 'Uploading...' : productStatus === 'success' ? 'Done!' : 'Upload'}
                   </button>
                 </div>
               )}

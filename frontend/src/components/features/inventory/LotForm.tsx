@@ -40,7 +40,7 @@ interface FormOptions {
   suppliers: Array<{ id: string; name: string; country_code: string }>;
 }
 
-// Estilos base para inputs (Texto visible y fondo blanco)
+// Base styles for inputs (Visible text and white background)
 const inputClasses = "w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900 bg-white border-gray-300 placeholder-gray-400";
 const errorInputClasses = "border-red-300 bg-red-50 text-gray-900";
 
@@ -66,7 +66,7 @@ export const LotForm: React.FC<LotFormProps> = ({
   const [loadingOptions, setLoadingOptions] = useState(true);
   const isEditing = !!lot;
 
-  // 1. Cargar las opciones al iniciar
+  // 1. Load options on start
   useEffect(() => {
     const loadFormOptions = async () => {
       try {
@@ -75,7 +75,7 @@ export const LotForm: React.FC<LotFormProps> = ({
             const response = await api.get('/inventory/form-data');
             setOptions(response.data);
         } catch (e) {
-            // Fallback: Cargar por separado si falla el endpoint unificado
+            // Fallback: Load separately if unified endpoint fails
             const [productsRes, suppliersRes] = await Promise.all([
                 api.get('/products'),
                 api.get('/suppliers')
@@ -102,7 +102,7 @@ export const LotForm: React.FC<LotFormProps> = ({
     loadFormOptions();
   }, []);
 
-  // 2. Pre-llenar el formulario cuando las opciones estén listas Y tengamos un lote
+  // 2. Pre-fill form when options are ready AND we have a lot
   useEffect(() => {
     if (lot && !loadingOptions && options.products.length > 0) {
       fillFormData();
@@ -113,7 +113,7 @@ export const LotForm: React.FC<LotFormProps> = ({
   const fillFormData = () => {
     if (!lot) return;
 
-    // Lógica inteligente para encontrar el ID correcto aunque venga solo el nombre
+    // Smart logic to find correct ID even if only name is provided
     const foundProduct = options.products.find(p => 
         p.name === lot.product_name || 
         p.global_sku === lot.product_code ||
@@ -152,12 +152,12 @@ export const LotForm: React.FC<LotFormProps> = ({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.product_id) newErrors.product_id = 'Selecciona un producto';
-    if (!formData.supplier_id) newErrors.supplier_id = 'Selecciona un proveedor';
-    if (!formData.lot_number.trim()) newErrors.lot_number = 'Número de lote requerido';
-    if (!formData.expiry_date) newErrors.expiry_date = 'Fecha requerida';
-    if (formData.quantity <= 0) newErrors.quantity = 'Cantidad mayor a 0';
-    if (formData.price < 0) newErrors.price = 'Precio no puede ser negativo';
+    if (!formData.product_id) newErrors.product_id = 'Select a product';
+    if (!formData.supplier_id) newErrors.supplier_id = 'Select a supplier';
+    if (!formData.lot_number.trim()) newErrors.lot_number = 'Lot number required';
+    if (!formData.expiry_date) newErrors.expiry_date = 'Date required';
+    if (formData.quantity <= 0) newErrors.quantity = 'Quantity must be greater than 0';
+    if (formData.price < 0) newErrors.price = 'Price cannot be negative';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -168,7 +168,7 @@ export const LotForm: React.FC<LotFormProps> = ({
     if (!validateForm()) return;
 
     try {
-      // Obtenemos o creamos la relación Producto-Proveedor
+      // Get or create the Product-Supplier relationship
       const relationResponse = await api.post('/inventory/product-suppliers', {
         product_id: formData.product_id,
         supplier_id: formData.supplier_id
@@ -189,31 +189,31 @@ export const LotForm: React.FC<LotFormProps> = ({
       await onSubmit(lotData);
     } catch (error) {
       console.error('Error:', error);
-      setErrors({ submit: 'Error al guardar. Verifica los datos.' });
+      setErrors({ submit: 'Error while saving. Please check the data.' });
     }
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'MXN',
+      currency: 'USD',
       minimumFractionDigits: 2
     }).format(amount);
   };
 
   const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'available': return { icon: CheckCircle2, color: 'text-green-700', bg: 'bg-green-50', border: 'border-green-200', label: 'En Fecha' };
-      case 'near_expiry': return { icon: Clock, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', label: 'Fecha Corta' };
-      case 'expired': return { icon: Ban, color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', label: 'Caducado' };
-      default: return { icon: Package, color: 'text-gray-700', bg: 'bg-gray-50', border: 'border-gray-200', label: 'Desconocido' };
+      case 'available': return { icon: CheckCircle2, color: 'text-green-700', bg: 'bg-green-50', border: 'border-green-200', label: 'On Date' };
+      case 'near_expiry': return { icon: Clock, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', label: 'Short Date' };
+      case 'expired': return { icon: Ban, color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', label: 'Expired' };
+      default: return { icon: Package, color: 'text-gray-700', bg: 'bg-gray-50', border: 'border-gray-200', label: 'Unknown' };
     }
   };
 
   const statusConfig = getStatusConfig(formData.status);
   const StatusIcon = statusConfig.icon;
 
-  // Loader de carga inicial
+  // Initial load loader
   if (loadingOptions) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -242,10 +242,10 @@ export const LotForm: React.FC<LotFormProps> = ({
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
-                {isEditing ? 'Editar Lote' : 'Registrar Entrada'}
+                {isEditing ? 'Edit Lot' : 'Register Entry'}
               </h2>
               <p className="text-gray-500 text-sm">
-                {isEditing ? `Editando lote: ${lot?.lot_number}` : 'Ingresa los detalles del nuevo lote'}
+                {isEditing ? `Editing lot: ${lot?.lot_number}` : 'Enter details for the new lot'}
               </p>
             </div>
           </div>
@@ -254,35 +254,34 @@ export const LotForm: React.FC<LotFormProps> = ({
             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm"
           >
             <X className="h-4 w-4 mr-2" />
-            Cancelar
+            Cancel
           </button>
         </div>
       </div>
 
-      {/* 📝 FORMULARIO */}
+      {/* 📝 FORM */}
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           
-          {/* COLUMNA 1: Datos Principales */}
+          {/* COLUMN 1: Main Data */}
           <div className="space-y-6">
             <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">
-              Datos del Producto
+              Product Data
             </h3>
             
-            {/* Producto (EDITABLE) */}
+            {/* Product (EDITABLE) */}
             <div>
               <label htmlFor="product_id" className="block text-sm font-medium text-gray-700 mb-1">
-                Producto *
+                Product *
               </label>
               <select
                 id="product_id"
                 name="product_id"
                 value={formData.product_id}
                 onChange={handleChange}
-                // Eliminé disabled={isEditing} para que puedas cambiarlo
                 className={`${inputClasses} ${errors.product_id ? errorInputClasses : ''}`}
               >
-                <option value="">Selecciona un producto...</option>
+                <option value="">Select a product...</option>
                 {options.products.map(product => (
                   <option key={product.id} value={product.id} className="text-gray-900">
                     {product.name} ({product.global_sku})
@@ -292,20 +291,19 @@ export const LotForm: React.FC<LotFormProps> = ({
               {errors.product_id && <p className="mt-1 text-sm text-red-600">{errors.product_id}</p>}
             </div>
 
-            {/* Proveedor (EDITABLE) */}
+            {/* Supplier (EDITABLE) */}
             <div>
               <label htmlFor="supplier_id" className="block text-sm font-medium text-gray-700 mb-1">
-                Proveedor *
+                Supplier *
               </label>
               <select
                 id="supplier_id"
                 name="supplier_id"
                 value={formData.supplier_id}
                 onChange={handleChange}
-                // Eliminé disabled={isEditing} para que puedas cambiarlo
                 className={`${inputClasses} ${errors.supplier_id ? errorInputClasses : ''}`}
               >
-                <option value="">Selecciona un proveedor...</option>
+                <option value="">Select a supplier...</option>
                 {options.suppliers.map(supplier => (
                   <option key={supplier.id} value={supplier.id} className="text-gray-900">
                     {supplier.name}
@@ -315,10 +313,10 @@ export const LotForm: React.FC<LotFormProps> = ({
               {errors.supplier_id && <p className="mt-1 text-sm text-red-600">{errors.supplier_id}</p>}
             </div>
 
-            {/* Número de Lote */}
+            {/* Lot Number */}
             <div>
               <label htmlFor="lot_number" className="block text-sm font-medium text-gray-700 mb-1">
-                Número de Lote (SKU Lote) *
+                Lot Number (Lot SKU) *
               </label>
               <div className="relative">
                 <input
@@ -328,7 +326,7 @@ export const LotForm: React.FC<LotFormProps> = ({
                     value={formData.lot_number}
                     onChange={handleChange}
                     className={`${inputClasses} pl-10 ${errors.lot_number ? errorInputClasses : ''}`}
-                    placeholder="Ej: LOTE-2024-X"
+                    placeholder="e.g.: LOT-2024-X"
                 />
                 <Package className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
               </div>
@@ -336,17 +334,17 @@ export const LotForm: React.FC<LotFormProps> = ({
             </div>
           </div>
 
-          {/* COLUMNA 2: Inventario y Fechas */}
+          {/* COLUMN 2: Inventory and Dates */}
           <div className="space-y-6">
             <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">
-              Detalles de Inventario
+              Inventory Details
             </h3>
 
             <div className="grid grid-cols-2 gap-4">
-                {/* Fecha Recepción */}
+                {/* Reception Date */}
                 <div>
                     <label htmlFor="received_at" className="block text-sm font-medium text-gray-700 mb-1">
-                        Recepción
+                        Reception
                     </label>
                     <input
                         type="date"
@@ -358,10 +356,10 @@ export const LotForm: React.FC<LotFormProps> = ({
                     />
                 </div>
 
-                {/* Fecha Caducidad */}
+                {/* Expiration Date */}
                 <div>
                     <label htmlFor="expiry_date" className="block text-sm font-medium text-gray-700 mb-1">
-                        Caducidad *
+                        Expiration *
                     </label>
                     <input
                         type="date"
@@ -376,10 +374,10 @@ export const LotForm: React.FC<LotFormProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-                {/* Cantidad */}
+                {/* Quantity */}
                 <div>
                     <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
-                        Cantidad *
+                        Quantity *
                     </label>
                     <input
                         type="number"
@@ -392,10 +390,10 @@ export const LotForm: React.FC<LotFormProps> = ({
                     />
                 </div>
 
-                {/* Precio */}
+                {/* Price */}
                 <div>
                     <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
-                        Costo Unit. *
+                        Unit Cost *
                     </label>
                     <div className="relative">
                         <input
@@ -413,10 +411,10 @@ export const LotForm: React.FC<LotFormProps> = ({
                 </div>
             </div>
 
-            {/* Estado */}
+            {/* Status */}
             <div>
                 <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                    Estado Actual
+                    Current Status
                 </label>
                 <select
                     id="status"
@@ -425,34 +423,34 @@ export const LotForm: React.FC<LotFormProps> = ({
                     onChange={handleChange}
                     className={`${inputClasses} ${statusConfig.bg} ${statusConfig.color} font-medium border-2`}
                 >
-                    <option value="available">🟢 En Fecha</option>
-                    <option value="near_expiry">🟡 Próximo a Vencer</option>
-                    <option value="expired">🔴 Caducado</option>
+                    <option value="available">🟢 On Date</option>
+                    <option value="near_expiry">🟡 Short Date</option>
+                    <option value="expired">🔴 Expired</option>
                 </select>
             </div>
           </div>
         </div>
 
-        {/* 📊 RESUMEN FINAL */}
+        {/* 📊 FINAL SUMMARY */}
         <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-4">
                 <div className={`p-3 rounded-full ${statusConfig.bg}`}>
                     <StatusIcon className={`h-6 w-6 ${statusConfig.color}`} />
                 </div>
                 <div>
-                    <p className="text-sm text-gray-500">Valor Total del Lote</p>
+                    <p className="text-sm text-gray-500">Total Lot Value</p>
                     <p className="text-2xl font-bold text-gray-900">
                         {formatCurrency(formData.quantity * formData.price)}
                     </p>
                 </div>
             </div>
             <div className="text-right hidden md:block">
-                <p className="text-xs text-gray-400">ID Interno</p>
+                <p className="text-xs text-gray-400">Internal ID</p>
                 <p className="text-sm font-mono text-gray-600">{lot ? lot.id.slice(0, 8) : 'N/A'}</p>
             </div>
         </div>
 
-        {/* ERRORES GENERALES */}
+        {/* GENERAL ERRORS */}
         {errors.submit && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700">
             <AlertCircle className="h-5 w-5 mr-2" />
@@ -460,14 +458,14 @@ export const LotForm: React.FC<LotFormProps> = ({
           </div>
         )}
 
-        {/* BOTONES ACCIÓN */}
+        {/* ACTION BUTTONS */}
         <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-100">
           <button
             type="button"
             onClick={onCancel}
             className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
           >
-            Cancelar
+            Cancel
           </button>
           <button
             type="submit"
@@ -479,7 +477,7 @@ export const LotForm: React.FC<LotFormProps> = ({
             ) : (
               <Save className="h-5 w-5 mr-2" />
             )}
-            {loading ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Registrar Lote')}
+            {loading ? 'Saving...' : (isEditing ? 'Save Changes' : 'Register Lot')}
           </button>
         </div>
       </form>

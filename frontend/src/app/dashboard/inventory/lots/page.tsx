@@ -31,7 +31,7 @@ export default function LotsManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   
-  // Estado para el modal de eliminación
+  // Delete modal state
   const [lotToDelete, setLotToDelete] = useState<ProductLot | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -73,23 +73,23 @@ export default function LotsManagementPage() {
     setFilteredLots(filtered);
   };
 
-  // Abre el modal
+  // Open modal
   const handleDeleteClick = (lot: ProductLot) => {
     setLotToDelete(lot);
   };
 
-  // Confirma la eliminación
+  // Confirm deletion
   const confirmDelete = async () => {
     if (!lotToDelete) return;
 
     try {
       setDeleteLoading(true);
       await deleteLot(lotToDelete.id);
-      await loadLots(); // Recargar lista
-      setLotToDelete(null); // Cerrar modal
+      await loadLots(); // Reload list
+      setLotToDelete(null); // Close modal
     } catch (err) {
       console.error('Error deleting lot:', err);
-      alert('Error al eliminar el lote');
+      alert('Error deleting the lot');
     } finally {
       setDeleteLoading(false);
     }
@@ -119,15 +119,15 @@ export default function LotsManagementPage() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'available': return 'En Fecha';
-      case 'near_expiry': return 'Fecha Corta';
-      case 'expired': return 'Caducado';
+      case 'available': return 'In-Date';
+      case 'near_expiry': return 'Short-Dated';
+      case 'expired': return 'Expired';
       default: return status;
     }
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'MXN',
       minimumFractionDigits: 2
@@ -135,13 +135,12 @@ export default function LotsManagementPage() {
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'Sin fecha';
+    if (!dateString) return 'No date';
     const date = new Date(dateString);
-    // Ajuste simple de zona horaria para visualización
-    return new Date(date.getTime() + date.getTimezoneOffset() * 60000).toLocaleDateString('es-MX');
+    return new Date(date.getTime() + date.getTimezoneOffset() * 60000).toLocaleDateString('en-US');
   };
 
-  // Cálculos para tarjetas superiores
+  // Top card calculations
   const totalLots = lots.length;
   const totalValue = lots.reduce((sum, lot) => sum + (lot.quantity * lot.price), 0);
   const totalUnits = lots.reduce((sum, lot) => sum + lot.quantity, 0);
@@ -158,8 +157,8 @@ export default function LotsManagementPage() {
                 <Package className="h-8 w-8 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Gestión de Lotes</h1>
-                <p className="text-gray-600">Administra todos los lotes de inventario del sistema</p>
+                <h1 className="text-3xl font-bold text-gray-900">Lot Management</h1>
+                <p className="text-gray-600">Manage all inventory lots in the system</p>
               </div>
             </div>
             
@@ -170,19 +169,19 @@ export default function LotsManagementPage() {
                 className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-all duration-200 shadow-sm"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Actualizar
+                Refresh
               </button>
               <button
                 onClick={() => router.push('/dashboard/inventory/lots/new')}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 shadow-sm"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Crear Lote
+                Create Lot
               </button>
               
               <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 shadow-sm">
                 <Download className="h-4 w-4 mr-2" />
-                Exportar
+                Export
               </button>
             </div>
           </div>
@@ -193,7 +192,7 @@ export default function LotsManagementPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total de Lotes</p>
+                <p className="text-sm font-medium text-gray-600">Total Lots</p>
                 <p className="text-2xl font-bold text-gray-900">{totalLots}</p>
               </div>
               <div className="p-3 bg-blue-100 rounded-xl">
@@ -205,8 +204,8 @@ export default function LotsManagementPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Unidades Totales</p>
-                <p className="text-2xl font-bold text-gray-900">{totalUnits.toLocaleString('es-MX')}</p>
+                <p className="text-sm font-medium text-gray-600">Total Units</p>
+                <p className="text-2xl font-bold text-gray-900">{totalUnits.toLocaleString('en-US')}</p>
               </div>
               <div className="p-3 bg-green-100 rounded-xl">
                 <Box className="h-6 w-6 text-green-600" />
@@ -217,7 +216,7 @@ export default function LotsManagementPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Valor Total</p>
+                <p className="text-sm font-medium text-gray-600">Total Value</p>
                 <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalValue)}</p>
               </div>
               <div className="p-3 bg-amber-100 rounded-xl">
@@ -233,10 +232,9 @@ export default function LotsManagementPage() {
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                {/* ✅ FIX: Texto negro y fondo blanco */}
                 <input
                   type="text"
-                  placeholder="Buscar lotes..."
+                  placeholder="Search lots..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white placeholder-gray-400 transition-all duration-200"
@@ -245,16 +243,15 @@ export default function LotsManagementPage() {
             </div>
             
             <div className="flex space-x-4">
-              {/* ✅ FIX: Texto negro y fondo blanco */}
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white transition-all duration-200"
               >
-                <option value="all">Todos los estados</option>
-                <option value="available">En Fecha</option>
-                <option value="near_expiry">Fecha Corta</option>
-                <option value="expired">Caducados</option>
+                <option value="all">All statuses</option>
+                <option value="available">In-Date</option>
+                <option value="near_expiry">Short-Dated</option>
+                <option value="expired">Expired</option>
               </select>
 
               {(searchTerm || statusFilter !== 'all') && (
@@ -263,7 +260,7 @@ export default function LotsManagementPage() {
                   className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200"
                 >
                   <Filter className="h-4 w-4 mr-2" />
-                  Limpiar
+                  Clear
                 </button>
               )}
             </div>
@@ -273,7 +270,7 @@ export default function LotsManagementPage() {
         {/* RESULTS SUMMARY */}
         <div className="flex items-center justify-between mb-4 px-1">
            <p className="text-sm text-gray-500">
-             Mostrando <span className="font-medium text-gray-900">{filteredLots.length}</span> resultados
+             Showing <span className="font-medium text-gray-900">{filteredLots.length}</span> results
            </p>
         </div>
 
@@ -299,14 +296,14 @@ export default function LotsManagementPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proveedor</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lote</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Caducidad</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cant.</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lot</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiration</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty.</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -346,15 +343,14 @@ export default function LotsManagementPage() {
                             <button
                               onClick={() => handleEdit(lot.id)}
                               className="text-blue-600 hover:text-blue-900 p-1.5 rounded hover:bg-blue-50 transition-colors"
-                              title="Editar"
+                              title="Edit"
                             >
                               <Edit className="h-4 w-4" />
                             </button>
-                            {/* Botón de eliminar (abre modal) */}
                             <button
                               onClick={() => handleDeleteClick(lot)}
                               className="text-red-600 hover:text-red-900 p-1.5 rounded hover:bg-red-50 transition-colors"
-                              title="Eliminar"
+                              title="Delete"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -370,40 +366,40 @@ export default function LotsManagementPage() {
                 <div className="p-4 bg-gray-50 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
                   <Package className="h-10 w-10 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900">No se encontraron lotes</h3>
-                <p className="text-gray-500 mt-1">Prueba ajustar los filtros de búsqueda</p>
+                <h3 className="text-lg font-medium text-gray-900">No lots found</h3>
+                <p className="text-gray-500 mt-1">Try adjusting your search filters</p>
               </div>
             )}
           </div>
         )}
 
-        {/* 📊 RESUMEN FINAL (Pie de página agregado) */}
+        {/* SUMMARY FOOTER */}
         {filteredLots.length > 0 && (
           <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumen de Lotes</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Lots Summary</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
                   <div>
-                    <p className="text-gray-600">Productos únicos:</p>
+                    <p className="text-gray-600">Unique products:</p>
                     <p className="font-medium text-gray-900">
-                      {new Set(filteredLots.map(lot => lot.product_code)).size} productos
+                      {new Set(filteredLots.map(lot => lot.product_code)).size} products
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Proveedores:</p>
+                    <p className="text-gray-600">Suppliers:</p>
                     <p className="font-medium text-gray-900">
-                      {new Set(filteredLots.map(lot => lot.supplier_name)).size} proveedores
+                      {new Set(filteredLots.map(lot => lot.supplier_name)).size} suppliers
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Stock promedio:</p>
+                    <p className="text-gray-600">Average stock:</p>
                     <p className="font-medium text-gray-900">
-                      {Math.round(filteredLots.reduce((sum, lot) => sum + lot.quantity, 0) / filteredLots.length)} unidades
+                      {Math.round(filteredLots.reduce((sum, lot) => sum + lot.quantity, 0) / filteredLots.length)} units
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Valor promedio:</p>
+                    <p className="text-gray-600">Average value:</p>
                     <p className="font-medium text-gray-900">
                       {formatCurrency(filteredLots.reduce((sum, lot) => sum + (lot.quantity * lot.price), 0) / filteredLots.length)}
                     </p>
@@ -415,7 +411,7 @@ export default function LotsManagementPage() {
         )}
       </div>
 
-      {/* 🗑️ MODAL DE CONFIRMACIÓN */}
+      {/* CONFIRMATION MODAL */}
       {lotToDelete && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
           <div className="relative mx-auto p-5 border w-96 shadow-lg rounded-xl bg-white animate-in fade-in zoom-in duration-200">
@@ -423,11 +419,11 @@ export default function LotsManagementPage() {
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
                 <Trash2 className="h-6 w-6 text-red-600" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900">¿Eliminar lote?</h3>
+              <h3 className="text-lg font-medium text-gray-900">Delete lot?</h3>
               <div className="mt-2 px-4 py-2">
                 <p className="text-sm text-gray-500">
-                  ¿Estás seguro de que quieres eliminar el lote <strong>{lotToDelete.lot_number}</strong>? 
-                  Esta acción eliminará {lotToDelete.quantity} unidades del inventario y no se puede deshacer.
+                  Are you sure you want to delete lot <strong>{lotToDelete.lot_number}</strong>? 
+                  This action will remove {lotToDelete.quantity} units from inventory and cannot be undone.
                 </p>
               </div>
               <div className="flex justify-center space-x-3 mt-5">
@@ -436,7 +432,7 @@ export default function LotsManagementPage() {
                   className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
                   disabled={deleteLoading}
                 >
-                  Cancelar
+                  Cancel
                 </button>
                 <button
                   onClick={confirmDelete}
@@ -446,10 +442,10 @@ export default function LotsManagementPage() {
                   {deleteLoading ? (
                     <>
                       <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Eliminando...
+                      Deleting...
                     </>
                   ) : (
-                    'Eliminar'
+                    'Delete'
                   )}
                 </button>
               </div>

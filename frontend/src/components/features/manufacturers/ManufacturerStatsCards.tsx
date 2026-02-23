@@ -27,13 +27,13 @@ export const ManufacturerStatsCards = ({ totalCount, isLoading }: ManufacturerSt
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-      {/* Total de Fabricantes */}
+      {/* Total Manufacturers */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600 mb-1">Total de Fabricantes</p>
+            <p className="text-sm font-medium text-gray-600 mb-1">Total Manufacturers</p>
             <p className="text-2xl font-bold text-gray-900">{totalCount}</p>
-            <p className="text-xs text-gray-500 mt-1">Registrados en el sistema</p>
+            <p className="text-xs text-gray-500 mt-1">Registered in the system</p>
           </div>
           <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
             <Factory className="h-6 w-6 text-blue-600" />

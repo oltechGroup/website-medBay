@@ -14,15 +14,15 @@ import { useProductDetails } from "@/hooks/useProductDetails";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 import { ProductQuickView } from "./ProductQuickView";
-import QuoteModal, { QuoteContext } from "./QuoteModal"; // ✅ Importamos el tipo QuoteContext
+import QuoteModal, { QuoteContext } from "./QuoteModal"; // ✅ Import QuoteContext type
 import { QuantitySelector } from "@/components/ui/QuantitySelector";
 
-// --- SUB-COMPONENTE: FILA DE LOTE ---
+// --- SUB-COMPONENT: LOT ROW ---
 interface LotRowProps {
   lot: any;
   onAddToCart: (lotId: string, quantity: number, redirect?: boolean) => Promise<void>;
   isAdding: boolean;
-  onQuote: (lot: any) => void; // ✅ Modificado para recibir el lote completo
+  onQuote: (lot: any) => void; // ✅ Modified to receive the complete lot
 }
 
 const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
@@ -30,50 +30,50 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
   const config = getLotStatusConfig(lot.status, lot.expiry_date);
   const price = lot.discount_price_amount || lot.price_amount || lot.price;
   
-  // Validaciones clave
+  // Key validations
   const hasPrice = price && parseFloat(price) > 0;
   const hasStock = lot.quantity > 0;
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 grid md:grid-cols-12 gap-4 items-center hover:border-blue-300 transition-all shadow-sm group">
       
-      {/* 1. Info Estado y Lote */}
+      {/* 1. Status and Lot Info */}
       <div className="col-span-12 md:col-span-3">
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase ${config.color}`}>
           {config.label}
         </span>
         <p className="text-[11px] text-gray-400 mt-1.5 font-mono flex items-center gap-1">
-          <Package size={10} /> Lote: <span className="text-slate-600 font-bold">{lot.lot_number}</span>
+          <Package size={10} /> Lot: <span className="text-slate-600 font-bold">{lot.lot_number}</span>
         </p>
       </div>
 
-      {/* 2. Caducidad */}
+      {/* 2. Expiration */}
       <div className="col-span-6 md:col-span-3 flex items-center gap-3 text-sm text-gray-600">
         <div className="p-2 bg-gray-50 rounded-lg text-gray-400">
           <Calendar size={18}/>
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">Vencimiento</span>
+          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">Expiration</span>
           <span className="font-bold text-slate-700">{formatDate(lot.expiry_date)}</span>
         </div>
       </div>
 
-      {/* 3. Precio y Stock */}
+      {/* 3. Price and Stock */}
       <div className="col-span-6 md:col-span-3 text-right md:text-left flex flex-col">
-        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide mb-0.5">Precio Unitario</span>
+        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide mb-0.5">Unit Price</span>
         <span className="font-black text-blue-700 text-lg">
-            {/* Si el precio es 0, mostramos texto 'A Cotizar', si no, el precio formateado */}
-            {hasPrice ? formatCurrency(price) : <span className="text-slate-400 italic text-sm font-bold">A Cotizar</span>}
+            {/* If price is 0, we show 'Get Quote' text, otherwise, the formatted price */}
+            {hasPrice ? formatCurrency(price) : <span className="text-slate-400 italic text-sm font-bold">Get Quote</span>}
         </span>
         <span className={`text-[10px] mt-0.5 font-bold ${hasStock ? 'text-green-600' : 'text-blue-600'}`}>
-            {hasStock ? `Stock: ${lot.quantity} pzas` : 'Disponible bajo pedido'}
+            {hasStock ? `Stock: ${lot.quantity} pcs` : 'Available on request'}
         </span>
       </div>
 
-      {/* 4. Controles de Acción (INTELIGENTE) */}
+      {/* 4. Action Controls (SMART) */}
       <div className="col-span-12 md:col-span-3 flex flex-col gap-2">
         {hasPrice && hasStock ? (
-          // CASO A: TODO COMPLETO -> Botones de Compra
+          // CASE A: COMPLETE -> Buy Buttons
           <>
             <div className="flex justify-end w-full">
               <QuantitySelector 
@@ -91,7 +91,7 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
                 onClick={() => onAddToCart(lot.id, quantity, false)}
                 disabled={isAdding}
                 className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 text-xs font-bold"
-                title="Añadir al carrito"
+                title="Add to cart"
               >
                 <ShoppingCart size={14} />
               </button>
@@ -100,18 +100,18 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
                 disabled={isAdding}
                 className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-colors text-xs font-bold"
               >
-                Comprar
+                Buy Now
               </button>
             </div>
           </>
         ) : (
-          // CASO B: FALTA STOCK O PRECIO -> Botón Cotizar
+          // CASE B: MISSING STOCK OR PRICE -> Quote Button
           <div className="w-full flex items-center h-full">
              <button
                onClick={() => onQuote(lot)}
                className="w-full group-hover:bg-blue-600 group-hover:text-white bg-white border-2 border-blue-100 text-blue-600 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-bold shadow-sm"
              >
-               <FileText size={14} /> Solicitar Cotización
+               <FileText size={14} /> Request Quote
              </button>
           </div>
         )}
@@ -120,7 +120,7 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
   );
 };
 
-// --- COMPONENTE PRINCIPAL ---
+// --- MAIN COMPONENT ---
 
 interface ClientProductCardProps {
   product: Product;
@@ -132,7 +132,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
   
-  // ✅ NUEVO: Estado para guardar el contexto de la cotización
+  // ✅ NEW: State to store quote context
   const [quoteContext, setQuoteContext] = useState<QuoteContext | undefined>(undefined);
   
   const [mounted, setMounted] = useState(false);
@@ -144,25 +144,24 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
   const { addToCart, isAdding } = useCart();
   const { addToWishlist, removeFromWishlist, useWishlistStatus } = useWishlist();
   
-  // Verificar si este producto ya está en favoritos
+  // Check if product is already in wishlist
   const { data: isInWishlist } = useWishlistStatus(product.id);
 
-  // Cargamos lotes siempre que esté expandido.
+  // Load lots whenever expanded.
   const { lots, isLoadingLots } = useProductDetails(product.id, isExpanded, filterStatus);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // --- LÓGICA INTELIGENTE DE ESTADOS ---
+  // --- SMART STATUS LOGIC ---
   const hasActiveLots = product.active_lots && product.active_lots > 0;
   
-  // Detectar si hay un precio válido mayor a 0 (aunque no haya stock)
-  // Usamos conversión segura a número
+  // Detect if there is a valid price > 0 (even without stock)
   const minPrice = product.min_price ? Number(product.min_price) : 0;
   const hasReferencePrice = minPrice > 0;
   
-  // Función centralizada para abrir cotización con contexto
+  // Centralized function to open quote with context
   const handleOpenQuote = (context?: QuoteContext) => {
     setQuoteContext(context);
     setIsQuoteOpen(true);
@@ -173,15 +172,15 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
     if (hasActiveLots) {
         setIsExpanded(!isExpanded);
     } else {
-        // Si no hay lotes activos pero hay precio de referencia, pasamos ese precio al contexto
+        // If no active lots but reference price exists, pass price to context
         if (hasReferencePrice) {
             handleOpenQuote({
-                // ✅ CORRECCIÓN AQUÍ: Verificamos existencia antes de pasar
+                // ✅ CORRECTION: Verify existence before passing
                 referencePrice: product.min_price ? Number(product.min_price) : 0,
-                // No tenemos lote ID específico aquí, es genérico
+                // No specific lot ID here, it's generic
             });
         } else {
-            // Cotización totalmente genérica (sin precio ni stock)
+            // Fully generic quote (no price or stock)
             handleOpenQuote();
         }
     }
@@ -199,7 +198,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
         router.push('/checkout');
       }
     } catch (error) {
-      console.error("Error agregando al carrito", error);
+      console.error("Error adding to cart", error);
     }
   };
 
@@ -227,7 +226,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
         {/* === CARD HEADER === */}
         <div className="p-5 flex flex-col md:flex-row gap-6 items-center">
           
-          {/* IMAGEN + BOTÓN FAVORITOS */}
+          {/* IMAGE + WISHLIST BUTTON */}
           <div className="relative w-full md:w-32 h-32 flex-shrink-0 bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
              <div 
                onClick={() => setIsModalOpen(true)} 
@@ -241,7 +240,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                 />
              </div>
 
-             {/* BOTÓN FAVORITOS */}
+             {/* WISHLIST BUTTON */}
              {mounted && (
                <button 
                  onClick={handleToggleWishlist}
@@ -259,7 +258,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
           {/* INFO */}
           <div className="flex-1 w-full text-center md:text-left space-y-2 cursor-pointer" onClick={() => setIsModalOpen(true)}>
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center justify-center md:justify-start gap-2">
-              {product.manufacturer_name || "Fabricante Genérico"}
+              {product.manufacturer_name || "Generic Manufacturer"}
             </div>
 
             <h3 className="text-lg font-bold text-gray-800 leading-tight hover:text-blue-600 transition-colors line-clamp-2">
@@ -274,49 +273,49 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                {mounted && (
                    hasActiveLots ? (
                      <span className="flex items-center gap-1.5 text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-full text-[10px] border border-emerald-100">
-                       <Package size={12} /> {product.active_lots} Lotes disponibles
+                       <Package size={12} /> {product.active_lots} Lots available
                      </span>
                    ) : (
-                     // Estado para productos sin stock (Importados solo precio o agotados)
+                     // Status for products without stock
                      <span className="flex items-center gap-1.5 text-blue-700 font-bold bg-blue-50 px-2.5 py-1 rounded-full text-[10px] border border-blue-100">
-                       <Info size={12} /> {hasReferencePrice ? "Disponible bajo pedido" : "Consultar Disponibilidad"}
+                       <Info size={12} /> {hasReferencePrice ? "Available on request" : "Check Availability"}
                      </span>
                    )
                )}
             </div>
           </div>
 
-          {/* PRECIO Y ACCIÓN */}
+          {/* PRICE AND ACTION */}
           <div className="flex flex-row md:flex-col items-center justify-between w-full md:w-auto gap-4 md:gap-1 pl-0 md:pl-6 md:border-l border-gray-100 min-w-[160px]">
             <div className="text-right w-full">
                {mounted && (
                  <>
-                   {/* ESTADO 1: HAY LOTES (Venta Directa) */}
+                   {/* CASE 1: HAS LOTS (Direct Sale) */}
                    {hasActiveLots ? (
                      <>
-                        <p className="text-[10px] text-gray-400 mb-0.5 uppercase tracking-wide font-bold">Precio Unitario</p>
+                        <p className="text-[10px] text-gray-400 mb-0.5 uppercase tracking-wide font-bold">Unit Price</p>
                         {product.min_price === product.max_price ? (
                            <p className="text-xl font-black text-blue-600">{formatCurrency(product.min_price)}</p>
                         ) : (
                           <div className="flex flex-col items-end">
-                            <p className="text-[10px] text-gray-500 font-medium">Desde</p>
+                            <p className="text-[10px] text-gray-500 font-medium">From</p>
                             <p className="text-lg font-black text-blue-600">{formatCurrency(product.min_price)}</p>
                           </div>
                         )}
                      </>
                    ) : (
-                     // ESTADO 2 Y 3: SIN LOTES (Bajo pedido o Cotización)
+                     // CASE 2 AND 3: NO LOTS (On request or Quote)
                      <>
                         {hasReferencePrice ? (
-                            // Sub-estado: Hay precio de referencia
+                            // Sub-status: Reference price exists
                             <div className="flex flex-col items-end">
-                                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-bold mb-0.5">Precio Referencia</p>
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-bold mb-0.5">Reference Price</p>
                                 <p className="text-lg font-bold text-gray-500">{formatCurrency(product.min_price)}</p>
                             </div>
                         ) : (
-                            // Sub-estado: Precio Cero o inválido
+                            // Sub-status: Zero or invalid price
                             <p className="text-sm font-bold text-gray-400 italic bg-gray-50 px-2 py-1 rounded">
-                                Precio bajo cotización
+                                Price on request
                             </p>
                         )}
                      </>
@@ -325,29 +324,29 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                )}
             </div>
             
-            {/* BOTÓN DE ACCIÓN INTELIGENTE (COLUMNA DERECHA) */}
+            {/* SMART ACTION BUTTON (RIGHT COLUMN) */}
             <button 
               onClick={handleMainAction}
               className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all text-xs uppercase tracking-wide
               ${isExpanded 
                   ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' 
                   : hasActiveLots 
-                    ? 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg shadow-slate-900/10' // Botón Comprar
-                    : 'bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50' // Botón Cotizar
+                    ? 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg shadow-slate-900/10' // Buy Button
+                    : 'bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50' // Quote Button
                }`}
             >
               {isExpanded ? (
-                  <>Cerrar <ChevronUp size={14} /></>
+                  <>Close <ChevronUp size={14} /></>
               ) : hasActiveLots ? (
-                  <>Ver Opciones <ChevronDown size={14} /></>
+                  <>View Options <ChevronDown size={14} /></>
               ) : (
-                  <>Solicitar Cotización <FileText size={14} /></>
+                  <>Request Quote <FileText size={14} /></>
               )}
             </button>
           </div>
         </div>
 
-        {/* === ZONA EXPANDIBLE (LISTA DE LOTES) === */}
+        {/* === EXPANDABLE AREA (LOT LIST) === */}
         {isExpanded && (
           <div className="border-t border-gray-100 bg-slate-50/50 p-4 md:p-6 animate-in slide-in-from-top-2 duration-200">
             
@@ -355,16 +354,16 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-2 uppercase tracking-wide">
                   <Package className="text-blue-500" size={16}/> 
                   {filterStatus !== 'all' 
-                    ? `Inventario Filtrado (${filterStatus === 'expired' ? 'Caducados' : 'Próximos a vencer'})` 
-                    : 'Selecciona un lote'}
+                    ? `Filtered Inventory (${filterStatus === 'expired' ? 'Expired' : 'Near Expiry'})` 
+                    : 'Select a lot'}
                 </h4>
                 
-                {/* Botón extra de cotización */}
+                {/* Extra quote button */}
                 <button 
                   onClick={() => handleOpenQuote()}
                   className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
                 >
-                  <FileText size={12}/> Cotización Personalizada
+                  <FileText size={12}/> Custom Quote
                 </button>
             </div>
 
@@ -380,7 +379,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                       lot={lot} 
                       onAddToCart={handleAddToCart}
                       isAdding={isAdding}
-                      // ✅ PASAMOS LOS DATOS DEL LOTE AL CONTEXTO
+                      // ✅ PASS LOT DATA TO CONTEXT
                       onQuote={(loteData) => handleOpenQuote({
                           lotId: loteData.id,
                           lotNumber: loteData.lot_number,
@@ -392,18 +391,18 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                   ))}
                 </div>
             ) : (
-                // SIN LOTES (Fallback)
+                // NO LOTS (Fallback)
                 <div className="text-center py-8 bg-white rounded-xl border border-dashed border-slate-300">
                   <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
                     <AlertTriangle className="text-amber-400" size={24} />
                   </div>
-                  <p className="text-slate-600 font-bold text-sm mb-1">Agotado temporalmente</p>
-                  <p className="text-slate-400 text-xs mb-4">No hay lotes disponibles bajo este criterio.</p>
+                  <p className="text-slate-600 font-bold text-sm mb-1">Temporarily out of stock</p>
+                  <p className="text-slate-400 text-xs mb-4">No lots available under this criteria.</p>
                   <button 
                     onClick={() => handleOpenQuote()}
                     className="text-blue-600 font-bold hover:bg-blue-50 px-4 py-2 rounded-lg text-xs transition-colors border border-blue-100"
                   >
-                    Solicitar búsqueda de producto
+                    Request product search
                   </button>
                 </div>
             )}
@@ -412,19 +411,19 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
         )}
       </div>
 
-      {/* MODALES */}
+      {/* MODALS */}
       <ProductQuickView 
         product={product} 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
       />
       
-      {/* ✅ PASAMOS EL CONTEXTO AL MODAL DE COTIZACIÓN */}
+      {/* ✅ PASS CONTEXT TO QUOTE MODAL */}
       <QuoteModal 
         isOpen={isQuoteOpen}
         onClose={() => {
             setIsQuoteOpen(false);
-            setQuoteContext(undefined); // Limpiamos contexto al cerrar
+            setQuoteContext(undefined); // Clear context on close
         }}
         product={product}
         initialContext={quoteContext}

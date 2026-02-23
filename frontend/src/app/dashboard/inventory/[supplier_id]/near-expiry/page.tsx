@@ -15,8 +15,8 @@ export default function NearExpiryCatalogPage() {
     <CatalogView
       supplierId={supplierId}
       status="near_expiry"
-      title="Lotes Fecha Corta"
-      description="Lotes próximos a caducar del proveedor"
+      title="Short-Dated Lots"
+      description="Lots nearing expiration from the supplier"
       colorScheme={{
         primary: 'amber',
         icon: Calendar,

@@ -15,8 +15,8 @@ export default function AvailableCatalogPage() {
     <CatalogView
       supplierId={supplierId}
       status="available"
-      title="Lotes en Fecha"
-      description="Lotes con fecha de caducidad vigente del proveedor"
+      title="In-Date Lots"
+      description="Lots with current expiration dates from the supplier"
       colorScheme={{
         primary: 'green',
         icon: Package,

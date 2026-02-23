@@ -1,3 +1,4 @@
+//frontend/src/components/features/categories/CategoryStatsCard.tsx
 import { useCategories } from '@/hooks/useCategories';
 
 export const CategoryStatsCards = () => {
@@ -31,7 +32,7 @@ export const CategoryStatsCards = () => {
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">Total Categorías</p>
+            <p className="text-sm font-medium text-gray-600">Total Categories</p>
             <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
           </div>
           <div className="p-3 bg-blue-100 rounded-xl">
@@ -46,7 +47,7 @@ export const CategoryStatsCards = () => {
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">Categorías Principales</p>
+            <p className="text-sm font-medium text-gray-600">Main Categories</p>
             <p className="text-2xl font-bold text-gray-900">{stats.mainCategories}</p>
           </div>
           <div className="p-3 bg-green-100 rounded-xl">
@@ -61,7 +62,7 @@ export const CategoryStatsCards = () => {
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">Subcategorías</p>
+            <p className="text-sm font-medium text-gray-600">Subcategories</p>
             <p className="text-2xl font-bold text-gray-900">{stats.subcategories}</p>
           </div>
           <div className="p-3 bg-purple-100 rounded-xl">

@@ -9,7 +9,7 @@ export default function Footer() {
       <div className="w-[90%] max-w-[1400px] mx-auto px-4 md:px-0">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16 text-center md:text-left">
           
-          {/* COLUMNA 1: MARCA */}
+          {/* COLUMN 1: BRANDING */}
           <div className="space-y-6">
             <img 
               src="/icons/logocompletoblanco.png" 
@@ -17,72 +17,72 @@ export default function Footer() {
               className="w-52 mx-auto md:mx-0 opacity-90" 
             />
             <p className="text-sm leading-relaxed max-w-xs mx-auto md:mx-0 font-medium italic">
-              Socio estratégico líder en la distribución y gestión inteligente de dispositivos médicos B2B.
+              Leading strategic partner in the distribution and smart management of B2B medical devices.
             </p>
           </div>
 
-          {/* COLUMNA 2: PLATAFORMA */}
+          {/* COLUMN 2: PLATFORM */}
           <div>
             <h4 className="text-white font-black uppercase tracking-widest text-xs mb-6 underline underline-offset-8 decoration-blue-500/50">
-              Plataforma
+              Platform
             </h4>
             <ul className="space-y-4 text-sm font-semibold">
               <li>
                 <Link href="/About" className="hover:text-blue-400 flex items-center justify-center md:justify-start gap-2 transition-colors">
-                  <ChevronRight size={14}/> Nosotros
+                  <ChevronRight size={14}/> About Us
                 </Link>
               </li>
               <li>
                 <Link href="/Characteristics" className="hover:text-blue-400 flex items-center justify-center md:justify-start gap-2 transition-colors">
-                  <ChevronRight size={14}/> Características
+                  <ChevronRight size={14}/> Features
                 </Link>
               </li>
               <li>
                 <Link href="/products" className="hover:text-blue-400 flex items-center justify-center md:justify-start gap-2 transition-colors">
-                  <ChevronRight size={14}/> Catálogo
+                  <ChevronRight size={14}/> Catalog
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* COLUMNA 3: SOPORTE */}
+          {/* COLUMN 3: SUPPORT */}
           <div>
             <h4 className="text-white font-black uppercase tracking-widest text-xs mb-6 underline underline-offset-8 decoration-blue-500/50">
-              Soporte
+              Support
             </h4>
             <ul className="space-y-4 text-sm font-semibold">
               <li>
                 <Link href="/Contact" className="hover:text-white flex items-center justify-center md:justify-start gap-2 transition-colors">
-                  <ChevronRight size={14}/> Contacto
+                  <ChevronRight size={14}/> Contact
                 </Link>
               </li>
               <li>
                 <a href="#" className="hover:text-white flex items-center justify-center md:justify-start gap-2 transition-colors">
-                  <ChevronRight size={14}/> Devoluciones
+                  <ChevronRight size={14}/> Returns
                 </a>
               </li>
               <li>
                 <a href="#" className="hover:text-white flex items-center justify-center md:justify-start gap-2 transition-colors">
-                  <ChevronRight size={14}/> Guía de Usuario
+                  <ChevronRight size={14}/> User Guide
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* COLUMNA 4: LEGAL */}
+          {/* COLUMN 4: LEGAL */}
           <div>
             <h4 className="text-white font-black uppercase tracking-widest text-xs mb-6 underline underline-offset-8 decoration-blue-500/50">
               Legal
             </h4>
             <ul className="space-y-4 text-sm font-semibold">
               <li>
-                <a href="#" className="hover:text-white transition-colors">Aviso de Privacidad</a>
+                <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">Términos Comerciales</a>
+                <a href="#" className="hover:text-white transition-colors">Business Terms</a>
               </li>
               <li>
-                <a href="#" className="hover:text-white transition-colors">Cumplimiento ISO</a>
+                <a href="#" className="hover:text-white transition-colors">ISO Compliance</a>
               </li>
             </ul>
           </div>

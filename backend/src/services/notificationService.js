@@ -14,11 +14,11 @@ const {
   generateQuoteCreatedClientTemplate,
   generateQuoteAcceptedAdminTemplate,
   generateQuoteRejectedAdminTemplate,
-  generateResponseTemplate, // ✅ Lo necesitamos para los mensajes manuales
+  generateResponseTemplate, // ✅ We need this for manual messages
   getBrandingAttachments
 } = require('../utils/emailTemplates');
 
-// --- HELPERS DE DATOS ---
+// --- DATA HELPERS ---
 
 const getFullOrderData = async (orderId) => {
   const orderQuery = `
@@ -45,7 +45,7 @@ const getFullOrderData = async (orderId) => {
   const orderRes = await db.query(orderQuery, [orderId]);
   const itemsRes = await db.query(itemsQuery, [orderId]);
 
-  if (orderRes.rows.length === 0) throw new Error('Orden no encontrada');
+  if (orderRes.rows.length === 0) throw new Error('Order not found');
 
   return {
     ...orderRes.rows[0],
@@ -65,7 +65,7 @@ const getFullQuoteData = async (quoteId) => {
     WHERE q.id = $1
   `;
   const result = await db.query(query, [quoteId]);
-  if (result.rows.length === 0) throw new Error('Cotización no encontrada');
+  if (result.rows.length === 0) throw new Error('Quote not found');
   
   const quote = result.rows[0];
   
@@ -78,10 +78,10 @@ const getFullQuoteData = async (quoteId) => {
   return quote;
 };
 
-// --- HELPER PARA CREAR NOTIFICACIÓN EN DASHBOARD (ADMIN) ---
+// --- HELPER TO CREATE DASHBOARD NOTIFICATION (ADMIN) ---
 const createAdminNotification = async ({ type, senderName, senderEmail, subject, content, source, sourceId }) => {
   try {
-    // ✅ Nos aseguramos de usar las columnas source y source_id que creamos en SQL
+    // ✅ Ensure we use the source and source_id columns created in SQL
     const query = `
       INSERT INTO notifications (type, sender_name, sender_email, subject, content, source, source_id, is_read)
       VALUES ($1, $2, $3, $4, $5, $6, $7, false)
@@ -95,16 +95,16 @@ const createAdminNotification = async ({ type, senderName, senderEmail, subject,
       source, 
       sourceId 
     ]);
-    console.log(`[DB] Notificación tipo '${type}' guardada para Admin.`);
+    console.log(`[DB] Notification type '${type}' saved for Admin.`);
   } catch (error) {
-    console.error('[NotificationService] Error guardando en DB:', error);
+    console.error('[NotificationService] Error saving to DB:', error);
   }
 };
 
 const NotificationService = {
   
   // ==========================
-  // 📦 FLUJO DE ÓRDENES
+  // 📦 ORDER FLOW
   // ==========================
 
   notifyOrderCreated: async (orderId) => {
@@ -119,7 +119,7 @@ const NotificationService = {
       await transporter.sendMail({
         from: `"MedBay Orders" <${process.env.EMAIL_USER}>`,
         to: data.user_email,
-        subject: `✅ Solicitud Recibida: Orden #${data.id.slice(0,8)}`,
+        subject: `✅ Request Received: Order #${data.id.slice(0,8)}`,
         html: htmlClient,
         attachments: getBrandingAttachments()
       });
@@ -132,18 +132,18 @@ const NotificationService = {
       });
 
       await transporter.sendMail({
-        from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
+        from: `"MedBay System" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com",
-        subject: `🔔 Nueva Orden Pendiente: #${data.id.slice(0,8)}`,
+        subject: `🔔 New Pending Order: #${data.id.slice(0,8)}`,
         html: htmlAdmin,
         attachments: getBrandingAttachments()
       });
 
       await createAdminNotification({
-        type: 'Nueva Orden',
+        type: 'New Order',
         senderName: data.user_name,
         senderEmail: data.user_email,
-        subject: `Orden #${data.id.slice(0,8)} requiere cotización`,
+        subject: `Order #${data.id.slice(0,8)} requires a quote`,
         source: 'order',
         sourceId: data.id,
         content: {
@@ -154,7 +154,7 @@ const NotificationService = {
       });
 
     } catch (error) {
-      console.error('[NotificationService] Error en notifyOrderCreated:', error);
+      console.error('[NotificationService] Error in notifyOrderCreated:', error);
     }
   },
 
@@ -171,13 +171,13 @@ const NotificationService = {
       await transporter.sendMail({
         from: `"MedBay Orders" <${process.env.EMAIL_USER}>`,
         to: data.user_email,
-        subject: `🎉 Propuesta Lista: Orden #${data.id.slice(0,8)}`,
+        subject: `🎉 Proposal Ready: Order #${data.id.slice(0,8)}`,
         html: html,
         attachments: getBrandingAttachments()
       });
 
     } catch (error) {
-      console.error('[NotificationService] Error en notifyOrderApproved:', error);
+      console.error('[NotificationService] Error in notifyOrderApproved:', error);
     }
   },
 
@@ -190,13 +190,13 @@ const NotificationService = {
       await transporter.sendMail({
         from: `"MedBay Orders" <${process.env.EMAIL_USER}>`,
         to: data.user_email,
-        subject: `⚠️ Actualización sobre tu Orden #${data.id.slice(0,8)}`,
+        subject: `⚠️ Update on your Order #${data.id.slice(0,8)}`,
         html: html,
         attachments: getBrandingAttachments()
       });
 
     } catch (error) {
-      console.error('[NotificationService] Error en notifyOrderRejected:', error);
+      console.error('[NotificationService] Error in notifyOrderRejected:', error);
     }
   },
 
@@ -211,28 +211,28 @@ const NotificationService = {
       });
 
       await transporter.sendMail({
-        from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
+        from: `"MedBay System" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com",
-        subject: `💸 Pago Recibido: Orden #${data.id.slice(0,8)}`,
+        subject: `💸 Payment Received: Order #${data.id.slice(0,8)}`,
         html: htmlAdmin,
         attachments: getBrandingAttachments()
       });
 
       await createAdminNotification({
-        type: 'Pago Recibido',
+        type: 'Payment Received',
         senderName: data.user_name,
         senderEmail: data.user_email,
-        subject: `Pago para Orden #${data.id.slice(0,8)}`,
+        subject: `Payment for Order #${data.id.slice(0,8)}`,
         source: 'order',
         sourceId: data.id,
         content: {
           total: data.total,
-          status: 'Revisión Requerida'
+          status: 'Review Required'
         }
       });
 
     } catch (error) {
-      console.error('[NotificationService] Error en notifyPaymentUploaded:', error);
+      console.error('[NotificationService] Error in notifyPaymentUploaded:', error);
     }
   },
 
@@ -248,61 +248,61 @@ const NotificationService = {
       await transporter.sendMail({
         from: `"MedBay Logistics" <${process.env.EMAIL_USER}>`,
         to: data.user_email,
-        subject: `🚚 Tu pedido ha sido enviado: #${data.id.slice(0,8)}`,
+        subject: `🚚 Your order has been shipped: #${data.id.slice(0,8)}`,
         html: html,
         attachments: getBrandingAttachments()
       });
 
     } catch (error) {
-      console.error('[NotificationService] Error en notifyOrderShipped:', error);
+      console.error('[NotificationService] Error in notifyOrderShipped:', error);
     }
   },
 
-  // ✅ NUEVO: EVENTO CULMINACIÓN (ENTREGADO)
+  // ✅ NEW: COMPLETION EVENT (DELIVERED)
   notifyOrderDelivered: async (orderId) => {
     try {
       const data = await getFullOrderData(orderId);
       
       const html = generateResponseTemplate(
-        "Pedido Completado", 
-        `Hola ${data.user_name},\n\nHemos registrado que tu orden #${orderId.slice(0,8)} ha sido entregada exitosamente.\nGracias por confiar en MedBay.`, 
+        "Order Completed", 
+        `Hello ${data.user_name},\n\nWe have registered that your order #${orderId.slice(0,8)} has been successfully delivered.\nThank you for trusting MedBay.`, 
         true
       );
 
       await transporter.sendMail({
         from: `"MedBay Logistics" <${process.env.EMAIL_USER}>`,
         to: data.user_email,
-        subject: `✅ Pedido Entregado: #${data.id.slice(0,8)}`,
+        subject: `✅ Order Delivered: #${data.id.slice(0,8)}`,
         html: html,
         attachments: getBrandingAttachments()
       });
 
     } catch (error) {
-      console.error('[NotificationService] Error en notifyOrderDelivered:', error);
+      console.error('[NotificationService] Error in notifyOrderDelivered:', error);
     }
   },
 
-  // ✅ NUEVO: ENVÍO DE MENSAJES MANUALES (CONCIERGE)
-  sendCustomEmail: async (toEmail, subject, message, title = "Actualización de tu cuenta") => {
+  // ✅ NEW: MANUAL MESSAGE SENDING (CONCIERGE)
+  sendCustomEmail: async (toEmail, subject, message, title = "Update on your account") => {
     try {
       const html = generateResponseTemplate(title, message, true);
 
       await transporter.sendMail({
-        from: `"Soporte MedBay" <${process.env.EMAIL_USER}>`,
+        from: `"MedBay Support" <${process.env.EMAIL_USER}>`,
         to: toEmail,
         subject: subject,
         html: html,
         attachments: getBrandingAttachments()
       });
-      console.log(`[Email] Mensaje personalizado enviado a ${toEmail}`);
+      console.log(`[Email] Custom message sent to ${toEmail}`);
     } catch (error) {
-      console.error('[NotificationService] Error en sendCustomEmail:', error);
-      throw error; // Lanzamos el error para que el controlador lo atrape si es necesario
+      console.error('[NotificationService] Error in sendCustomEmail:', error);
+      throw error; // Throw the error so the controller can catch it if necessary
     }
   },
 
   // ==========================
-  // 💬 FLUJO DE COTIZACIONES
+  // 💬 QUOTE FLOW
   // ==========================
 
   notifyQuoteCreated: async (quoteId) => {
@@ -312,7 +312,7 @@ const NotificationService = {
       const context = req.quote_context || null;
 
       const htmlAdmin = generateQuoteTemplate({
-        userName: data.user_name || 'Invitado',
+        userName: data.user_name || 'Guest',
         userEmail: data.user_email,
         phone: data.user_phone,
         productName: req.product_name,
@@ -325,7 +325,7 @@ const NotificationService = {
       await transporter.sendMail({
         from: `"MedBay Web" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com",
-        subject: `🔔 Nueva Solicitud de Cotización: ${req.product_name}`,
+        subject: `🔔 New Quote Request: ${req.product_name}`,
         html: htmlAdmin,
         attachments: getBrandingAttachments()
       });
@@ -338,18 +338,18 @@ const NotificationService = {
       });
 
       await transporter.sendMail({
-        from: `"Soporte MedBay" <${process.env.EMAIL_USER}>`,
+        from: `"MedBay Support" <${process.env.EMAIL_USER}>`,
         to: data.user_email,
-        subject: `Hemos recibido tu solicitud de cotización`,
+        subject: `We have received your quote request`,
         html: htmlClient,
         attachments: getBrandingAttachments()
       });
 
       await createAdminNotification({
-        type: 'Solicitud de Cotización',
-        senderName: data.user_name || 'Invitado',
+        type: 'Quote Request',
+        senderName: data.user_name || 'Guest',
         senderEmail: data.user_email,
-        subject: `Cotización: ${req.product_name}`,
+        subject: `Quote: ${req.product_name}`,
         source: 'quote',
         sourceId: data.id,
         content: {
@@ -361,7 +361,7 @@ const NotificationService = {
       });
 
     } catch (error) {
-      console.error('[NotificationService] Error en notifyQuoteCreated:', error);
+      console.error('[NotificationService] Error in notifyQuoteCreated:', error);
     }
   },
 
@@ -372,23 +372,23 @@ const NotificationService = {
       const prop = data.admin_proposal;
 
       const htmlClient = generateQuoteResponseTemplate({
-        userName: data.user_name || 'Cliente',
+        userName: data.user_name || 'Customer',
         productName: req.product_name,
         sku: req.sku,
         quantity: req.quantity_asked,
-        message: prop.admin_notes || 'Propuesta adjunta.' 
+        message: prop.admin_notes || 'Proposal attached.' 
       });
 
       await transporter.sendMail({
-        from: `"Ventas MedBay" <${process.env.EMAIL_USER}>`,
+        from: `"MedBay Sales" <${process.env.EMAIL_USER}>`,
         to: data.user_email,
-        subject: `📋 Propuesta Comercial: ${req.product_name}`,
+        subject: `📋 Commercial Proposal: ${req.product_name}`,
         html: htmlClient,
         attachments: getBrandingAttachments()
       });
 
     } catch (error) {
-      console.error('[NotificationService] Error en notifyQuoteProposalSent:', error);
+      console.error('[NotificationService] Error in notifyQuoteProposalSent:', error);
     }
   },
 
@@ -407,18 +407,18 @@ const NotificationService = {
       });
 
       await transporter.sendMail({
-        from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
+        from: `"MedBay System" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com",
-        subject: `✅ Cotización ACEPTADA por Cliente`,
+        subject: `✅ Quote ACCEPTED by Customer`,
         html: htmlAdmin,
         attachments: getBrandingAttachments()
       });
 
       await createAdminNotification({
-        type: 'Cotización Aceptada',
+        type: 'Quote Accepted',
         senderName: data.user_name,
         senderEmail: data.user_email,
-        subject: `¡Venta Cerrada! ${data.product_request.product_name}`,
+        subject: `Sale Closed! ${data.product_request.product_name}`,
         source: 'quote',
         sourceId: data.id,
         content: {
@@ -428,7 +428,7 @@ const NotificationService = {
       });
 
     } catch (error) {
-      console.error('[NotificationService] Error en notifyQuoteAccepted:', error);
+      console.error('[NotificationService] Error in notifyQuoteAccepted:', error);
     }
   },
 
@@ -443,18 +443,18 @@ const NotificationService = {
       });
 
       await transporter.sendMail({
-        from: `"Sistema MedBay" <${process.env.EMAIL_USER}>`,
+        from: `"MedBay System" <${process.env.EMAIL_USER}>`,
         to: "medbay.info02@gmail.com",
-        subject: `❌ Cotización RECHAZADA por Cliente`,
+        subject: `❌ Quote REJECTED by Customer`,
         html: htmlAdmin,
         attachments: getBrandingAttachments()
       });
 
       await createAdminNotification({
-        type: 'Cotización Rechazada',
+        type: 'Quote Rejected',
         senderName: data.user_name,
         senderEmail: data.user_email,
-        subject: `Rechazo: ${data.product_request.product_name}`,
+        subject: `Rejection: ${data.product_request.product_name}`,
         source: 'quote',
         sourceId: data.id,
         content: {
@@ -463,7 +463,7 @@ const NotificationService = {
       });
 
     } catch (error) {
-      console.error('[NotificationService] Error en notifyQuoteRejected:', error);
+      console.error('[NotificationService] Error in notifyQuoteRejected:', error);
     }
   }
 };

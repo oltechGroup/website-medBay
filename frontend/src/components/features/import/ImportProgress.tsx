@@ -13,10 +13,10 @@ interface ImportProgressProps {
 }
 
 const STEPS = [
-  { key: 'uploaded', label: 'Archivo Subido', description: 'Archivo cargado y verificado' },
-  { key: 'processing', label: 'Procesando Datos', description: 'Creando productos y lotes' },
-  { key: 'completed', label: 'Completado', description: 'Importación finalizada' },
-  { key: 'completed_with_errors', label: 'Completado con Errores', description: 'Importación finalizada con advertencias' },
+  { key: 'uploaded', label: 'File Uploaded', description: 'File uploaded and verified' },
+  { key: 'processing', label: 'Processing Data', description: 'Creating products and lots' },
+  { key: 'completed', label: 'Completed', description: 'Import finished' },
+  { key: 'completed_with_errors', label: 'Completed with Errors', description: 'Import finished with warnings' },
 ];
 
 export const ImportProgress: React.FC<ImportProgressProps> = ({
@@ -29,13 +29,13 @@ export const ImportProgress: React.FC<ImportProgressProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const startTimeRef = useRef<number>(Date.now());
-  const [estimatedTime, setEstimatedTime] = useState<string>('Calculando...');
+  const [estimatedTime, setEstimatedTime] = useState<string>('Calculating...');
 
   const formatEstimatedTime = (seconds: number): string => {
-    if (seconds <= 0) return 'Completando...';
-    if (seconds < 60) return `${Math.ceil(seconds)} segundos`;
+    if (seconds <= 0) return 'Completing...';
+    if (seconds < 60) return `${Math.ceil(seconds)} seconds`;
     const minutes = Math.ceil(seconds / 60);
-    return `${minutes} minuto${minutes > 1 ? 's' : ''}`;
+    return `${minutes} minute${minutes > 1 ? 's' : ''}`;
   };
 
   const calculateStats = (progressData: ImportProgressType) => {
@@ -49,7 +49,7 @@ export const ImportProgress: React.FC<ImportProgressProps> = ({
   };
 
   useEffect(() => {
-    if (!uploadId) { setError('ID de upload no proporcionado'); setLoading(false); return; }
+    if (!uploadId) { setError('Upload ID not provided'); setLoading(false); return; }
     let isMounted = true;
     let pollingInterval: NodeJS.Timeout;
 
@@ -70,16 +70,16 @@ export const ImportProgress: React.FC<ImportProgressProps> = ({
             onComplete?.(progressData);
             clearInterval(pollingInterval);
           } else if (progressData.status === 'error') {
-            const errorMessage = progressData.error_messages?.errors?.[0]?.error || 'Error en la importación';
+            const errorMessage = progressData.error_messages?.errors?.[0]?.error || 'Import error';
             setError(errorMessage);
             onError?.(errorMessage);
             clearInterval(pollingInterval);
           }
-        } else { setError('No se pudo obtener el progreso de la importación'); }
+        } else { setError('Could not retrieve import progress'); }
         setLoading(false);
       } catch (err) {
         if (!isMounted) return;
-        setError('Error al conectar con el servidor');
+        setError('Error connecting to the server');
         setLoading(false);
       }
     };
@@ -106,10 +106,10 @@ export const ImportProgress: React.FC<ImportProgressProps> = ({
       <div className="text-center">
         <h3 className="text-lg font-semibold text-gray-900">
            {progress.status === 'error' && '❌ Error'}
-           {progress.status === 'completed_with_errors' && '⚠️ Completado con Errores'}
-           {(progress.status === 'completed' || progress.status === 'finished') && '✅ Completado'}
-           {progress.status === 'processing' && '🔄 Procesando'}
-           {progress.status === 'uploaded' && '📤 Listo'}
+           {progress.status === 'completed_with_errors' && '⚠️ Completed with Errors'}
+           {(progress.status === 'completed' || progress.status === 'finished') && '✅ Completed'}
+           {progress.status === 'processing' && '🔄 Processing'}
+           {progress.status === 'uploaded' && '📤 Ready'}
         </h3>
         <p className="text-gray-600 mt-1">{progress.current_operation}</p>
       </div>
@@ -133,7 +133,7 @@ export const ImportProgress: React.FC<ImportProgressProps> = ({
                     isCompleted ? 'bg-green-100 border-green-500 text-green-600' :
                     isCurrent ? 'bg-blue-100 border-blue-500 text-blue-600' : 'bg-gray-100 border-gray-300'
                   }`}>
-                    {/* Visual Fix: Si ya terminó, mostrar Check en lugar de spinner */}
+                    {/* Visual Fix: If finished, show Check instead of spinner */}
                     {isCompleted || (isCurrent && isFinalState) ? <CheckCircle size={20}/> : 
                      isCurrent ? <Loader size={20} className="animate-spin"/> : index + 1}
                   </div>
@@ -145,17 +145,17 @@ export const ImportProgress: React.FC<ImportProgressProps> = ({
         </div>
         
         <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div className="bg-blue-50 p-3 rounded text-blue-700"><b>{processedRows}/{totalRows}</b><div className="text-xs">Filas</div></div>
-            <div className="bg-green-50 p-3 rounded text-green-700"><b>{successCount}</b><div className="text-xs">Éxitos</div></div>
-            <div className="bg-red-50 p-3 rounded text-red-700"><b>{errorCount}</b><div className="text-xs">Errores</div></div>
-            <div className="bg-purple-50 p-3 rounded text-purple-700"><b>{percentage}%</b><div className="text-xs">Progreso</div></div>
+            <div className="bg-blue-50 p-3 rounded text-blue-700"><b>{processedRows}/{totalRows}</b><div className="text-xs">Rows</div></div>
+            <div className="bg-green-50 p-3 rounded text-green-700"><b>{successCount}</b><div className="text-xs">Successes</div></div>
+            <div className="bg-red-50 p-3 rounded text-red-700"><b>{errorCount}</b><div className="text-xs">Errors</div></div>
+            <div className="bg-purple-50 p-3 rounded text-purple-700"><b>{percentage}%</b><div className="text-xs">Progress</div></div>
         </div>
 
         {errorList.length > 0 && (
             <div className="mt-4 p-3 bg-red-50 rounded border border-red-200 text-sm text-red-800 max-h-32 overflow-y-auto">
-                <div className="font-bold mb-2">{errorList.length} Errores:</div>
+                <div className="font-bold mb-2">{errorList.length} Errors:</div>
                 {errorList.map((e: any, i: number) => (
-                    <div key={i}>{e.error || e.message} {e.row_index && `(Fila ${e.row_index})`}</div>
+                    <div key={i}>{e.error || e.message} {e.row_index && `(Row ${e.row_index})`}</div>
                 ))}
             </div>
         )}

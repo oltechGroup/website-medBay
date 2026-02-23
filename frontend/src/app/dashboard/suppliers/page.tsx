@@ -1,3 +1,4 @@
+//fronend/src/app/dashboard/suppliers/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -30,7 +31,7 @@ export default function SuppliersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Filtrar proveedores
+  // Filter suppliers
   const filteredSuppliers = suppliers.filter(supplier => {
     const matchesSearch = 
       supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,7 +47,7 @@ export default function SuppliersPage() {
     return matchesSearch && matchesCountry && matchesStatus;
   });
 
-  // Paginación
+  // Pagination
   const totalPages = Math.ceil(filteredSuppliers.length / itemsPerPage);
   const paginatedSuppliers = filteredSuppliers.slice(
     (currentPage - 1) * itemsPerPage,
@@ -73,11 +74,11 @@ export default function SuppliersPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Building className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error al cargar proveedores</h2>
-          <p className="text-gray-600 mb-6">Ocurrió un problema al cargar la información de proveedores.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error loading suppliers</h2>
+          <p className="text-gray-600 mb-6">There was a problem loading the supplier information.</p>
           <Button onClick={handleRefresh} variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Reintentar
+            Retry
           </Button>
         </div>
       </div>
@@ -89,8 +90,8 @@ export default function SuppliersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Proveedores</h1>
-          <p className="text-gray-600 mt-2">Gestiona tus proveedores y su información de contacto</p>
+          <h1 className="text-3xl font-bold text-gray-900">Suppliers</h1>
+          <p className="text-gray-600 mt-2">Manage your suppliers and their contact information</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <Button 
@@ -100,28 +101,28 @@ export default function SuppliersPage() {
             disabled={isLoading}
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            Actualizar
+            Refresh
           </Button>
           <Link href="/dashboard/suppliers/new" className="w-full sm:w-auto">
             <Button className="w-full justify-center">
               <Plus className="h-4 w-4 mr-2" />
-              Agregar Proveedor
+              Add Supplier
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* Tarjetas de estadísticas */}
+      {/* Stats cards */}
       <SupplierStatsCards stats={stats} isLoading={isLoading} />
 
-      {/* Filtros */}
+      {/* Filters */}
       <SupplierFilters
         filters={filters}
         onSearch={handleSearch}
         onFilterChange={handleFilterChange}
       />
 
-      {/* Tabla de proveedores */}
+      {/* Suppliers table */}
       <SupplierTable
         suppliers={paginatedSuppliers}
         loading={isLoading}
@@ -134,11 +135,11 @@ export default function SuppliersPage() {
         }}
       />
 
-      {/* Información de paginación */}
+      {/* Pagination info */}
       {filteredSuppliers.length > 0 && (
         <div className="text-center text-sm text-gray-600">
-          Mostrando {paginatedSuppliers.length} de {filteredSuppliers.length} proveedores
-          {totalPages > 1 && ` - Página ${currentPage} de ${totalPages}`}
+          Showing {paginatedSuppliers.length} out of {filteredSuppliers.length} suppliers
+          {totalPages > 1 && ` - Page ${currentPage} of ${totalPages}`}
         </div>
       )}
     </div>

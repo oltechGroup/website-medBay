@@ -27,7 +27,7 @@ export default function ManufacturerTable({
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
+    return date.toLocaleDateString('en-US', {
       year: 'numeric', month: 'long', day: 'numeric',
       hour: '2-digit', minute: '2-digit'
     });
@@ -49,8 +49,8 @@ export default function ManufacturerTable({
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
         <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No hay fabricantes</h3>
-        <p className="text-gray-500 mb-6">Comienza agregando tu primer fabricante al sistema.</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No manufacturers</h3>
+        <p className="text-gray-500 mb-6">Start by adding your first manufacturer to the system.</p>
       </div>
     );
   }
@@ -58,7 +58,7 @@ export default function ManufacturerTable({
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-        <h3 className="text-lg font-semibold text-gray-900">Fabricantes ({manufacturers.length})</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Manufacturers ({manufacturers.length})</h3>
       </div>
 
       <div className="divide-y divide-gray-200">
@@ -106,15 +106,15 @@ export default function ManufacturerTable({
                 )}
 
                 <div className="flex items-center space-x-6 text-xs text-gray-500 pt-2 border-t border-gray-200">
-                    <div className="flex items-center space-x-2"><Calendar className="h-3 w-3" /><span><strong>Creado:</strong> {formatDate(manufacturer.created_at)}</span></div>
+                    <div className="flex items-center space-x-2"><Calendar className="h-3 w-3" /><span><strong>Created:</strong> {formatDate(manufacturer.created_at)}</span></div>
                 </div>
               </div>
 
               <div className="flex items-center space-x-2 ml-4">
-                <button onClick={() => handleEdit(manufacturer)} className="p-2 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
+                <button onClick={() => handleEdit(manufacturer)} className="p-2 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors" title="Edit">
                   <Edit2 className="h-4 w-4" />
                 </button>
-                <button onClick={() => onDelete(manufacturer.id)} className="p-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors" title="Eliminar">
+                <button onClick={() => onDelete(manufacturer.id)} className="p-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors" title="Delete">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>

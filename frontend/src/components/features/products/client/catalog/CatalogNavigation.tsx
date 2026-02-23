@@ -1,3 +1,4 @@
+//frontend/src/components/features/products/client/catalog/CatalogNavigation.tsx
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -18,24 +19,24 @@ export const CatalogNavigation = () => {
   const sections = [
     { 
       id: 'available', 
-      label: 'Vigentes', 
-      desc: 'Garantía de fábrica',
+      label: 'Current', 
+      desc: 'Factory warranty',
       icon: CheckCircle, 
       color: 'bg-emerald-600', 
       lightColor: 'bg-emerald-50 text-emerald-700' 
     },
     { 
       id: 'near_expiry', 
-      label: 'Próximos a Vencer', 
-      desc: 'Precios reducidos',
+      label: 'Near Expiry', 
+      desc: 'Reduced prices',
       icon: AlertTriangle, 
       color: 'bg-amber-500', 
       lightColor: 'bg-amber-50 text-amber-700' 
     },
     { 
       id: 'expired', 
-      label: 'Outlet / Caducados', 
-      desc: 'Uso no clínico',
+      label: 'Outlet / Expired', 
+      desc: 'Non-clinical use',
       icon: XCircle, 
       color: 'bg-red-600', 
       lightColor: 'bg-red-50 text-red-700' 
@@ -51,7 +52,7 @@ export const CatalogNavigation = () => {
             onClick={() => handleNavigate(section.id)}
             className="group relative bg-white rounded-2xl md:rounded-[2rem] border border-slate-100 p-5 md:p-6 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all duration-500 text-left flex items-center gap-4 md:gap-5 overflow-hidden active:scale-[0.98]"
           >
-            {/* Círculo de fondo sutil al hover */}
+            {/* Subtle background circle on hover */}
             <div className={`absolute -right-4 -bottom-4 w-20 h-20 md:w-24 md:h-24 rounded-full opacity-0 group-hover:opacity-5 transition-opacity ${section.color}`}></div>
             
             <div className={`p-3 md:p-4 rounded-xl md:rounded-2xl text-white shadow-lg shadow-current/10 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 ${section.color}`}>
@@ -73,7 +74,7 @@ export const CatalogNavigation = () => {
   return (
     <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 mb-6 md:mb-10 bg-white p-2 md:p-3 rounded-2xl md:rounded-[2rem] border border-slate-100 shadow-sm">
       
-      {/* Botón Volver - Ancho completo en móvil */}
+      {/* Back Button - Full width on mobile */}
       <button
         onClick={() => handleNavigate('all')}
         className="w-full md:w-auto group flex items-center justify-center md:justify-start gap-3 text-slate-500 hover:text-blue-600 font-black text-xs uppercase tracking-widest transition-all px-2 py-2 md:pl-2"
@@ -81,10 +82,10 @@ export const CatalogNavigation = () => {
         <div className="bg-slate-100 p-2 rounded-full group-hover:bg-blue-50 group-hover:text-blue-600 transition-all">
           <ArrowLeft size={16} />
         </div>
-        Volver al Catálogo
+        Back to Catalog
       </button>
 
-      {/* Tabs - Scroll horizontal en móviles muy pequeños o wrap */}
+      {/* Tabs - Horizontal scroll on very small mobiles or wrap */}
       <div className="flex w-full md:w-auto gap-1 md:gap-2 bg-slate-100 p-1 md:p-1.5 rounded-xl md:rounded-2xl overflow-x-auto no-scrollbar">
         {sections.map((section) => {
           const isActive = currentStatus === section.id;
@@ -99,7 +100,7 @@ export const CatalogNavigation = () => {
               }`}
             >
               <section.icon size={14} className={isActive ? 'text-blue-600' : 'text-slate-300'} />
-              {/* En móvil solo mostramos la primera palabra para ahorrar espacio */}
+              {/* On mobile only show the first word to save space */}
               <span className="hidden sm:inline">{section.label}</span>
               <span className="sm:hidden">{section.label.split(' ')[0]}</span>
             </button>

@@ -63,12 +63,12 @@ export const ProductForm = ({
   }, [product, mode]);
 
 const loadExistingImages = async (productId: string) => {
-  console.log('🔄 Cargando imágenes para producto:', productId);
+  console.log('🔄 Loading images for product:', productId);
   try {
     const images = await getProductImages(productId);
-    console.log('📸 Imágenes obtenidas del backend:', images);
+    console.log('📸 Images obtained from backend:', images);
     setExistingImages(images || []);
-    console.log('✅ Estado existingImages actualizado');
+    console.log('✅ existingImages state updated');
   } catch (error) {
     console.error('❌ Error loading existing images:', error);
     setExistingImages([]);
@@ -77,9 +77,9 @@ const loadExistingImages = async (productId: string) => {
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!formData.description.trim()) newErrors.description = 'Descripción requerida';
-    if (formData.description.length > 500) newErrors.description = 'Máximo 500 caracteres';
-    if (formData.global_sku && formData.global_sku.length > 100) newErrors.global_sku = 'SKU demasiado largo';
+    if (!formData.description.trim()) newErrors.description = 'Description is required';
+    if (formData.description.length > 500) newErrors.description = 'Maximum 500 characters';
+    if (formData.global_sku && formData.global_sku.length > 100) newErrors.global_sku = 'SKU is too long';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -96,7 +96,7 @@ const loadExistingImages = async (productId: string) => {
       await deleteImage(imageId);
       setExistingImages(prev => prev.filter(img => img.id !== imageId));
     } catch (error) {
-      console.error('Error eliminando imagen:', error);
+      console.error('Error deleting image:', error);
     }
   };
 
@@ -106,8 +106,8 @@ const loadExistingImages = async (productId: string) => {
       await setPrimaryImage(imageId);
       setExistingImages(prev => prev.map(img => ({ ...img, is_primary: img.id === imageId })));
     } catch (error) {
-      console.error('Error estableciendo imagen principal:', error);
-      alert("Error al establecer imagen principal. Verifica la conexión.");
+      console.error('Error setting primary image:', error);
+      alert("Error setting primary image. Check your connection.");
     }
   };
 
@@ -144,7 +144,7 @@ const loadExistingImages = async (productId: string) => {
 
       await uploadImagesWithMetadata(productId, formData);
     } catch (error) {
-      console.error('Error subiendo imágenes:', error);
+      console.error('Error uploading images:', error);
       throw error;
     } finally {
       setIsUploadingImages(false);
@@ -161,8 +161,8 @@ const loadExistingImages = async (productId: string) => {
       const productId = result?.product?.id || result?.id || product?.id;
       
       if (!productId) {
-         console.error("Respuesta del servidor:", result);
-         throw new Error('Error crítico: No se obtuvo el ID del producto.');
+         console.error("Server response:", result);
+         throw new Error('Critical error: Could not obtain product ID.');
       }
 
       if (selectedImages.length > 0) {
@@ -172,13 +172,13 @@ const loadExistingImages = async (productId: string) => {
       router.push('/dashboard/products');
       
     } catch (error) {
-      console.error('Error en envío:', error);
+      console.error('Submission error:', error);
     }
   };
 
   const isSubmittingForm = isSubmitting || isUploadingImages;
 
-  // Clases comunes para inputs para asegurar visibilidad
+  // Common classes for inputs to ensure visibility
   const inputClasses = "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 placeholder-gray-400";
   const errorClasses = "border-red-300";
   const normalClasses = "border-gray-300";
@@ -186,42 +186,42 @@ const loadExistingImages = async (productId: string) => {
   return (
     <div className="max-w-6xl mx-auto">
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Info Básica */}
+        {/* Basic Info */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Información del Producto</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Product Information</h3>
           <div className="grid grid-cols-1 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Descripción *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 rows={3}
                 className={`${inputClasses} ${errors.description ? errorClasses : normalClasses}`}
-                placeholder="Escribe el nombre o descripción del producto..."
+                placeholder="Type the name or description of the product..."
               />
               {errors.description && <p className="text-sm text-red-600 mt-1">{errors.description}</p>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">SKU Global</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Global SKU</label>
                 <input
                   type="text"
                   value={formData.global_sku}
                   onChange={(e) => handleInputChange('global_sku', e.target.value)}
                   className={inputClasses}
-                  placeholder="Ej: SKU-12345"
+                  placeholder="e.g.: SKU-12345"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Fabricante</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Manufacturer</label>
                 <select
                   value={formData.manufacturer_id}
                   onChange={(e) => handleInputChange('manufacturer_id', e.target.value)}
                   className={inputClasses}
                 >
-                  <option value="">Seleccionar fabricante...</option>
+                  <option value="">Select manufacturer...</option>
                   {manufacturers.map(m => (
                     <option key={m.id} value={m.id} className="text-gray-900">
                       {m.name}
@@ -232,21 +232,21 @@ const loadExistingImages = async (productId: string) => {
             </div>
             
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Notas</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => handleInputChange('notes', e.target.value)}
                   rows={2}
                   className={inputClasses}
-                  placeholder="Detalles adicionales..."
+                  placeholder="Additional details..."
                 />
             </div>
           </div>
         </div>
 
-        {/* Imágenes */}
+        {/* Images */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Galería de Imágenes</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Image Gallery</h3>
           <ProductImageFormUpload
             productId={product?.id}
             onImagesChange={setSelectedImages}
@@ -257,9 +257,9 @@ const loadExistingImages = async (productId: string) => {
           />
         </div>
 
-        {/* Categorías */}
+        {/* Categories */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Categorías</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Categories</h3>
             <div className="space-y-3">
                 <div className="flex flex-wrap gap-2">
                     {categories.filter(c => formData.category_ids.includes(c.id)).map(cat => (
@@ -277,7 +277,7 @@ const loadExistingImages = async (productId: string) => {
                     }}
                     className={inputClasses}
                 >
-                    <option value="">+ Agregar categoría</option>
+                    <option value="">+ Add category</option>
                     {categories.filter(c => !formData.category_ids.includes(c.id)).map(c => (
                         <option key={c.id} value={c.id} className="text-gray-900">{c.name}</option>
                     ))}
@@ -298,7 +298,7 @@ const loadExistingImages = async (productId: string) => {
             className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white font-medium"
             disabled={isSubmittingForm}
           >
-            Cancelar
+            Cancel
           </button>
           <button
             type="submit"
@@ -308,11 +308,10 @@ const loadExistingImages = async (productId: string) => {
             {isSubmittingForm && (
                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             )}
-            {mode === 'create' ? 'Crear Producto' : 'Guardar Cambios'}
+            {mode === 'create' ? 'Create Product' : 'Save Changes'}
           </button>
         </div>
       </form>
     </div>
   );
-  
 };

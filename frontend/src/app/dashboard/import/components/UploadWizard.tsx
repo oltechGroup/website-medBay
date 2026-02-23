@@ -15,9 +15,9 @@ import { ImportResults } from '@/components/features/import/ImportResults';
 import { ImportProgress as ImportProgressComponent } from '@/components/features/import/ImportProgress';
 
 const CATEGORIES = [
-  { id: 'regular', label: 'En Fecha', color: 'bg-green-100 text-green-700 border-green-200 ring-green-500' },
-  { id: 'near_expiry', label: 'Fecha Corta', color: 'bg-yellow-100 text-yellow-700 border-yellow-200 ring-yellow-500' },
-  { id: 'expired', label: 'Caducados', color: 'bg-red-100 text-red-700 border-red-200 ring-red-500' }
+  { id: 'regular', label: 'In Date', color: 'bg-green-100 text-green-700 border-green-200 ring-green-500' },
+  { id: 'near_expiry', label: 'Short-Dated', color: 'bg-yellow-100 text-yellow-700 border-yellow-200 ring-yellow-500' },
+  { id: 'expired', label: 'Expired', color: 'bg-red-100 text-red-700 border-red-200 ring-red-500' }
 ];
 
 export const UploadWizard = () => {
@@ -55,14 +55,14 @@ export const UploadWizard = () => {
   
   const isAdmin = user?.verification_level === 'admin';
 
-  // ✅ EFECTO DE AUTO-RESTAURACIÓN (MEMORIA DE SESIÓN)
+  // ✅ AUTO-RESTORATION EFFECT (SESSION MEMORY)
   useEffect(() => {
     const checkSession = async () => {
         if (step === 1) {
             const active = await getActiveStatus();
             if (active && active.id) {
                 setUploadId(active.id);
-                // Si ya terminó, seteamos el progreso para que la UI sepa que hay resultados
+                // If it finished, set progress so UI knows there are results
                 if (['completed', 'completed_with_errors', 'finished', 'failed'].includes(active.status)) {
                     setProgress(active);
                 }
@@ -147,7 +147,7 @@ export const UploadWizard = () => {
     setCleaned(false);
   };
 
-  // Variable auxiliar para saber si terminó
+  // Helper variable to check if finished
   const isFinished = progress && ['completed', 'completed_with_errors', 'finished', 'failed'].includes(progress.status);
 
   return (
@@ -166,11 +166,11 @@ export const UploadWizard = () => {
         <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
-              <span className="flex items-center"><Building className="mr-2 h-5 w-5 text-blue-600"/> Proveedor</span>
+              <span className="flex items-center"><Building className="mr-2 h-5 w-5 text-blue-600"/> Supplier</span>
               
               {isAdmin && (
                 <button onClick={() => setShowCreateModal(true)} className="text-sm text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-3 py-1 rounded-full transition-colors">
-                  + Nuevo Proveedor
+                  + New Supplier
                 </button>
               )}
             </h3>
@@ -180,7 +180,7 @@ export const UploadWizard = () => {
               value={supplierId}
               onChange={e => setSupplierId(e.target.value)}
             >
-              <option value="" className="text-gray-400">-- Selecciona un Proveedor --</option>
+              <option value="" className="text-gray-400">-- Select a Supplier --</option>
               {activeSuppliers.map((s: any) => {
                  const countryInfo = countries?.find((c: any) => c.code === s.country_code);
                  const details = countryInfo ? `${countryInfo.name} - ${countryInfo.currency_code} ${countryInfo.currency_symbol}` : s.country_code;
@@ -191,7 +191,7 @@ export const UploadWizard = () => {
 
           {supplierId && (
             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm animate-in fade-in slide-in-from-bottom-4">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Categoría</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Category</h3>
               <div className="grid grid-cols-3 gap-3 mb-6">
                 {CATEGORIES.map(cat => (
                   <button key={cat.id} onClick={() => setCategory(cat.id)} className={`p-3 rounded-lg border-2 text-sm font-bold transition-all ${category === cat.id ? `${cat.color} ring-2 ring-offset-1` : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}>{cat.label}</button>
@@ -199,16 +199,16 @@ export const UploadWizard = () => {
               </div>
               
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center justify-between">
-                <div className="flex flex-col"><span className="text-sm text-orange-900 font-bold">Limpieza de Inventario</span><span className="text-xs text-orange-700 mt-1">¿Borrar stock anterior de esta categoría?</span></div>
+                <div className="flex flex-col"><span className="text-sm text-orange-900 font-bold">Inventory Cleanup</span><span className="text-xs text-orange-700 mt-1">Delete previous stock for this category?</span></div>
                 
                 {cleaned ? (
-                  <span className="flex items-center text-green-700 font-bold text-sm bg-green-100 px-4 py-2 rounded-lg border border-green-200 shadow-sm"><CheckCircle2 className="w-4 h-4 mr-2"/> Listo</span>
+                  <span className="flex items-center text-green-700 font-bold text-sm bg-green-100 px-4 py-2 rounded-lg border border-green-200 shadow-sm"><CheckCircle2 className="w-4 h-4 mr-2"/> Done</span>
                 ) : (
                   isAdmin ? (
-                    <button onClick={() => setShowCleanModal(true)} className="flex items-center bg-white border border-orange-300 text-orange-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors shadow-sm"><Trash2 className="w-4 h-4 mr-2"/> Limpiar Ahora</button>
+                    <button onClick={() => setShowCleanModal(true)} className="flex items-center bg-white border border-orange-300 text-orange-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors shadow-sm"><Trash2 className="w-4 h-4 mr-2"/> Clean Now</button>
                   ) : (
                     <span className="flex items-center text-gray-400 text-xs bg-gray-100 px-3 py-1 rounded border border-gray-200">
-                      <Lock className="w-3 h-3 mr-1"/> Solo Admin
+                      <Lock className="w-3 h-3 mr-1"/> Admin Only
                     </span>
                   )
                 )}
@@ -216,7 +216,7 @@ export const UploadWizard = () => {
             </div>
           )}
           <div className="flex justify-end pt-4">
-            <button disabled={!supplierId} onClick={() => setStep(2)} className="flex items-center bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5">Siguiente <ArrowRight className="ml-2 w-5 h-5"/></button>
+            <button disabled={!supplierId} onClick={() => setStep(2)} className="flex items-center bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5">Next <ArrowRight className="ml-2 w-5 h-5"/></button>
           </div>
         </div>
       )}
@@ -226,38 +226,38 @@ export const UploadWizard = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
              <div className="flex items-center space-x-3">
                <div className="bg-white p-2 rounded-full shadow-sm"><FileText className="w-5 h-5 text-blue-600" /></div>
-               <div><div className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Importando para</div><div className="text-gray-900 font-bold">{selectedSupplierData?.name}</div></div>
+               <div><div className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Importing for</div><div className="text-gray-900 font-bold">{selectedSupplierData?.name}</div></div>
              </div>
-             <div className="text-right"><div className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Categoría</div><div className="text-gray-900 font-bold">{selectedCategoryLabel}</div></div>
+             <div className="text-right"><div className="text-xs text-blue-600 font-semibold uppercase tracking-wider">Category</div><div className="text-gray-900 font-bold">{selectedCategoryLabel}</div></div>
           </div>
           <FileUploadZone onFileSelect={handleUpload} isUploading={loading} />
-          {loading && <div className="text-center mt-6"><div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div><p className="text-blue-600 font-medium">Subiendo y analizando archivo...</p></div>}
-          <div className="flex justify-start"><button onClick={() => setStep(1)} disabled={loading} className="flex items-center text-gray-500 hover:text-gray-700 font-medium px-4 py-2 transition-colors"><ArrowLeft className="w-4 h-4 mr-2"/> Volver</button></div>
+          {loading && <div className="text-center mt-6"><div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div><p className="text-blue-600 font-medium">Uploading and analyzing file...</p></div>}
+          <div className="flex justify-start"><button onClick={() => setStep(1)} disabled={loading} className="flex items-center text-gray-500 hover:text-gray-700 font-medium px-4 py-2 transition-colors"><ArrowLeft className="w-4 h-4 mr-2"/> Back</button></div>
         </div>
       )}
 
       {step === 3 && (
         <div className="animate-in fade-in slide-in-from-right-8 duration-500">
             <ColumnMapper previewData={preview} availableColumns={columns} currentMappings={mappings} onMappingsChange={setMappings} onComplete={handleStartProcess} />
-            <div className="mt-4"><button onClick={() => setStep(2)} className="flex items-center text-gray-500 hover:text-gray-700 font-medium px-4 py-2 transition-colors"><ArrowLeft className="w-4 h-4 mr-2"/> Corregir Archivo</button></div>
+            <div className="mt-4"><button onClick={() => setStep(2)} className="flex items-center text-gray-500 hover:text-gray-700 font-medium px-4 py-2 transition-colors"><ArrowLeft className="w-4 h-4 mr-2"/> Correct File</button></div>
         </div>
       )}
 
-      {/* ✅ CORRECCIÓN VISUAL: Estados mutuamente excluyentes */}
+      {/* ✅ VISUAL FIX: Mutually exclusive states */}
       {step === 4 && (
         <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in zoom-in-95">
            
            {!isFinished ? (
-             // CASO A: Aún procesando (Muestra la barra animada)
+             // CASE A: Still processing (Show animated progress bar)
              <ImportProgressComponent uploadId={uploadId} onComplete={(data) => setProgress(data)} />
            ) : (
-             // CASO B: Ya terminó (Muestra SOLO los resultados y el título)
+             // CASE B: Finished (Show ONLY results and title)
              <div className="space-y-4">
                 <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
                     <div className="bg-slate-100 p-2 rounded-full"><FileText className="w-5 h-5 text-slate-600"/></div>
-                    <h2 className="text-xl font-bold text-gray-800">Resultados de la Última Importación</h2>
+                    <h2 className="text-xl font-bold text-gray-800">Latest Import Results</h2>
                 </div>
-                {/* Pasamos 'progress' como data porque ya está completo */}
+                {/* We pass 'progress' as data since it is complete */}
                 <ImportResults progressData={progress!} onNewImport={handleReset} />
              </div>
            )}
@@ -268,15 +268,15 @@ export const UploadWizard = () => {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
           <div className="bg-white p-6 rounded-2xl w-96 shadow-2xl scale-100 animate-in zoom-in-95">
-            <h3 className="text-xl font-bold mb-4 text-gray-900">Nuevo Proveedor</h3>
-            <input className="w-full p-3 border border-gray-300 rounded-lg mb-3 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nombre del Proveedor" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} />
+            <h3 className="text-xl font-bold mb-4 text-gray-900">New Supplier</h3>
+            <input className="w-full p-3 border border-gray-300 rounded-lg mb-3 text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Supplier Name" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} />
             <select className="w-full p-3 border border-gray-300 rounded-lg mb-6 text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 outline-none" value={newSupplierCountry} onChange={e => setNewSupplierCountry(e.target.value)}>
-              <option value="">Seleccionar País</option>
+              <option value="">Select Country</option>
               {countries?.map((c: any) => <option key={c.code} value={c.code}>{c.name} ({c.currency_code} {c.currency_symbol})</option>)}
             </select>
             <div className="flex justify-end space-x-2">
-              <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancelar</button>
-              <button onClick={handleCreateSupplier} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-md">Crear</button>
+              <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancel</button>
+              <button onClick={handleCreateSupplier} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-md">Create</button>
             </div>
           </div>
         </div>
@@ -286,11 +286,11 @@ export const UploadWizard = () => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
           <div className="bg-white p-8 rounded-2xl w-96 text-center shadow-2xl scale-100 animate-in zoom-in-95">
             <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><AlertTriangle className="h-8 w-8 text-red-600"/></div>
-            <h3 className="text-xl font-bold mb-2 text-gray-900">¿Estás seguro?</h3>
-            <p className="text-gray-600 mb-6">Eliminarás <span className="font-bold">todo el stock</span> de esta categoría para este proveedor. Esta acción es irreversible.</p>
+            <h3 className="text-xl font-bold mb-2 text-gray-900">Are you sure?</h3>
+            <p className="text-gray-600 mb-6">You will delete <span className="font-bold">all stock</span> for this category for this supplier. This action is irreversible.</p>
             <div className="flex justify-center space-x-3">
-              <button onClick={() => setShowCleanModal(false)} className="px-5 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50">Cancelar</button>
-              <button onClick={handleClean} className="px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-200">{loading ? 'Borrando...' : 'Sí, Borrar Todo'}</button>
+              <button onClick={() => setShowCleanModal(false)} className="px-5 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50">Cancel</button>
+              <button onClick={handleClean} className="px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-200">{loading ? 'Deleting...' : 'Yes, Delete All'}</button>
             </div>
           </div>
         </div>
@@ -300,9 +300,9 @@ export const UploadWizard = () => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
           <div className="bg-white p-8 rounded-2xl w-80 text-center shadow-2xl scale-100 animate-in zoom-in-95">
             <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 className="h-8 w-8 text-green-600"/></div>
-            <h3 className="text-xl font-bold mb-2 text-gray-900">¡Limpieza Exitosa!</h3>
-            <p className="text-gray-600 mb-6 font-medium">Se eliminaron <span className="text-gray-900 font-bold">{cleanDeletedCount}</span> registros antiguos.</p>
-            <button onClick={() => setShowCleanSuccessModal(false)} className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-colors">Entendido</button>
+            <h3 className="text-xl font-bold mb-2 text-gray-900">Cleanup Successful!</h3>
+            <p className="text-gray-600 mb-6 font-medium"><span className="text-gray-900 font-bold">{cleanDeletedCount}</span> old records were removed.</p>
+            <button onClick={() => setShowCleanSuccessModal(false)} className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-colors">Got it</button>
           </div>
         </div>
       )}

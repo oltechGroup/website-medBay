@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/formatters";
 
-// Importamos los Modales
+// Modal Imports
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { UserDetailsModal } from "@/components/features/users/UserDetailsModal";
 import { DocumentViewerModal } from "@/components/features/documents/DocumentViewerModal";
@@ -20,7 +20,7 @@ export const ClientsTable = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<'all' | AccountStatus>('all');
 
-  // --- ESTADOS PARA MODALES ---
+  // --- MODAL STATES ---
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; type: 'approve' | 'reject'; userId: string } | null>(null);
   const [detailsModalId, setDetailsModalId] = useState<string | null>(null);
   const [docModalData, setDocModalData] = useState<DocumentData | null>(null);
@@ -33,27 +33,27 @@ export const ClientsTable = () => {
     role: 'all'
   });
 
-  // Traemos TODAS las licencias (admin) para cruzar datos con los usuarios
+  // Fetch ALL licenses (admin) to cross-reference data with users
   const { documents, updateStatus: updateDocStatus, isUpdating: isDocUpdating } = useDocuments('license', 'admin');
 
-  // Filtramos para no mostrar Staff en esta tabla (solo clientes)
+  // Filter out Staff from this table (only clients)
   const clients = users.filter(u => !['admin', 'sales_agent'].includes(u.verification_level));
 
   // --- HANDLERS ---
 
-  // 1. Buscar y abrir documento de registro
+  // 1. Find and open registration document
   const handleOpenDoc = (userDoc: DocumentData | undefined) => {
     if (userDoc) {
       setDocModalData(userDoc);
     } else {
-      alert("⚠️ Este usuario no tiene documentos de registro cargados o aprobados aún.");
+      alert("⚠️ This user has no registration documents uploaded or approved yet.");
     }
   };
 
-  // 2. Ejecutar Acción de Estado de CUENTA (Confirmada)
+  // 2. Execute ACCOUNT Status Action (Confirmed)
   const handleStatusAction = async () => {
     if (!confirmModal) return;
-    // Aquí reside el poder: Solo esta función cambia el estado del USUARIO a 'active' o 'rejected'
+    // Account status change to 'active' or 'rejected'
     const newStatus = confirmModal.type === 'approve' ? 'active' : 'rejected';
     await updateStatus({ id: confirmModal.userId, status: newStatus });
     setConfirmModal(null);
@@ -62,13 +62,13 @@ export const ClientsTable = () => {
   return (
     <div className="space-y-6">
       
-      {/* BARRA DE HERRAMIENTAS */}
+      {/* TOOLBAR */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-96">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
           <input 
             type="text" 
-            placeholder="Buscar cliente, empresa o email..." 
+            placeholder="Search client, company or email..." 
             className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -82,15 +82,15 @@ export const ClientsTable = () => {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
           >
-            <option value="all">Todos los estados</option>
-            <option value="pending">Pendientes</option>
-            <option value="active">Activos</option>
-            <option value="rejected">Rechazados</option>
+            <option value="all">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="active">Active</option>
+            <option value="rejected">Rejected</option>
           </select>
         </div>
       </div>
 
-      {/* TABLA DE CLIENTES */}
+      {/* CLIENTS TABLE */}
       <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="p-12 flex justify-center text-blue-600"><Loader2 className="animate-spin" size={32}/></div>
@@ -99,11 +99,11 @@ export const ClientsTable = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100 text-xs uppercase tracking-wider text-slate-400 font-bold">
-                  <th className="px-8 py-5">Usuario / Empresa</th>
-                  <th className="px-6 py-5">Nivel</th>
-                  <th className="px-6 py-5">Estado Cuenta</th>
-                  <th className="px-6 py-5">Documentación</th>
-                  <th className="px-6 py-5 text-right">Gestión</th>
+                  <th className="px-8 py-5">User / Company</th>
+                  <th className="px-6 py-5">Level</th>
+                  <th className="px-6 py-5">Account Status</th>
+                  <th className="px-6 py-5">Documentation</th>
+                  <th className="px-6 py-5 text-right">Management</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -111,12 +111,12 @@ export const ClientsTable = () => {
                   const roleInfo = getRoleLabel(client.verification_level);
                   const statusInfo = getStatusLabel(client.account_status);
                   
-                  // Encontramos el documento de licencia de este usuario para mostrar su estado
+                  // Find this user's license document to show its status
                   const userDoc = documents.find(d => d.owner_id === client.id && d.document_type === 'license');
 
                   return (
                     <tr key={client.id} className="hover:bg-blue-50/30 transition-colors group">
-                      {/* 1. Datos Usuario */}
+                      {/* 1. User Data */}
                       <td className="px-8 py-5">
                         <div className="flex flex-col">
                           <span className="font-bold text-slate-800 text-sm">{client.full_name}</span>
@@ -129,14 +129,14 @@ export const ClientsTable = () => {
                         </div>
                       </td>
 
-                      {/* 2. Nivel */}
+                      {/* 2. Level */}
                       <td className="px-6 py-5">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${roleInfo.color}`}>
                           {roleInfo.label}
                         </span>
                       </td>
 
-                      {/* 3. Estado Cuenta */}
+                      {/* 3. Account Status */}
                       <td className="px-6 py-5">
                         <span className={`flex items-center gap-1.5 w-fit px-3 py-1 rounded-full text-[10px] font-bold uppercase ${statusInfo.color}`}>
                           {client.account_status === 'active' ? <CheckCircle2 size={12}/> : 
@@ -145,7 +145,7 @@ export const ClientsTable = () => {
                         </span>
                       </td>
 
-                      {/* 4. Estado Documento (Visualización Rápida) */}
+                      {/* 4. Document Status (Quick View) */}
                       <td className="px-6 py-5">
                          {userDoc ? (
                             <div className="flex items-center gap-2">
@@ -162,33 +162,33 @@ export const ClientsTable = () => {
                                 >
                                   <FileText size={14} />
                                   <span className="text-[10px] font-bold uppercase">
-                                    {userDoc.status === 'verified' ? 'Aprobado' : 
-                                     userDoc.status === 'rejected' ? 'Rechazado' : 'Revisar'}
+                                    {userDoc.status === 'verified' ? 'Approved' : 
+                                     userDoc.status === 'rejected' ? 'Rejected' : 'Review'}
                                   </span>
                                 </button>
                             </div>
                          ) : (
-                            <span className="text-xs text-slate-400 italic">Sin archivo</span>
+                            <span className="text-xs text-slate-400 italic">No file</span>
                          )}
                          <div className="text-[10px] text-slate-400 font-mono mt-1 ml-1">
                            {formatDate(client.created_at)}
                          </div>
                       </td>
 
-                      {/* 5. Acciones Finales (Aprobar Cuenta) */}
+                      {/* 5. Final Actions (Approve Account) */}
                       <td className="px-6 py-5 text-right">
                         <div className="flex items-center justify-end gap-2">
                           
-                          {/* Ver Perfil 360 (Siempre disponible si no es pendiente o si queremos ver detalles) */}
+                          {/* View 360 Profile */}
                           <button 
                             onClick={() => setDetailsModalId(client.id)}
                             className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                            title="Perfil Completo y Órdenes"
+                            title="Full Profile and Orders"
                           >
                             <UserCog size={18} />
                           </button>
 
-                          {/* Acciones de Aprobación de CUENTA (Solo si está pendiente) */}
+                          {/* ACCOUNT Approval Actions (Only if pending) */}
                           {client.account_status === 'pending' && (
                             <>
                               <div className="w-px h-6 bg-slate-200 mx-1"></div>
@@ -196,7 +196,7 @@ export const ClientsTable = () => {
                                 onClick={() => setConfirmModal({ isOpen: true, type: 'approve', userId: client.id })}
                                 disabled={isUpdating}
                                 className="p-2 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                                title="Aprobar Acceso a Cuenta"
+                                title="Approve Account Access"
                               >
                                 <CheckCircle2 size={18} />
                               </button>
@@ -204,7 +204,7 @@ export const ClientsTable = () => {
                                 onClick={() => setConfirmModal({ isOpen: true, type: 'reject', userId: client.id })}
                                 disabled={isUpdating}
                                 className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Rechazar y Eliminar"
+                                title="Reject and Delete"
                               >
                                 <XCircle size={18} />
                               </button>
@@ -220,43 +220,43 @@ export const ClientsTable = () => {
           </div>
         )}
         
-        {/* PAGINACIÓN */}
+        {/* PAGINATION */}
         <div className="p-4 border-t border-slate-100 flex justify-center gap-4">
            <button 
              onClick={() => setPage(p => Math.max(1, p - 1))}
              disabled={page === 1 || isLoading}
              className="text-xs font-bold text-slate-500 hover:text-blue-600 disabled:opacity-50"
            >
-             Anterior
+             Previous
            </button>
-           <span className="text-xs font-bold text-slate-300">Página {page}</span>
+           <span className="text-xs font-bold text-slate-300">Page {page}</span>
            <button 
              onClick={() => setPage(p => p + 1)}
              disabled={isLoading || clients.length < 10}
              className="text-xs font-bold text-slate-500 hover:text-blue-600 disabled:opacity-50"
            >
-             Siguiente
+             Next
            </button>
         </div>
       </div>
 
-      {/* === MODALES === */}
+      {/* === MODALS === */}
 
-      {/* 1. Confirmación (Acción Final de Cuenta) */}
+      {/* 1. Confirmation (Final Account Action) */}
       <ConfirmationModal
         isOpen={!!confirmModal}
         onClose={() => setConfirmModal(null)}
         onConfirm={handleStatusAction}
-        title={confirmModal?.type === 'approve' ? "¿Aprobar Cliente?" : "¿Rechazar Solicitud?"}
+        title={confirmModal?.type === 'approve' ? "Approve Client?" : "Reject Request?"}
         description={confirmModal?.type === 'approve' 
-          ? "El usuario tendrá acceso inmediato a compras y precios mayoristas." 
-          : "El usuario será notificado y su cuenta quedará inhabilitada."}
+          ? "The user will have immediate access to purchases and wholesale prices." 
+          : "The user will be notified and their account will be disabled."}
         type={confirmModal?.type === 'approve' ? 'success' : 'danger'}
-        confirmText={confirmModal?.type === 'approve' ? 'Aprobar Acceso' : 'Rechazar'}
+        confirmText={confirmModal?.type === 'approve' ? 'Approve Access' : 'Reject'}
         isLoading={isUpdating}
       />
 
-      {/* 2. Detalles 360 */}
+      {/* 2. 360 Details */}
       {detailsModalId && (
         <UserDetailsModal 
           userId={detailsModalId} 
@@ -264,16 +264,16 @@ export const ClientsTable = () => {
         />
       )}
 
-      {/* 3. Visor de Documentos (Solo modifica estado del documento) */}
+      {/* 3. Document Viewer (Only modifies document status) */}
       {docModalData && (
         <DocumentViewerModal
           isOpen={!!docModalData}
           onClose={() => setDocModalData(null)}
           document={docModalData}
           onStatusChange={async (id, status, notes) => {
-             // Solo actualizamos el documento, no la cuenta
-             await updateDocStatus({ id, status, notes });
-             setDocModalData(null);
+              // We only update the document, not the account
+              await updateDocStatus({ id, status, notes });
+              setDocModalData(null);
           }}
           isUpdating={isDocUpdating}
         />

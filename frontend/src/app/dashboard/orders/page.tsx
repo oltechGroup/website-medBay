@@ -9,7 +9,7 @@ import {
 import { useAdminOrders, AdminOrder } from "@/hooks/useAdminOrders";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 
-// Importamos el Modal que acabamos de mejorar
+// Import the improved Modal
 import OrderDetailsModal from "./OrderDetailsModal"; 
 
 export default function OrdersPage() {
@@ -17,10 +17,10 @@ export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   
-  // Estado para abrir el Modal
+  // State for opening the Modal
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
 
-  // --- LÓGICA DE FILTRADO ---
+  // --- FILTERING LOGIC ---
   const filteredOrders = orders.filter(order => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
@@ -34,56 +34,55 @@ export default function OrdersPage() {
     return matchesSearch && matchesStatus;
   });
 
-  // --- CONTADORES PARA ALERTAS ---
-  // ✅ CORRECCIÓN DE TYPESCRIPT: Cambiado de 'pending_review' a 'pending_valuation'
+  // --- ALERT COUNTERS ---
   const pendingReview = orders.filter(o => o.status === 'pending_valuation').length;
   const paymentReview = orders.filter(o => o.status === 'payment_review').length;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       
-      {/* HEADER PRINCIPAL */}
+      {/* MAIN HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight">Gestión de Órdenes</h1>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight">Orders Management</h1>
           <p className="text-slate-500 text-sm mt-1">
-            Administra el flujo de compras, validación de stock y envíos.
+            Manage purchasing flow, stock validation, and shipments.
           </p>
         </div>
         
-        {/* ALERTAS RÁPIDAS (Badges de Acción) */}
+        {/* QUICK ALERTS (Action Badges) */}
         <div className="flex gap-3">
           {pendingReview > 0 && (
             <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-xl border border-amber-100 shadow-sm animate-pulse">
               <AlertCircle size={18} />
-              <span className="text-xs font-bold">{pendingReview} por cotizar envío</span>
+              <span className="text-xs font-bold">{pendingReview} needing shipping quote</span>
             </div>
           )}
           {paymentReview > 0 && (
             <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-xl border border-purple-100 shadow-sm">
               <CreditCard size={18} />
-              <span className="text-xs font-bold">{paymentReview} pagos por validar</span>
+              <span className="text-xs font-bold">{paymentReview} payments to validate</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* BARRA DE HERRAMIENTAS (Buscador y Filtros) */}
+      {/* TOOLBAR (Search and Filters) */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
         
-        {/* Buscador */}
+        {/* Search */}
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text" 
-            placeholder="Buscar por ID, Cliente, Email o Teléfono..." 
+            placeholder="Search by ID, Customer, Email or Phone..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-sm font-medium"
           />
         </div>
 
-        {/* Filtro de Estado (Select Bonito) */}
+        {/* Status Filter */}
         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
           <Filter size={18} className="text-slate-400 flex-shrink-0" />
           <select 
@@ -91,33 +90,32 @@ export default function OrdersPage() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="bg-white border border-slate-200 text-slate-600 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 outline-none cursor-pointer font-bold"
           >
-            <option value="all">📦 Todos los estados</option>
-            {/* ✅ Actualizado a los estados reales */}
-            <option value="pending_valuation">🟡 Cotizando Envío</option>
-            <option value="waiting_customer_approval">🟠 Esperando Aprobación</option>
-            <option value="payment_pending">🔵 Esperando Pago</option>
-            <option value="payment_review">🟣 Validando Pago</option>
-            <option value="processing">🟢 Preparando Envío</option>
-            <option value="shipped">🚚 Enviado</option>
-            <option value="delivered">✅ Entregado</option>
-            <option value="cancelled">❌ Cancelado</option>
-            <option value="rejected">⛔ Rechazado</option>
+            <option value="all">📦 All statuses</option>
+            <option value="pending_valuation">🟡 Quoting Shipping</option>
+            <option value="waiting_customer_approval">🟠 Waiting for Approval</option>
+            <option value="payment_pending">🔵 Awaiting Payment</option>
+            <option value="payment_review">🟣 Validating Payment</option>
+            <option value="processing">🟢 Preparing Shipment</option>
+            <option value="shipped">🚚 Shipped</option>
+            <option value="delivered">✅ Delivered</option>
+            <option value="cancelled">❌ Cancelled</option>
+            <option value="rejected">⛔ Rejected</option>
           </select>
         </div>
       </div>
 
-      {/* TABLA DE ÓRDENES */}
+      {/* ORDERS TABLE */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-400 uppercase bg-slate-50/50 border-b border-slate-100 font-black tracking-wider">
               <tr>
-                <th className="px-6 py-4">Orden ID</th>
-                <th className="px-6 py-4">Cliente / Contacto</th>
-                <th className="px-6 py-4">Fecha</th>
-                <th className="px-6 py-4 text-center">Estado</th>
+                <th className="px-6 py-4">Order ID</th>
+                <th className="px-6 py-4">Customer / Contact</th>
+                <th className="px-6 py-4">Date</th>
+                <th className="px-6 py-4 text-center">Status</th>
                 <th className="px-6 py-4 text-right">Total</th>
-                <th className="px-6 py-4 text-center">Acciones</th>
+                <th className="px-6 py-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -135,8 +133,8 @@ export default function OrdersPage() {
                   <td colSpan={6} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center justify-center opacity-40">
                       <Package size={48} className="mb-4 text-slate-300" />
-                      <p className="font-bold text-slate-600 text-lg">No se encontraron órdenes</p>
-                      <p className="text-sm">Intenta ajustar los filtros de búsqueda.</p>
+                      <p className="font-bold text-slate-600 text-lg">No orders found</p>
+                      <p className="text-sm">Try adjusting the search filters.</p>
                     </div>
                   </td>
                 </tr>
@@ -151,7 +149,7 @@ export default function OrdersPage() {
                       </span>
                     </td>
 
-                    {/* CLIENTE (Con Teléfono) */}
+                    {/* CUSTOMER (With Phone) */}
                     <td className="px-6 py-4">
                       <div className="font-bold text-slate-800">{order.customer_name}</div>
                       <div className="flex flex-col gap-0.5 mt-1">
@@ -171,7 +169,7 @@ export default function OrdersPage() {
                       )}
                     </td>
 
-                    {/* FECHA */}
+                    {/* DATE */}
                     <td className="px-6 py-4 text-slate-600 font-medium">
                       <div className="flex items-center gap-2">
                         <Calendar size={14} className="text-slate-400"/>
@@ -179,7 +177,7 @@ export default function OrdersPage() {
                       </div>
                     </td>
 
-                    {/* ESTADO (Badge Bonito en Español) */}
+                    {/* STATUS (English Badge) */}
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${getStatusColor(order.status)}`}>
                         {getStatusLabel(order.status)}
@@ -196,12 +194,12 @@ export default function OrdersPage() {
                       </div>
                     </td>
 
-                    {/* ACCIONES */}
+                    {/* ACTIONS */}
                     <td className="px-6 py-4 text-center">
                       <button 
                         onClick={() => setSelectedOrder(order)}
                         className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-blue-600 hover:border-blue-300 hover:shadow-md transition-all active:scale-95"
-                        title="Ver Detalles y Gestionar"
+                        title="View Details and Manage"
                       >
                         <Eye size={18} />
                       </button>
@@ -214,7 +212,7 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* MODAL DE DETALLES (Se abre al seleccionar una orden) */}
+      {/* DETAILS MODAL (Opens upon selection) */}
       {selectedOrder && (
         <OrderDetailsModal 
           isOpen={!!selectedOrder}

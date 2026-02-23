@@ -1,10 +1,11 @@
+//frontend/src/components/features/categories/CategoryTree.tsx
 'use client';
 
 import { useState } from 'react';
 import { useCategories } from '@/hooks/useCategories';
 import { Category } from '@/hooks/useCategories';
 
-// Extender la interfaz Category para el árbol
+// Extend Category interface for the tree structure
 interface CategoryWithChildren extends Category {
   children?: CategoryWithChildren[];
 }
@@ -18,7 +19,7 @@ export const CategoryTree = ({ onCategorySelect, selectedCategoryId }: CategoryT
   const { categories, isLoading } = useCategories();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-  // Construir estructura de árbol
+  // Build tree structure
   const buildTree = (parentId: string | null = null): CategoryWithChildren[] => {
     return categories
       .filter(category => category.parent_id === parentId)
@@ -105,11 +106,6 @@ export const CategoryTree = ({ onCategorySelect, selectedCategoryId }: CategoryT
               }`}>
                 {category.name}
               </span>
-              
-              {/* Product Count Badge (podría implementarse después) */}
-              {/* <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 ml-2">
-                {category.product_count || 0}
-              </span> */}
             </div>
             
             {category.description && (
@@ -157,9 +153,9 @@ export const CategoryTree = ({ onCategorySelect, selectedCategoryId }: CategoryT
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
       {/* Header */}
       <div className="border-b border-gray-200 px-6 py-4">
-        <h3 className="text-lg font-medium text-gray-900">Estructura de Categorías</h3>
+        <h3 className="text-lg font-medium text-gray-900">Category Structure</h3>
         <p className="text-sm text-gray-500 mt-1">
-          {rootCategories.length} categorías principales • {categories.length} total
+          {rootCategories.length} main categories • {categories.length} total
         </p>
       </div>
 
@@ -170,9 +166,9 @@ export const CategoryTree = ({ onCategorySelect, selectedCategoryId }: CategoryT
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
-            <h3 className="mt-4 text-sm font-medium text-gray-900">No hay categorías</h3>
+            <h3 className="mt-4 text-sm font-medium text-gray-900">No categories found</h3>
             <p className="mt-2 text-sm text-gray-500">
-              Comienza creando tu primera categoría.
+              Start by creating your first category.
             </p>
           </div>
         ) : (
@@ -192,14 +188,14 @@ export const CategoryTree = ({ onCategorySelect, selectedCategoryId }: CategoryT
             }}
             className="text-blue-600 hover:text-blue-700 font-medium"
           >
-            Expandir todo
+            Expand all
           </button>
           
           <button
             onClick={() => setExpandedCategories(new Set())}
             className="text-gray-600 hover:text-gray-700"
           >
-            Colapsar todo
+            Collapse all
           </button>
         </div>
       </div>

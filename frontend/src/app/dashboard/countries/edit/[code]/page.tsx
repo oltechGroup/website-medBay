@@ -19,7 +19,7 @@ interface CountryFormData {
   exchange_rate: number;
 }
 
-// Lista de monedas comunes para sugerencias
+// List of common currencies for suggestions
 const commonCurrencies = [
   { code: 'USD', name: 'US Dollar', symbol: '$', decimals: 2 },
   { code: 'EUR', name: 'Euro', symbol: '€', decimals: 2 },
@@ -49,7 +49,7 @@ export default function EditCountryPage() {
     watch,
   } = useForm<CountryFormData>();
 
-  // Cargar datos del país cuando estén disponibles
+  // Load country data when available
   useEffect(() => {
     if (countryResponse?.data) {
       const country = countryResponse.data;
@@ -62,8 +62,8 @@ export default function EditCountryPage() {
     }
   }, [countryResponse, setValue]);
 
-  const manufacturerOptions = [
-    { value: '', label: 'Selecciona una moneda común' },
+  const currencyOptions = [
+    { value: '', label: 'Select a common currency' },
     ...commonCurrencies.map(currency => ({
       value: currency.code,
       label: `${currency.name} (${currency.code}) - ${currency.symbol}`
@@ -76,7 +76,7 @@ export default function EditCountryPage() {
       await updateCountry({ code, data });
       router.push('/dashboard/countries');
     } catch (err: any) {
-      setErrorMessage(err.response?.data?.error || 'Error al actualizar el país');
+      setErrorMessage(err.response?.data?.error || 'Error updating the country');
       console.error('Error updating country:', err);
     }
   };
@@ -84,7 +84,7 @@ export default function EditCountryPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-600">Cargando país...</div>
+        <div className="text-lg text-gray-600">Loading country...</div>
       </div>
     );
   }
@@ -92,10 +92,10 @@ export default function EditCountryPage() {
   if (error || !countryResponse) {
     return (
       <div className="rounded-md bg-red-50 p-4">
-        <p className="text-red-800">Error al cargar el país: {error?.message || 'País no encontrado'}</p>
+        <p className="text-red-800">Error loading country: {error?.message || 'Country not found'}</p>
         <Button variant="outline" onClick={() => router.back()} className="mt-2">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver
+          Back
         </Button>
       </div>
     );
@@ -110,29 +110,29 @@ export default function EditCountryPage() {
       <div className="flex items-center space-x-4">
         <Button variant="outline" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver
+          Back
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Editar País</h1>
-          <p className="text-gray-600">Actualiza la información del país y su configuración de moneda.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Edit Country</h1>
+          <p className="text-gray-600">Update the country information and its currency settings.</p>
         </div>
       </div>
 
-      {/* Formulario */}
+      {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 space-y-6">
         {(errorMessage || updateError) && (
           <div className="rounded-md bg-red-50 p-4">
             <p className="text-sm text-red-800">
-              {errorMessage || (updateError as any)?.message || 'Error al actualizar el país'}
+              {errorMessage || (updateError as any)?.message || 'Error updating the country'}
             </p>
           </div>
         )}
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          {/* Código del País (solo lectura) */}
+          {/* Country Code (read-only) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Código del País
+              Country Code
             </label>
             <input
               type="text"
@@ -140,21 +140,21 @@ export default function EditCountryPage() {
               disabled
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-500"
             />
-            <p className="mt-1 text-sm text-gray-500">El código del país no se puede modificar</p>
+            <p className="mt-1 text-sm text-gray-500">The country code cannot be modified</p>
           </div>
 
-          {/* Nombre del País */}
+          {/* Country Name */}
           <Input
-            label="Nombre del País *"
+            label="Country Name *"
             error={errors.name?.message}
-            {...register('name', { required: 'El nombre del país es requerido' })}
+            {...register('name', { required: 'Country name is required' })}
           />
 
-          {/* Selección de Moneda Común */}
+          {/* Common Currency Selection */}
           <Select
-            label="Seleccionar Moneda Común"
+            label="Select Common Currency"
             error={errors.currency_code?.message}
-            options={manufacturerOptions}
+            options={currencyOptions}
             {...register('currency_code')}
             onChange={(e) => {
               const selectedCode = e.target.value;
@@ -168,15 +168,15 @@ export default function EditCountryPage() {
             }}
           />
 
-          {/* Código de Moneda */}
+          {/* Currency Code */}
           <Input
-            label="Código de Moneda *"
+            label="Currency Code *"
             error={errors.currency_code?.message}
             {...register('currency_code', { 
-              required: 'El código de moneda es requerido',
+              required: 'Currency code is required',
               pattern: {
                 value: /^[A-Z]{3}$/,
-                message: 'El código debe ser exactamente 3 letras mayúsculas'
+                message: 'Code must be exactly 3 uppercase letters'
               }
             })}
             onChange={(e) => {
@@ -185,35 +185,35 @@ export default function EditCountryPage() {
             maxLength={3}
           />
 
-          {/* Nombre de la Moneda */}
+          {/* Currency Name */}
           <Input
-            label="Nombre de la Moneda *"
+            label="Currency Name *"
             error={errors.currency_name?.message}
-            {...register('currency_name', { required: 'El nombre de la moneda es requerido' })}
+            {...register('currency_name', { required: 'Currency name is required' })}
           />
 
-          {/* Símbolo de la Moneda */}
+          {/* Currency Symbol */}
           <Input
-            label="Símbolo de la Moneda *"
+            label="Currency Symbol *"
             error={errors.currency_symbol?.message}
-            {...register('currency_symbol', { required: 'El símbolo de la moneda es requerido' })}
+            {...register('currency_symbol', { required: 'Currency symbol is required' })}
             maxLength={10}
           />
 
-          {/* Decimales de la Moneda */}
+          {/* Currency Decimals */}
           <Input
-            label="Decimales de la Moneda *"
+            label="Currency Decimals *"
             type="number"
             error={errors.currency_decimals?.message}
             {...register('currency_decimals', { 
-              required: 'Los decimales son requeridos',
+              required: 'Decimals are required',
               valueAsNumber: true,
-              min: { value: 0, message: 'Los decimales deben ser un número positivo' },
-              max: { value: 4, message: 'Máximo 4 decimales' }
+              min: { value: 0, message: 'Decimals must be a positive number' },
+              max: { value: 4, message: 'Maximum 4 decimals' }
             })}
           />
 
-          {/* Tasa de Cambio vs USD - SECCIÓN IMPORTANTE */}
+          {/* Exchange Rate vs USD - IMPORTANT SECTION */}
           <div className="sm:col-span-2">
             <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 rounded-r-md">
               <div className="flex">
@@ -222,15 +222,15 @@ export default function EditCountryPage() {
                 </div>
                 <div className="ml-3">
                   <p className="text-sm text-blue-700 font-medium">
-                    Actualización Automática Activada
+                    Automatic Update Enabled
                   </p>
                   <p className="text-sm text-blue-600 mt-1">
-                    Esta tasa se actualiza automáticamente todos los días a las 02:00 AM. 
-                    Incluye un margen de seguridad del 2% sobre el valor real del mercado.
+                    This rate is automatically updated every day at 02:00 AM. 
+                    It includes a 2% safety margin over the real market value.
                   </p>
                   <p className="text-xs text-blue-500 mt-2 flex items-center">
                     <AlertTriangle className="h-3 w-3 mr-1" />
-                    Solo edita este valor manualmente si necesitas una tasa personalizada urgente.
+                    Only edit this value manually if you need an urgent custom rate.
                   </p>
                 </div>
               </div>
@@ -239,14 +239,14 @@ export default function EditCountryPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
                 <Input
-                  label="Tasa de Cambio vs USD *"
+                  label="Exchange Rate vs USD *"
                   type="number"
                   step="0.0001"
                   error={errors.exchange_rate?.message}
                   {...register('exchange_rate', { 
-                    required: 'La tasa de cambio es requerida',
+                    required: 'Exchange rate is required',
                     valueAsNumber: true,
-                    min: { value: 0.0001, message: 'La tasa de cambio debe ser un número positivo' }
+                    min: { value: 0.0001, message: 'Exchange rate must be a positive number' }
                   })}
                 />
                 <p className="mt-1 text-sm text-gray-500 font-medium">
@@ -257,20 +257,20 @@ export default function EditCountryPage() {
           </div>
         </div>
 
-        {/* Botones */}
+        {/* Buttons */}
         <div className="flex justify-end space-x-3 pt-6 border-t">
           <Button
             type="button"
             variant="outline"
             onClick={() => router.back()}
           >
-            Cancelar
+            Cancel
           </Button>
           <Button
             type="submit"
             loading={isUpdating}
           >
-            Actualizar País
+            Update Country
           </Button>
         </div>
       </form>

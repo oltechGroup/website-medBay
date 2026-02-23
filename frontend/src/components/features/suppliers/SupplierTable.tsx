@@ -1,3 +1,4 @@
+//frontend/src/components/features/suppliers/SupplierTable.tsx
 'use client';
 
 import { useState } from 'react';
@@ -45,7 +46,7 @@ export default function SupplierTable({
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`¿Estás seguro de eliminar el proveedor "${name}"?`)) return;
+    if (!confirm(`Are you sure you want to delete the supplier "${name}"?`)) return;
     
     setDeletingId(id);
     try {
@@ -69,7 +70,7 @@ export default function SupplierTable({
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -98,24 +99,24 @@ export default function SupplierTable({
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
         <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No hay proveedores</h3>
-        <p className="text-gray-500 mb-6">Comienza agregando tu primer proveedor al sistema.</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No suppliers found</h3>
+        <p className="text-gray-500 mb-6">Start by adding your first supplier to the system.</p>
       </div>
     );
   }
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      {/* Header de la tabla */}
+      {/* Table Header */}
       <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">
-            Proveedores ({suppliers.length})
+            Suppliers ({suppliers.length})
           </h3>
         </div>
       </div>
 
-      {/* Lista de proveedores */}
+      {/* Supplier List */}
       <div className="divide-y divide-gray-200">
         {suppliers.map((supplier) => {
           const showNotes = expandedNotes.has(supplier.id);
@@ -126,9 +127,9 @@ export default function SupplierTable({
           return (
             <div key={supplier.id} className="p-6 hover:bg-gray-50 transition-colors">
               <div className="flex items-start justify-between">
-                {/* Información principal */}
+                {/* Main Information */}
                 <div className="flex-1">
-                  {/* Header con nombre y estado */}
+                  {/* Header with name and status */}
                   <div className="flex items-center space-x-3 mb-3">
                     <h4 className="text-lg font-semibold text-gray-900">{supplier.name}</h4>
                     <span
@@ -138,13 +139,13 @@ export default function SupplierTable({
                           : 'bg-gray-100 text-gray-800'
                       }`}
                     >
-                      {supplier.is_active ? 'Activo' : 'Inactivo'}
+                      {supplier.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
 
-                  {/* Información de contacto */}
+                  {/* Contact Information */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
-                    {/* País y moneda - ✅ SIEMPRE VISIBLE AHORA */}
+                    {/* Country and currency */}
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <MapPin className="h-4 w-4 text-gray-400" />
@@ -160,7 +161,7 @@ export default function SupplierTable({
                           <a 
                             href={supplier.contact_info.website} 
                             target="_blank" 
-                            rel="noopener noreferrer"
+                            rel="noreferrer"
                             className="text-blue-600 hover:text-blue-800 hover:underline"
                           >
                             {supplier.contact_info.website}
@@ -169,7 +170,7 @@ export default function SupplierTable({
                       )}
                     </div>
 
-                    {/* Contacto */}
+                    {/* Contact */}
                     <div className="space-y-2">
                       {supplier.contact_info?.telefono && (
                         <div className="flex items-center space-x-2">
@@ -192,34 +193,34 @@ export default function SupplierTable({
                     </div>
                   </div>
 
-                  {/* Información adicional */}
+                  {/* Additional info */}
                   <div className="space-y-3">
-                    {/* Persona de contacto y dirección */}
+                    {/* Contact person and address */}
                     {(supplier.contact_info?.persona_contacto || supplier.contact_info?.direccion) && (
                       <div className="text-sm text-gray-600 space-y-1">
                         {supplier.contact_info.persona_contacto && (
-                          <p><strong>Contacto:</strong> {supplier.contact_info.persona_contacto}</p>
+                          <p><strong>Contact:</strong> {supplier.contact_info.persona_contacto}</p>
                         )}
                         {supplier.contact_info.direccion && (
-                          <p><strong>Dirección:</strong> {supplier.contact_info.direccion}</p>
+                          <p><strong>Address:</strong> {supplier.contact_info.direccion}</p>
                         )}
                       </div>
                     )}
 
-                    {/* Notas adicionales */}
+                    {/* Additional notes */}
                     {hasNotes && (
                       <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center space-x-2 mb-2">
                             <FileText className="h-4 w-4 text-gray-500" />
-                            <span className="text-sm font-medium text-gray-700">Notas adicionales</span>
+                            <span className="text-sm font-medium text-gray-700">Additional notes</span>
                           </div>
                           {notes && notes.length > 100 && (
                             <button
                               onClick={() => toggleNotes(supplier.id)}
                               className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                             >
-                              {showNotes ? 'Ver menos' : 'Ver más'}
+                              {showNotes ? 'See less' : 'See more'}
                             </button>
                           )}
                         </div>
@@ -229,19 +230,19 @@ export default function SupplierTable({
                       </div>
                     )}
 
-                    {/* Fechas detalladas */}
+                    {/* Detailed dates */}
                     <div className="flex items-center space-x-6 text-xs text-gray-500 pt-2 border-t border-gray-200">
                       <div className="flex items-center space-x-2">
                         <Calendar className="h-3 w-3" />
                         <span>
-                          <strong>Creado:</strong> {formatDate(supplier.created_at)}
+                          <strong>Created:</strong> {formatDate(supplier.created_at)}
                         </span>
                       </div>
                       {supplier.updated_at !== supplier.created_at && (
                         <div className="flex items-center space-x-2">
                           <Clock className="h-3 w-3" />
                           <span>
-                            <strong>Actualizado:</strong> {formatDate(supplier.updated_at)}
+                            <strong>Updated:</strong> {formatDate(supplier.updated_at)}
                           </span>
                         </div>
                       )}
@@ -249,13 +250,14 @@ export default function SupplierTable({
                   </div>
                 </div>
 
-                {/* Acciones */}
+                {/* Actions */}
                 <div className="flex items-center space-x-2 ml-4">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleEdit(supplier)}
                     className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    title="Edit"
                   >
                     <Edit2 className="h-4 w-4" />
                   </Button>
@@ -265,6 +267,7 @@ export default function SupplierTable({
                     onClick={() => handleDelete(supplier.id, supplier.name)}
                     disabled={isDeleting && deletingId === supplier.id}
                     className="text-red-600 border-red-200 hover:bg-red-50"
+                    title="Delete"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -275,12 +278,12 @@ export default function SupplierTable({
         })}
       </div>
 
-      {/* Paginación */}
+      {/* Pagination */}
       {pagination && pagination.totalPages > 1 && (
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-700">
-              Página {pagination.page} de {pagination.totalPages}
+              Page {pagination.page} of {pagination.totalPages}
             </p>
             <div className="flex space-x-2">
               <Button
@@ -289,7 +292,7 @@ export default function SupplierTable({
                 onClick={() => pagination.onPageChange(pagination.page - 1)}
                 disabled={pagination.page === 1}
               >
-                Anterior
+                Previous
               </Button>
               <Button
                 variant="outline"
@@ -297,7 +300,7 @@ export default function SupplierTable({
                 onClick={() => pagination.onPageChange(pagination.page + 1)}
                 disabled={pagination.page === pagination.totalPages}
               >
-                Siguiente
+                Next
               </Button>
             </div>
           </div>

@@ -20,7 +20,7 @@ interface CountryFormData {
   exchange_rate: number;
 }
 
-// Lista de monedas comunes para sugerencias
+// List of common currencies for suggestions
 const commonCurrencies = [
   { code: 'USD', name: 'US Dollar', symbol: '$', decimals: 2 },
   { code: 'EUR', name: 'Euro', symbol: '€', decimals: 2 },
@@ -51,8 +51,8 @@ export default function NewCountryPage() {
     },
   });
 
-  const manufacturerOptions = [
-    { value: '', label: 'Selecciona una moneda común' },
+  const currencyOptions = [
+    { value: '', label: 'Select a common currency' },
     ...commonCurrencies.map(currency => ({
       value: currency.code,
       label: `${currency.name} (${currency.code}) - ${currency.symbol}`
@@ -65,7 +65,7 @@ export default function NewCountryPage() {
       await createCountry(data);
       router.push('/dashboard/countries');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al crear el país');
+      setError(err.response?.data?.error || 'Error creating the country');
       console.error('Error creating country:', err);
     }
   };
@@ -79,56 +79,56 @@ export default function NewCountryPage() {
       <div className="flex items-center space-x-4">
         <Button variant="outline" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver
+          Back
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Crear Nuevo País</h1>
-          <p className="text-gray-600">Registra un nuevo país y configura su moneda para conversiones automáticas.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Create New Country</h1>
+          <p className="text-gray-600">Register a new country and configure its currency for automatic conversions.</p>
         </div>
       </div>
 
-      {/* Formulario */}
+      {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 space-y-6">
         {(error || createError) && (
           <div className="rounded-md bg-red-50 p-4">
             <p className="text-sm text-red-800">
-              {error || (createError as any)?.message || 'Error al crear el país'}
+              {error || (createError as any)?.message || 'Error creating the country'}
             </p>
           </div>
         )}
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-          {/* Código del País */}
+          {/* Country Code */}
           <Input
-            label="Código del País (ISO 3166-1 alpha-2) *"
+            label="Country Code (ISO 3166-1 alpha-2) *"
             error={errors.code?.message}
             {...register('code', { 
-              required: 'El código del país es requerido',
+              required: 'Country code is required',
               pattern: {
                 value: /^[A-Z]{2}$/,
-                message: 'El código debe ser exactamente 2 letras mayúsculas (ej: US, MX)'
+                message: 'Code must be exactly 2 uppercase letters (e.g.: US, MX)'
               }
             })}
-            placeholder="Ej: US, MX, ES"
+            placeholder="e.g.: US, MX, ES"
             onChange={(e) => {
               e.target.value = e.target.value.toUpperCase();
             }}
             maxLength={2}
           />
 
-          {/* Nombre del País */}
+          {/* Country Name */}
           <Input
-            label="Nombre del País *"
+            label="Country Name *"
             error={errors.name?.message}
-            {...register('name', { required: 'El nombre del país es requerido' })}
-            placeholder="Ej: Estados Unidos, México, España"
+            {...register('name', { required: 'Country name is required' })}
+            placeholder="e.g.: United States, Mexico, Spain"
           />
 
-          {/* Selección de Moneda Común */}
+          {/* Common Currency Selection */}
           <Select
-            label="Seleccionar Moneda Común"
+            label="Select Common Currency"
             error={errors.currency_code?.message}
-            options={manufacturerOptions}
+            options={currencyOptions}
             {...register('currency_code')}
             onChange={(e) => {
               const selectedCode = e.target.value;
@@ -142,65 +142,65 @@ export default function NewCountryPage() {
             }}
           />
 
-          {/* Código de Moneda */}
+          {/* Currency Code */}
           <Input
-            label="Código de Moneda (ISO 4217) *"
+            label="Currency Code (ISO 4217) *"
             error={errors.currency_code?.message}
             {...register('currency_code', { 
-              required: 'El código de moneda es requerido',
+              required: 'Currency code is required',
               pattern: {
                 value: /^[A-Z]{3}$/,
-                message: 'El código debe ser exactamente 3 letras mayúsculas (ej: USD, EUR)'
+                message: 'Code must be exactly 3 uppercase letters (e.g.: USD, EUR)'
               }
             })}
-            placeholder="Ej: USD, EUR, MXN"
+            placeholder="e.g.: USD, EUR, MXN"
             onChange={(e) => {
               e.target.value = e.target.value.toUpperCase();
             }}
             maxLength={3}
           />
 
-          {/* Nombre de la Moneda */}
+          {/* Currency Name */}
           <Input
-            label="Nombre de la Moneda *"
+            label="Currency Name *"
             error={errors.currency_name?.message}
-            {...register('currency_name', { required: 'El nombre de la moneda es requerido' })}
-            placeholder="Ej: Dólar Americano, Euro, Peso Mexicano"
+            {...register('currency_name', { required: 'Currency name is required' })}
+            placeholder="e.g.: US Dollar, Euro, Mexican Peso"
           />
 
-          {/* Símbolo de la Moneda */}
+          {/* Currency Symbol */}
           <Input
-            label="Símbolo de la Moneda *"
+            label="Currency Symbol *"
             error={errors.currency_symbol?.message}
-            {...register('currency_symbol', { required: 'El símbolo de la moneda es requerido' })}
-            placeholder="Ej: $, €, ¥"
+            {...register('currency_symbol', { required: 'Currency symbol is required' })}
+            placeholder="e.g.: $, €, ¥"
             maxLength={10}
           />
 
-          {/* Decimales de la Moneda */}
+          {/* Currency Decimals */}
           <Input
-            label="Decimales de la Moneda *"
+            label="Currency Decimals *"
             type="number"
             error={errors.currency_decimals?.message}
             {...register('currency_decimals', { 
-              required: 'Los decimales son requeridos',
+              required: 'Decimals are required',
               valueAsNumber: true,
-              min: { value: 0, message: 'Los decimales deben ser un número positivo' },
-              max: { value: 4, message: 'Máximo 4 decimales' }
+              min: { value: 0, message: 'Decimals must be a positive number' },
+              max: { value: 4, message: 'Maximum 4 decimals' }
             })}
           />
 
-          {/* Tasa de Cambio vs USD */}
+          {/* Exchange Rate vs USD */}
           <div>
             <Input
-              label="Tasa de Cambio vs USD *"
+              label="Exchange Rate vs USD *"
               type="number"
               step="0.0001"
               error={errors.exchange_rate?.message}
               {...register('exchange_rate', { 
-                required: 'La tasa de cambio es requerida',
+                required: 'Exchange rate is required',
                 valueAsNumber: true,
-                min: { value: 0.0001, message: 'La tasa de cambio debe ser un número positivo' }
+                min: { value: 0.0001, message: 'Exchange rate must be a positive number' }
               })}
             />
             <p className="mt-1 text-sm text-gray-500">
@@ -209,20 +209,20 @@ export default function NewCountryPage() {
           </div>
         </div>
 
-        {/* Botones */}
+        {/* Buttons */}
         <div className="flex justify-end space-x-3 pt-6 border-t">
           <Button
             type="button"
             variant="outline"
             onClick={() => router.back()}
           >
-            Cancelar
+            Cancel
           </Button>
           <Button
             type="submit"
             loading={isCreating}
           >
-            Crear País
+            Create Country
           </Button>
         </div>
       </form>

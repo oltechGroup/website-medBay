@@ -10,7 +10,7 @@ import {
 import { api } from '@/lib/api'; 
 import NotificationModal from './NotificationModal';
 
-// Definición de tipos
+// Type Definitions
 export interface InboxItem {
   id: string;
   original_id: string;
@@ -24,7 +24,7 @@ export interface InboxItem {
   data: any;
 }
 
-// ✅ NUEVO TIPO DE FILTRO: Incluye 'register' y 'message' por separado
+// FILTER TYPES
 type FilterType = 'all' | 'quote' | 'order' | 'message' | 'register';
 
 export default function InboxSystem() {
@@ -32,11 +32,11 @@ export default function InboxSystem() {
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<InboxItem | null>(null);
   
-  // Estados de Filtro
+  // Filter States
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 1. CARGAR DATOS
+  // 1. FETCH DATA
   const fetchInbox = async () => {
     setLoading(true);
     try {
@@ -53,7 +53,7 @@ export default function InboxSystem() {
     fetchInbox();
   }, []);
 
-  // 2. BORRAR
+  // 2. DELETE
   const handleDelete = async (id: string, source: string) => {
     if (source !== 'notification') return; 
     
@@ -66,7 +66,7 @@ export default function InboxSystem() {
     }
   };
 
-  // 3. LÓGICA DE FILTRADO MEJORADA
+  // 3. FILTER LOGIC
   const filteredItems = items.filter(item => {
     let matchesType = false;
 
@@ -77,10 +77,9 @@ export default function InboxSystem() {
     } else if (activeFilter === 'quote') {
       matchesType = item.source === 'quote';
     } else if (activeFilter === 'register') {
-      // Solo registros de usuario
+      // Data match remains 'Registro Usuario' to maintain logic with backend
       matchesType = item.type === 'Registro Usuario';
     } else if (activeFilter === 'message') {
-      // Todo lo que sea notificación PERO NO sea registro
       matchesType = item.source === 'notification' && item.type !== 'Registro Usuario';
     }
 
@@ -92,9 +91,9 @@ export default function InboxSystem() {
     return matchesType && matchesSearch;
   });
 
-  // 4. ESTILOS VISUALES
+  // 4. VISUAL STYLES
   const getItemStyles = (item: InboxItem) => {
-    // Órdenes
+    // Orders
     if (item.source === 'order') {
       return {
         icon: <ShoppingCart size={18} />,
@@ -104,7 +103,7 @@ export default function InboxSystem() {
         badge: 'bg-emerald-100 text-emerald-800'
       };
     }
-    // Cotizaciones
+    // Quotes
     if (item.source === 'quote') {
       return {
         icon: <MessageSquareQuote size={18} />,
@@ -114,7 +113,7 @@ export default function InboxSystem() {
         badge: 'bg-amber-100 text-amber-800'
       };
     }
-    // Registros
+    // Registrations
     if (item.type === 'Registro Usuario') {
       return { 
         icon: <UserPlus size={18} />, 
@@ -124,7 +123,7 @@ export default function InboxSystem() {
         badge: 'bg-indigo-100 text-indigo-800' 
       };
     }
-    // Mensajes Generales
+    // General Messages
     return { 
       icon: <MessageSquare size={18} />, 
       bg: 'bg-blue-50', 
@@ -142,14 +141,14 @@ export default function InboxSystem() {
         <div>
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <Bell className="text-slate-900" size={24} />
-            Centro de Actividad
+            Activity Center
             {items.length > 0 && (
               <span className="bg-red-500 text-white text-xs px-2.5 py-1 rounded-full font-bold shadow-sm animate-pulse">
-                {items.length} Pendientes
+                {items.length} Pending
               </span>
             )}
           </h2>
-          <p className="text-slate-500 text-sm mt-1">Gestiona solicitudes y mensajes.</p>
+          <p className="text-slate-500 text-sm mt-1">Manage requests and messages.</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -157,7 +156,7 @@ export default function InboxSystem() {
              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
              <input 
                type="text" 
-               placeholder="Buscar..." 
+               placeholder="Search..." 
                value={searchTerm}
                onChange={(e) => setSearchTerm(e.target.value)}
                className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-slate-200 w-full md:w-64 transition-all"
@@ -169,14 +168,14 @@ export default function InboxSystem() {
         </div>
       </div>
 
-      {/* ✅ FILTROS ACTUALIZADOS CON 'REGISTROS' */}
+      {/* FILTERS */}
       <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
         {[
-          { id: 'all', label: 'Todo', icon: <Filter size={14}/> },
-          { id: 'order', label: 'Órdenes', icon: <ShoppingCart size={14}/> },
-          { id: 'quote', label: 'Cotizaciones', icon: <MessageSquareQuote size={14}/> },
-          { id: 'register', label: 'Registros', icon: <UserPlus size={14}/> }, // Nuevo botón
-          { id: 'message', label: 'Mensajes', icon: <Mail size={14}/> },
+          { id: 'all', label: 'All', icon: <Filter size={14}/> },
+          { id: 'order', label: 'Orders', icon: <ShoppingCart size={14}/> },
+          { id: 'quote', label: 'Quotes', icon: <MessageSquareQuote size={14}/> },
+          { id: 'register', label: 'Registrations', icon: <UserPlus size={14}/> },
+          { id: 'message', label: 'Messages', icon: <Mail size={14}/> },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -192,7 +191,7 @@ export default function InboxSystem() {
         ))}
       </div>
 
-      {/* LISTA */}
+      {/* LIST */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
            {[1,2,3].map(i => <div key={i} className="h-40 bg-slate-100 rounded-2xl animate-pulse"></div>)}
@@ -202,7 +201,7 @@ export default function InboxSystem() {
           <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="text-slate-300" size={32} />
           </div>
-          <p className="text-slate-500 font-medium text-lg">No hay actividades en esta categoría.</p>
+          <p className="text-slate-500 font-medium text-lg">No activities found in this category.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -226,7 +225,7 @@ export default function InboxSystem() {
                   </div>
                 </div>
                 
-                {/* Contenido */}
+                {/* Content */}
                 <div className="mb-4">
                    <h3 className="font-bold text-slate-800 text-base mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors">
                      {item.subject}
@@ -235,7 +234,7 @@ export default function InboxSystem() {
                       <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-bold">
                         {item.sender_name?.charAt(0) || '?'}
                       </div>
-                      <p className="text-sm text-slate-500 font-medium truncate">{item.sender_name || 'Desconocido'}</p>
+                      <p className="text-sm text-slate-500 font-medium truncate">{item.sender_name || 'Unknown'}</p>
                    </div>
                 </div>
 

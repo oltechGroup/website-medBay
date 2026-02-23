@@ -17,15 +17,15 @@ export default function UsersPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">
-              Gestión de Usuarios
+              User Management
             </h1>
             <p className="text-slate-500 font-medium">
-              Administra clientes, valida cuentas y gestiona a tu equipo de ventas.
+              Manage clients, validate accounts, and manage your sales team.
             </p>
           </div>
         </div>
 
-        {/* TABS DE NAVEGACIÓN */}
+        {/* NAVIGATION TABS */}
         <div className="bg-white p-1.5 rounded-2xl border border-slate-200 inline-flex shadow-sm">
           <button
             onClick={() => setActiveTab('clients')}
@@ -36,7 +36,7 @@ export default function UsersPage() {
             }`}
           >
             <UserCheck size={18} />
-            Clientes
+            Clients
           </button>
           <button
             onClick={() => setActiveTab('collaborators')}
@@ -47,11 +47,11 @@ export default function UsersPage() {
             }`}
           >
             <Briefcase size={18} />
-            Colaboradores
+            Collaborators
           </button>
         </div>
 
-        {/* CONTENIDO DINÁMICO */}
+        {/* DYNAMIC CONTENT */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           {activeTab === 'clients' ? (
             <ClientsTable />

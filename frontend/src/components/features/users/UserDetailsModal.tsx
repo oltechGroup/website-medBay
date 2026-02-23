@@ -20,31 +20,31 @@ export const UserDetailsModal = ({ userId, onClose }: UserDetailsModalProps) => 
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  // 1. Evitar errores de hidratación (SSR)
+  // 1. Prevent hydration errors (SSR)
   useEffect(() => {
     setMounted(true);
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = 'unset'; };
   }, []);
 
-  // 2. Cargar datos completos
+  // 2. Load complete data
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Datos de usuario
+        // User data
         const userRes = await api.get(`/users/${userId}`);
         setUserData(userRes.data);
 
-        // Intentar cargar órdenes (si falla, array vacío)
+        // Try to load orders (if fails, empty array)
         try {
            const ordersRes = await api.get(`/orders`); 
-           // Filtramos manualmente en frontend por ahora
+           // Filter manually on frontend for now
            const userOrders = ordersRes.data.filter((o: any) => o.customer_id === userId);
            setOrders(userOrders);
         } catch (e) { console.log('No orders found'); }
 
-        // Intentar cargar cotizaciones
+        // Try to load quotes
         try {
            const quotesRes = await api.get(`/quotes`);
            const userQuotes = quotesRes.data.filter((q: any) => q.user_id === userId);
@@ -63,7 +63,7 @@ export const UserDetailsModal = ({ userId, onClose }: UserDetailsModalProps) => 
 
   if (!userId || !mounted) return null;
 
-  // ✅ CORRECCIÓN: Usamos createPortal directamente en el return
+  // Render directly using createPortal
   return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity" onClick={onClose} />
@@ -74,9 +74,9 @@ export const UserDetailsModal = ({ userId, onClose }: UserDetailsModalProps) => 
         <div className="bg-slate-900 px-8 py-6 text-white flex justify-between items-start shrink-0">
           <div>
             <h2 className="text-2xl font-black flex items-center gap-3">
-              <User className="text-blue-400" /> Perfil de Cliente
+              <User className="text-blue-400" /> Client Profile
             </h2>
-            <p className="text-slate-400 text-sm mt-1 ml-9">Visión completa 360°</p>
+            <p className="text-slate-400 text-sm mt-1 ml-9">360° Full View</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
             <X size={24} />
@@ -86,9 +86,9 @@ export const UserDetailsModal = ({ userId, onClose }: UserDetailsModalProps) => 
         {/* TABS */}
         <div className="flex border-b border-slate-100 px-8 bg-slate-50 shrink-0">
           {[
-            { id: 'profile', label: 'Información General', icon: <FileText size={16}/> },
-            { id: 'orders', label: `Órdenes (${orders.length})`, icon: <ShoppingCart size={16}/> },
-            { id: 'quotes', label: `Cotizaciones (${quotes.length})`, icon: <MessageSquareQuote size={16}/> }
+            { id: 'profile', label: 'General Information', icon: <FileText size={16}/> },
+            { id: 'orders', label: `Orders (${orders.length})`, icon: <ShoppingCart size={16}/> },
+            { id: 'quotes', label: `Quotes (${quotes.length})`, icon: <MessageSquareQuote size={16}/> }
           ].map(tab => (
             <button
               key={tab.id}
@@ -110,13 +110,13 @@ export const UserDetailsModal = ({ userId, onClose }: UserDetailsModalProps) => 
             <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600" size={40}/></div>
           ) : (
             <>
-              {/* === TAB 1: PERFIL === */}
+              {/* === TAB 1: PROFILE === */}
               {activeTab === 'profile' && userData && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   
-                  {/* Datos Personales */}
+                  {/* Account Data */}
                   <div className="space-y-6">
-                    <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-2">Datos de Cuenta</h3>
+                    <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-2">Account Data</h3>
                     
                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
                       <div className="flex items-center gap-4">
@@ -138,19 +138,19 @@ export const UserDetailsModal = ({ userId, onClose }: UserDetailsModalProps) => 
                         </div>
                         <div className="flex items-center gap-3 text-slate-600">
                           <Phone size={18} className="text-slate-400"/>
-                          <span className="text-sm font-medium">{userData.phone || 'Sin teléfono'}</span>
+                          <span className="text-sm font-medium">{userData.phone || 'No phone number'}</span>
                         </div>
                         <div className="flex items-center gap-3 text-slate-600">
                           <Building size={18} className="text-slate-400"/>
-                          <span className="text-sm font-medium">{userData.company_name || 'Particular'}</span>
+                          <span className="text-sm font-medium">{userData.company_name || 'Individual'}</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Dirección y Fiscal */}
+                  {/* Fiscal Data & Address */}
                   <div className="space-y-6">
-                    <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-2">Datos Fiscales y Dirección</h3>
+                    <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-2">Fiscal Data & Address</h3>
                     
                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
                       <div>
@@ -159,7 +159,7 @@ export const UserDetailsModal = ({ userId, onClose }: UserDetailsModalProps) => 
                       </div>
 
                       <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Dirección Principal</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Main Address</p>
                         {userData.addresses && userData.addresses.length > 0 ? (
                           <div className="flex items-start gap-3 text-slate-600 text-sm bg-white p-4 rounded-xl border border-slate-200">
                             <MapPin size={20} className="text-blue-500 shrink-0 mt-0.5"/>
@@ -167,11 +167,11 @@ export const UserDetailsModal = ({ userId, onClose }: UserDetailsModalProps) => 
                               <p className="font-bold text-slate-800">{userData.addresses[0].street} #{userData.addresses[0].street_number}</p>
                               <p>Col. {userData.addresses[0].colony}</p>
                               <p>{userData.addresses[0].city}, {userData.addresses[0].state}</p>
-                              <p className="text-xs mt-1 font-bold text-slate-400">CP: {userData.addresses[0].postal_code}</p>
+                              <p className="text-xs mt-1 font-bold text-slate-400">ZIP Code: {userData.addresses[0].postal_code}</p>
                             </div>
                           </div>
                         ) : (
-                          <p className="text-slate-400 italic">Sin dirección registrada.</p>
+                          <p className="text-slate-400 italic">No address registered.</p>
                         )}
                       </div>
                     </div>
@@ -179,21 +179,21 @@ export const UserDetailsModal = ({ userId, onClose }: UserDetailsModalProps) => 
                 </div>
               )}
 
-              {/* === TAB 2: ÓRDENES === */}
+              {/* === TAB 2: ORDERS === */}
               {activeTab === 'orders' && (
                 <div className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-100 text-slate-500 font-bold uppercase text-xs">
                       <tr>
-                        <th className="px-6 py-4">ID Orden</th>
-                        <th className="px-6 py-4">Fecha</th>
-                        <th className="px-6 py-4">Estado</th>
+                        <th className="px-6 py-4">Order ID</th>
+                        <th className="px-6 py-4">Date</th>
+                        <th className="px-6 py-4">Status</th>
                         <th className="px-6 py-4 text-right">Total</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                       {orders.length === 0 ? (
-                        <tr><td colSpan={4} className="p-8 text-center text-slate-400">Sin órdenes registradas</td></tr>
+                        <tr><td colSpan={4} className="p-8 text-center text-slate-400">No registered orders</td></tr>
                       ) : (
                         orders.map(order => (
                           <tr key={order.id} className="bg-white hover:bg-blue-50 transition-colors">
@@ -211,16 +211,16 @@ export const UserDetailsModal = ({ userId, onClose }: UserDetailsModalProps) => 
                 </div>
               )}
 
-              {/* === TAB 3: COTIZACIONES === */}
+              {/* === TAB 3: QUOTES === */}
               {activeTab === 'quotes' && (
                 <div className="grid gap-4">
                   {quotes.length === 0 ? (
-                    <div className="p-12 text-center bg-slate-50 rounded-2xl text-slate-400">Sin cotizaciones registradas</div>
+                    <div className="p-12 text-center bg-slate-50 rounded-2xl text-slate-400">No registered quotes</div>
                   ) : (
                     quotes.map(quote => (
                       <div key={quote.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center">
                         <div>
-                          <p className="font-bold text-slate-800 text-sm">Solicitud #{quote.id}</p>
+                          <p className="font-bold text-slate-800 text-sm">Request #{quote.id}</p>
                           <p className="text-xs text-slate-500">{formatDate(quote.created_at)}</p>
                         </div>
                         <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-bold uppercase">

@@ -37,7 +37,7 @@ export const ImportHistory = () => {
     setRefreshing(false);
   };
 
-  // --- LÓGICA DE FECHAS NATIVA (SIN LIBRERÍAS) ---
+  // --- NATIVE DATE LOGIC ---
   const filteredHistory = useMemo(() => {
     const now = new Date();
     
@@ -49,7 +49,7 @@ export const ImportHistory = () => {
             return date.toDateString() === now.toDateString();
         }
         if (timeFilter === 'week') {
-            // Calcular inicio de semana (Lunes)
+            // Calculate start of week (Monday)
             const day = now.getDay(); 
             const diff = now.getDate() - day + (day === 0 ? -6 : 1); 
             const monday = new Date(now.setDate(diff));
@@ -63,10 +63,10 @@ export const ImportHistory = () => {
     });
   }, [history, timeFilter]);
 
-  // Formateador de fecha nativo en Español
+  // English Native Date Formatter
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('es-ES', {
+    return new Date(dateString).toLocaleDateString('en-US', {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
@@ -76,11 +76,11 @@ export const ImportHistory = () => {
   };
 
   const getCategoryLabel = (cat: string) => {
-      const map: any = { 'regular': 'En Fecha', 'near_expiry': 'Fecha Corta', 'expired': 'Caducado' };
+      const map: any = { 'regular': 'In Date', 'near_expiry': 'Short-Dated', 'expired': 'Expired' };
       return map[cat] || cat;
   };
 
-  if (loading && history.length === 0) return <div className="p-12 text-center text-gray-400 font-medium">Cargando historial...</div>;
+  if (loading && history.length === 0) return <div className="p-12 text-center text-gray-400 font-medium">Loading history...</div>;
 
   return (
     <div className="p-6 space-y-8">
@@ -91,21 +91,21 @@ export const ImportHistory = () => {
                   <div className="p-3 bg-blue-50 text-blue-600 rounded-full"><BarChart3 className="w-6 h-6"/></div>
                   <div>
                       <div className="text-2xl font-bold text-gray-900">{globalStats.imports_today || 0}</div>
-                      <div className="text-sm text-gray-500">Importaciones Hoy</div>
+                      <div className="text-sm text-gray-500">Imports Today</div>
                   </div>
               </div>
               <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center space-x-4">
                   <div className="p-3 bg-purple-50 text-purple-600 rounded-full"><TrendingUp className="w-6 h-6"/></div>
                   <div>
                       <div className="text-2xl font-bold text-gray-900">{globalStats.total_imports || 0}</div>
-                      <div className="text-sm text-gray-500">Total Histórico</div>
+                      <div className="text-sm text-gray-500">Historical Total</div>
                   </div>
               </div>
               <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center space-x-4 overflow-hidden">
                   <div className="p-3 bg-green-50 text-green-600 rounded-full flex-shrink-0"><Clock className="w-6 h-6"/></div>
                   <div className="min-w-0">
                       <div className="text-sm font-bold text-gray-900 truncate">
-                        {globalStats.last_import_supplier !== '-' ? globalStats.last_import_supplier : 'Sin datos'}
+                        {globalStats.last_import_supplier !== '-' ? globalStats.last_import_supplier : 'No data'}
                       </div>
                       <div className="text-xs text-gray-500 truncate">
                         {formatDate(globalStats.last_import_date)}
@@ -118,11 +118,11 @@ export const ImportHistory = () => {
           </div>
       )}
 
-      {/* Lista */}
+      {/* List */}
       <div>
           <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-4">
-                  <h3 className="text-lg font-bold text-gray-900">Historial</h3>
+                  <h3 className="text-lg font-bold text-gray-900">History</h3>
                   <div className="flex bg-gray-100 rounded-lg p-1">
                       {['all', 'month', 'week', 'day'].map((t) => (
                           <button 
@@ -130,7 +130,7 @@ export const ImportHistory = () => {
                             onClick={() => setTimeFilter(t as any)}
                             className={`px-3 py-1 text-xs font-medium rounded-md capitalize transition-all ${timeFilter === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                           >
-                            {t === 'all' ? 'Todos' : t === 'day' ? 'Hoy' : t === 'week' ? 'Semana' : 'Mes'}
+                            {t === 'all' ? 'All' : t === 'day' ? 'Today' : t === 'week' ? 'Week' : 'Month'}
                           </button>
                       ))}
                   </div>
@@ -141,7 +141,7 @@ export const ImportHistory = () => {
                 onClick={handleRefresh}
                 disabled={refreshing}
                 className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                title="Actualizar lista"
+                title="Update list"
               >
                 <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`}/>
               </button>
@@ -150,7 +150,7 @@ export const ImportHistory = () => {
           {error && (
             <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-4 flex items-center">
                 <AlertCircle className="w-5 h-5 mr-2"/>
-                Error al cargar el historial.
+                Error loading history.
             </div>
           )}
 
@@ -158,7 +158,7 @@ export const ImportHistory = () => {
             {filteredHistory.length === 0 ? (
                  <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
                     <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3"/>
-                    <p className="text-gray-500 font-medium">No hay importaciones en este periodo.</p>
+                    <p className="text-gray-500 font-medium">No imports in this period.</p>
                  </div>
             ) : (
                 filteredHistory.map((item) => {
@@ -208,7 +208,7 @@ export const ImportHistory = () => {
                             {lotsCreated > 0 ? lotsCreated : (isSuccess ? '0' : '-')}
                           </div>
                           <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">
-                              {isCancelled ? 'Cancelado' : 'Lotes Creados'}
+                              {isCancelled ? 'Cancelled' : 'Lots Created'}
                           </div>
                         </div>
                       </div>

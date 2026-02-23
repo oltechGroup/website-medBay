@@ -11,14 +11,14 @@ import { getImageUrl, formatCurrency, formatDate, getLotStatusConfig } from "@/l
 import { useProductDetails } from "@/hooks/useProductDetails"; 
 import { useCart } from "@/hooks/useCart";
 import { QuantitySelector } from "@/components/ui/QuantitySelector";
-import QuoteModal, { QuoteContext } from "./QuoteModal"; // ✅ Importamos QuoteContext
+import QuoteModal, { QuoteContext } from "./QuoteModal"; // ✅ We import QuoteContext
 
-// --- SUB-COMPONENTE: ÍTEM DE LOTE EN MODAL ---
+// --- SUB-COMPONENT: LOT ITEM IN MODAL ---
 interface LotItemProps {
   lot: any;
   onAddToCart: (lotId: string, quantity: number, redirect?: boolean) => Promise<void>;
   isAdding: boolean;
-  onQuote: (lot: any) => void; // ✅ Recibimos el lote completo
+  onQuote: (lot: any) => void; // ✅ We receive the complete lot
 }
 
 const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
@@ -26,46 +26,46 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
   const config = getLotStatusConfig(lot.status, lot.expiry_date);
   const price = lot.discount_price_amount || lot.price_amount || lot.price;
   
-  // Validaciones
+  // Validations
   const hasPrice = price && parseFloat(price) > 0;
   const hasStock = lot.quantity > 0;
 
   return (
     <div className="border border-gray-200 rounded-xl p-3 md:p-4 hover:border-blue-400 hover:shadow-lg transition-all bg-white group">
-      {/* Encabezado del Lote */}
+      {/* Lot Header */}
       <div className="flex justify-between items-start mb-3 md:mb-4">
         <div>
           <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-wider ${config.color}`}>
               {config.label}
           </span>
           <p className="text-xs text-gray-400 mt-2 font-mono flex items-center gap-1">
-            <Package size={12}/> Lote: <span className="text-slate-700 font-bold">{lot.lot_number}</span>
+            <Package size={12}/> Lot: <span className="text-slate-700 font-bold">{lot.lot_number}</span>
           </p>
         </div>
         <div className="text-right">
            <p className="text-xl md:text-2xl font-black text-blue-700">
-             {hasPrice ? formatCurrency(price) : <span className="text-gray-400 text-sm italic">A Cotizar</span>}
+             {hasPrice ? formatCurrency(price) : <span className="text-gray-400 text-sm italic">Get Quote</span>}
            </p>
            <p className={`text-[10px] uppercase font-bold tracking-wide ${hasStock ? 'text-gray-400' : 'text-blue-600'}`}>
-             {hasStock ? `Disponible: ${lot.quantity}` : 'Bajo Pedido'}
+             {hasStock ? `Available: ${lot.quantity}` : 'On Request'}
            </p>
         </div>
       </div>
 
-      {/* Info Caducidad */}
+      {/* Expiration Info */}
       <div className="flex items-center gap-2 text-xs text-slate-500 mb-3 md:mb-4 bg-slate-50 p-2 md:p-2.5 rounded-lg border border-slate-100">
         <Calendar size={14} className="text-blue-500"/> 
-        <span>Vence: <strong className="text-slate-800">{formatDate(lot.expiry_date)}</strong></span>
+        <span>Expires: <strong className="text-slate-800">{formatDate(lot.expiry_date)}</strong></span>
       </div>
 
-      {/* Controles de Compra (INTELIGENTE) */}
+      {/* Purchase Controls (SMART) */}
       <div className="flex flex-col gap-3">
         
         {hasPrice && hasStock ? (
-          // CASO A: COMPRA DIRECTA
+          // CASE A: DIRECT PURCHASE
           <>
             <div className="flex items-center justify-between">
-               <span className="text-xs font-bold text-slate-400 uppercase">Cantidad</span>
+               <span className="text-xs font-bold text-slate-400 uppercase">Quantity</span>
                <QuantitySelector 
                  quantity={quantity}
                  max={lot.quantity}
@@ -82,24 +82,24 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
                 disabled={isAdding}
                 className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 hover:text-blue-600 transition-colors text-xs active:scale-95"
               >
-                <ShoppingCart size={16}/> Agregar
+                <ShoppingCart size={16}/> Add
               </button>
               <button 
                 onClick={() => onAddToCart(lot.id, quantity, true)}
                 disabled={isAdding}
                 className="bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-colors text-xs shadow-lg shadow-blue-600/20 active:scale-95"
               >
-                Comprar Ahora
+                Buy Now
               </button>
             </div>
           </>
         ) : (
-          // CASO B: COTIZACIÓN CONTEXTUAL
+          // CASE B: CONTEXTUAL QUOTE
           <button 
             onClick={() => onQuote(lot)}
             className="w-full bg-white border-2 border-blue-100 text-blue-600 py-2.5 rounded-xl font-bold hover:bg-blue-50 transition-colors text-xs flex items-center justify-center gap-2 shadow-sm"
           >
-            <FileText size={16}/> Solicitar Cotización
+            <FileText size={16}/> Request Quote
           </button>
         )}
       </div>
@@ -107,7 +107,7 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
   );
 };
 
-// --- COMPONENTE PRINCIPAL ---
+// --- MAIN COMPONENT ---
 
 interface ProductQuickViewProps {
   product: Product;
@@ -120,7 +120,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
   const [mounted, setMounted] = useState(false);
   const [isQuoteOpen, setIsQuoteOpen] = useState(false); 
   
-  // ✅ Estado para el contexto de la cotización
+  // ✅ State for quote context
   const [quoteContext, setQuoteContext] = useState<QuoteContext | undefined>(undefined);
 
   const { isAuthenticated } = useAuth();
@@ -144,10 +144,10 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
     };
   }, [isOpen]);
 
-  // --- LÓGICA DE ESTADOS ---
+  // --- STATUS LOGIC ---
   const hasActiveLots = product.active_lots && product.active_lots > 0;
   
-  // Conversión segura de precio
+  // Safe price conversion
   const minPrice = product.min_price ? Number(product.min_price) : 0;
   const hasReferencePrice = minPrice > 0;
 
@@ -175,11 +175,11 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
         onClose(); 
       }
     } catch (error) {
-      console.error("Error agregando al carrito", error);
+      console.error("Error adding to cart", error);
     }
   };
 
-  // ✅ Función para abrir el modal con contexto
+  // ✅ Function to open modal with context
   const handleOpenQuote = (context?: QuoteContext) => {
     setQuoteContext(context);
     setIsQuoteOpen(true);
@@ -204,7 +204,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
           <X size={20} className="text-slate-500"/>
         </button>
 
-        {/* === COLUMNA IZQ: IMÁGENES === */}
+        {/* === LEFT COLUMN: IMAGES === */}
         <div className="w-full md:w-1/2 bg-slate-50/50 p-4 md:p-8 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 flex-shrink-0">
           <div className="relative w-full h-[200px] md:h-[450px] mb-4 md:mb-8 bg-white rounded-2xl md:rounded-3xl shadow-sm p-4 flex items-center justify-center border border-white">
             <img 
@@ -226,7 +226,7 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
             )}
           </div>
           
-          {/* Miniaturas */}
+          {/* Thumbnails */}
           {allImages.length > 1 && (
             <div className="flex gap-2 md:gap-4 overflow-x-auto py-2 px-1 w-full justify-start md:justify-center no-scrollbar">
               {allImages.map((img, idx) => (
@@ -245,12 +245,12 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
           )}
         </div>
 
-        {/* === COLUMNA DER: INFO Y LOTES === */}
+        {/* === RIGHT COLUMN: INFO AND LOTS === */}
         <div className="w-full md:w-1/2 flex flex-col h-full min-h-0 bg-white relative">
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10">
               <div className="mb-6 md:mb-8">
                 <span className="inline-block px-3 py-1 bg-slate-100 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">
-                  {product.manufacturer_name || "Fabricante Genérico"}
+                  {product.manufacturer_name || "Generic Manufacturer"}
                 </span>
                 
                 <h2 className="text-xl md:text-3xl font-black text-slate-900 mb-4 leading-tight">
@@ -271,18 +271,18 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
 
               <div className="h-px bg-slate-100 w-full mb-6 md:mb-8"></div>
 
-              {/* Inventario Visible para TODOS */}
+              {/* Inventory Visible for EVERYONE */}
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex items-center justify-between mb-4 md:mb-6">
                   <h3 className="font-black text-slate-800 flex items-center gap-2 text-base md:text-lg">
-                    <Package size={20} className="text-blue-600"/> Inventario Disponible
+                    <Package size={20} className="text-blue-600"/> Available Inventory
                   </h3>
                   
                   <button 
                     onClick={() => handleOpenQuote()}
                     className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
                   >
-                    <FileText size={12}/> Cotización Personalizada
+                    <FileText size={12}/> Custom Quote
                   </button>
                 </div>
 
@@ -296,59 +296,59 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
                           lot={lot}
                           onAddToCart={handleAddToCart}
                           isAdding={isAdding}
-                          // ✅ PASAMOS LOS DATOS DEL LOTE
-                          onQuote={(loteData) => handleOpenQuote({
-                              lotId: loteData.id,
-                              lotNumber: loteData.lot_number,
-                              referencePrice: parseFloat(loteData.price),
-                              expiryDate: loteData.expiry_date,
-                              stockAvailable: loteData.quantity
+                          // ✅ PASS LOT DATA
+                          onQuote={(lotData) => handleOpenQuote({
+                              lotId: lotData.id,
+                              lotNumber: lotData.lot_number,
+                              referencePrice: parseFloat(lotData.price),
+                              expiryDate: lotData.expiry_date,
+                              stockAvailable: lotData.quantity
                           })}
                         />
                       ))
                   ) : hasReferencePrice ? (
-                      // ESTADO: BAJO PEDIDO CON PRECIO
+                      // STATUS: ON REQUEST WITH PRICE
                       <div className="text-center py-8 md:py-12 bg-blue-50 rounded-[2rem] border-2 border-blue-100">
                         <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-blue-600">
                           <Info size={32} />
                         </div>
-                        <h4 className="text-blue-900 font-bold mb-1 text-lg">Disponible bajo pedido</h4>
+                        <h4 className="text-blue-900 font-bold mb-1 text-lg">Available on Request</h4>
                         <p className="text-blue-600 text-sm mb-4 max-w-xs mx-auto font-medium">
-                          Este producto se importa bajo solicitud.
+                          This product is imported upon request.
                         </p>
                         
                         <div className="mb-6 p-4 bg-white rounded-xl inline-block shadow-sm border border-blue-100">
-                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">Precio Referencia</p>
+                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">Reference Price</p>
                             <p className="text-2xl font-black text-gray-800">{formatCurrency(product.min_price)}</p>
                         </div>
 
                         <div className="block">
                             <button 
-                              // ✅ BOTÓN GRANDE CON PRECIO DE REFERENCIA
+                              // ✅ LARGE BUTTON WITH REFERENCE PRICE
                               onClick={() => handleOpenQuote({
                                   referencePrice: minPrice,
                               })}
                               className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all text-sm"
                             >
-                              Iniciar Pedido / Cotización
+                              Start Order / Quote
                             </button>
                         </div>
                       </div>
                   ) : (
-                      // ESTADO: AGOTADO / SIN PRECIO
+                      // STATUS: OUT OF STOCK / NO PRICE
                       <div className="text-center py-8 md:py-12 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
                         <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
                           <AlertCircle className="text-amber-400" size={32} />
                         </div>
-                        <h4 className="text-slate-800 font-bold mb-1">Producto agotado</h4>
+                        <h4 className="text-slate-800 font-bold mb-1">Product out of stock</h4>
                         <p className="text-slate-500 text-sm mb-6 max-w-xs mx-auto font-medium">
-                          Actualmente no tenemos stock ni precio de referencia.
+                          We currently do not have stock or a reference price.
                         </p>
                         <button 
                           onClick={() => handleOpenQuote()}
                           className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all text-sm"
                         >
-                          Solicitar Búsqueda
+                          Request Search
                         </button>
                       </div>
                   )}
@@ -359,17 +359,18 @@ export const ProductQuickView = ({ product, isOpen, onClose }: ProductQuickViewP
         </div>
       </div>
       
-      {/* Modal de Cotización separado del Portal Principal */}
+      {/* Quote Modal separated from Main Portal */}
       <QuoteModal 
         isOpen={isQuoteOpen}
         onClose={() => {
             setIsQuoteOpen(false);
-            setQuoteContext(undefined); // Limpiar contexto al cerrar
+            setQuoteContext(undefined); // Clear context on close
         }}
         product={product}
-        initialContext={quoteContext} // ✅ Inyectar contexto
+        initialContext={quoteContext} // ✅ Inject context
       />
     </div>
   );
+
   return createPortal(modalContent, document.body);
 };

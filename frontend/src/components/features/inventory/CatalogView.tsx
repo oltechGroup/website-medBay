@@ -93,7 +93,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
     setFilteredProducts(filtered);
   };
 
-  // Determinar clases de color dinámicamente
+  // Determine color classes dynamically
   const getColorClasses = (type: 'bg' | 'text' | 'border' | 'ring' | 'badge') => {
     const colorMap = {
       green: {
@@ -122,9 +122,9 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'MXN',
+      currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
@@ -149,7 +149,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
             className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 mb-4 hover:underline transition-all duration-200 group"
           >
             <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-            Volver al proveedor
+            Back to supplier
           </button>
           
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -170,24 +170,24 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                 className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-all duration-200"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                {refreshing ? 'Actualizando...' : 'Actualizar'}
+                {refreshing ? 'Updating...' : 'Update'}
               </button>
               <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200">
                 <Download className="h-4 w-4 mr-2" />
-                Exportar
+                Export
               </button>
             </div>
           </div>
         </div>
 
-        {/* 📊 ESTADÍSTICAS */}
+        {/* 📊 STATISTICS */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total de Lotes</p>
+                <p className="text-sm font-medium text-gray-600">Total Lots</p>
                 <p className="text-2xl font-bold text-gray-900">{products.length}</p>
-                <p className="text-xs text-gray-500 mt-1">Lotes encontrados</p>
+                <p className="text-xs text-gray-500 mt-1">Lots found</p>
               </div>
               <div className={`p-3 ${getColorClasses('bg')} rounded-xl`}>
                 <Package className={`h-6 w-6 ${getColorClasses('text')}`} />
@@ -198,9 +198,9 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Productos Únicos</p>
+                <p className="text-sm font-medium text-gray-600">Unique Products</p>
                 <p className="text-2xl font-bold text-gray-900">{uniqueProducts}</p>
-                <p className="text-xs text-gray-500 mt-1">Productos diferentes</p>
+                <p className="text-xs text-gray-500 mt-1">Different products</p>
               </div>
               <div className="p-3 bg-purple-100 rounded-xl">
                 <Tag className="h-6 w-6 text-purple-600" />
@@ -211,9 +211,9 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Unidades Totales</p>
+                <p className="text-sm font-medium text-gray-600">Total Units</p>
                 <p className="text-2xl font-bold text-gray-900">{totalUnits.toLocaleString()}</p>
-                <p className="text-xs text-gray-500 mt-1">En inventario</p>
+                <p className="text-xs text-gray-500 mt-1">In inventory</p>
               </div>
               <div className="p-3 bg-green-100 rounded-xl">
                 <Box className="h-6 w-6 text-green-600" />
@@ -224,9 +224,9 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Valor Total</p>
+                <p className="text-sm font-medium text-gray-600">Total Value</p>
                 <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalValue)}</p>
-                <p className="text-xs text-gray-500 mt-1">Valor del catálogo</p>
+                <p className="text-xs text-gray-500 mt-1">Catalog value</p>
               </div>
               <div className="p-3 bg-amber-100 rounded-xl">
                 <DollarSign className="h-6 w-6 text-amber-600" />
@@ -235,16 +235,15 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
           </div>
         </div>
 
-        {/* 🔍 BÚSQUEDA Y FILTROS (CORREGIDO) */}
+        {/* 🔍 SEARCH AND FILTERS */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                {/* ✅ FIX: Texto negro, fondo blanco y placeholder visible */}
                 <input
                   type="text"
-                  placeholder="Buscar productos por nombre, código, fabricante o proveedor..."
+                  placeholder="Search products by name, code, manufacturer or supplier..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 ${getColorClasses('ring')} focus:border-blue-500 transition-all duration-200 text-gray-900 bg-white placeholder-gray-400`}
@@ -253,16 +252,15 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
             </div>
             
             <div className="flex space-x-4">
-              {/* ✅ FIX: Texto negro y fondo blanco */}
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className={`border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 ${getColorClasses('ring')} focus:border-blue-500 transition-all duration-200 text-gray-900 bg-white`}
               >
-                <option value="name">Ordenar por nombre</option>
-                <option value="price">Ordenar por precio</option>
-                <option value="quantity">Ordenar por cantidad</option>
-                <option value="expiry">Ordenar por caducidad</option>
+                <option value="name">Sort by name</option>
+                <option value="price">Sort by price</option>
+                <option value="quantity">Sort by quantity</option>
+                <option value="expiry">Sort by expiry</option>
               </select>
 
               {(searchTerm || sortBy !== colorScheme.defaultSort) && (
@@ -274,26 +272,26 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                   className="inline-flex items-center px-4 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200"
                 >
                   <Filter className="h-4 w-4 mr-2" />
-                  Limpiar
+                  Clear
                 </button>
               )}
             </div>
           </div>
         </div>
 
-        {/* 📈 RESUMEN DE RESULTADOS */}
+        {/* 📈 RESULTS SUMMARY */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
             <div className={`${getColorClasses('badge')} rounded-lg px-4 py-2 border`}>
               <p className={`text-sm font-medium ${getColorClasses('text')}`}>
-                Mostrando {filteredProducts.length} de {products.length} lotes
+                Showing {filteredProducts.length} of {products.length} lots
               </p>
             </div>
             
             {searchTerm && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1">
                 <p className="text-sm text-blue-800">
-                  Búsqueda: "<span className="font-medium">{searchTerm}</span>"
+                  Search: "<span className="font-medium">{searchTerm}</span>"
                 </p>
               </div>
             )}
@@ -302,7 +300,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
           {filteredProducts.length > 0 && (
             <div className="text-right">
               <p className="text-sm text-gray-600">
-                Valor filtrado: <span className="font-semibold text-gray-900">
+                Filtered value: <span className="font-semibold text-gray-900">
                   {formatCurrency(filteredProducts.reduce((sum, lot) => sum + (lot.quantity * lot.price), 0))}
                 </span>
               </p>
@@ -310,7 +308,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
           )}
         </div>
 
-        {/* ❌ MENSAJE DE ERROR */}
+        {/* ❌ ERROR MESSAGE */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
             <div className="flex items-center">
@@ -320,14 +318,14 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                 </div>
               </div>
               <div className="ml-3">
-                <p className="text-red-800 font-medium">Error al cargar el catálogo</p>
+                <p className="text-red-800 font-medium">Error loading catalog</p>
                 <p className="text-red-700 text-sm mt-1">{error}</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* 📦 GRILLA DE PRODUCTOS */}
+        {/* 📦 PRODUCT GRID */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
@@ -343,18 +341,18 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
             ))}
           </div>
         ) : (
-          /* 📭 ESTADO VACÍO */
+          /* 📭 EMPTY STATE */
           <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
             <div className={`p-4 ${getColorClasses('bg')} rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center border ${getColorClasses('border')}`}>
               <Icon className={`h-12 w-12 ${getColorClasses('text')}`} />
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-3">
-              {searchTerm ? 'No se encontraron lotes' : `No hay lotes en ${title.toLowerCase()}`}
+              {searchTerm ? 'No lots found' : `No lots in ${title.toLowerCase()}`}
             </h3>
             <p className="text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
               {searchTerm 
-                ? 'No se encontraron lotes que coincidan con tu búsqueda. Intenta con otros términos.'
-                : 'Los lotes aparecerán aquí cuando sean importados y coincidan con este estado.'
+                ? 'No lots found matching your search. Try other terms.'
+                : 'Lots will appear here once they are imported and match this status.'
               }
             </p>
             <div className="flex justify-center space-x-4">
@@ -367,7 +365,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                   className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200"
                 >
                   <Filter className="h-5 w-5 mr-2" />
-                  Limpiar filtros
+                  Clear filters
                 </button>
               )}
               <button
@@ -375,42 +373,42 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                 className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200"
               >
                 <RefreshCw className="h-5 w-5 mr-2" />
-                Actualizar
+                Update
               </button>
             </div>
           </div>
         )}
 
-        {/* 📊 PIE INFORMATIVO */}
+        {/* 📊 INFORMATIVE FOOTER */}
         {filteredProducts.length > 0 && (
           <div className="mt-8 bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                   <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-                  Resumen del Catálogo
+                  Catalog Summary
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
                   <div>
-                    <p className="text-gray-600 mb-1">Productos únicos:</p>
+                    <p className="text-gray-600 mb-1">Unique products:</p>
                     <p className="font-medium text-gray-900">
-                      {new Set(filteredProducts.map(lot => lot.product_code)).size} productos
+                      {new Set(filteredProducts.map(lot => lot.product_code)).size} products
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600 mb-1">Proveedores:</p>
+                    <p className="text-gray-600 mb-1">Suppliers:</p>
                     <p className="font-medium text-gray-900">
-                      {new Set(filteredProducts.map(lot => lot.supplier_name)).size} proveedores
+                      {new Set(filteredProducts.map(lot => lot.supplier_name)).size} suppliers
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600 mb-1">Stock promedio:</p>
+                    <p className="text-gray-600 mb-1">Average stock:</p>
                     <p className="font-medium text-gray-900">
-                      {Math.round(filteredProducts.reduce((sum, lot) => sum + lot.quantity, 0) / filteredProducts.length)} unidades
+                      {Math.round(filteredProducts.reduce((sum, lot) => sum + lot.quantity, 0) / filteredProducts.length)} units
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600 mb-1">Valor promedio:</p>
+                    <p className="text-gray-600 mb-1">Average value:</p>
                     <p className="font-medium text-gray-900">
                       {formatCurrency(filteredProducts.reduce((sum, lot) => sum + (lot.quantity * lot.price), 0) / filteredProducts.length)}
                     </p>

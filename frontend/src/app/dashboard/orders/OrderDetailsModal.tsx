@@ -40,11 +40,11 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const [loading, setLoading] = useState(true);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
 
-  // Estados para Mensajes
+  // Message States
   const [newMessage, setNewMessage] = useState("");
   const [isSendingMsg, setIsSendingMsg] = useState(false);
 
-  // ✅ ESTADOS PARA MODAL DE CONFIRMACIÓN
+  // ✅ CONFIRMATION MODAL STATES
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -54,7 +54,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', actionLabel: '', actionColor: '', onConfirm: () => {} });
 
-  // Cargar datos
+  // Data Loading
   const fetchOrder = () => {
     getOrderDetails(orderId)
       .then((data) => {
@@ -63,7 +63,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
         setSuppliers(data.suppliers || []);
         setShippingOptions(data.shippingOptions || []);
         
-        // Solo actualiza el impuesto de la BD si el usuario no ha empezado a escribir
+        // Only update tax from DB if the user hasn't started typing
         if (!hasEditedTax) {
            setTaxInput(data.order.tax || '0');
         }
@@ -80,18 +80,18 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
 
   if (!isOpen) return null;
 
-  // --- MANEJADORES B2B ---
+  // --- B2B HANDLERS ---
 
   const handleAddOption = async () => {
-    if (!newOption.name || !newOption.cost) return alert("Nombre y Costo son obligatorios");
+    if (!newOption.name || !newOption.cost) return alert("Name and Cost are required");
     
-    // Formateamos a 2 decimales limpios antes de enviar
+    // Format to clean 2 decimals before sending
     const cleanCost = parseFloat(newOption.cost).toFixed(2);
 
     await addShippingOption({
       orderId,
       name: newOption.name,
-      description: "Opción estándar",
+      description: "Standard option",
       estimated_days: newOption.days,
       cost: parseFloat(cleanCost)
     });
@@ -101,14 +101,14 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   };
 
   const handleSubmitValuation = () => {
-    if (shippingOptions.length === 0) return alert("Debes agregar al menos una opción de envío.");
-    if (!taxInput) return alert("Debes definir el impuesto (o poner 0).");
+    if (shippingOptions.length === 0) return alert("You must add at least one shipping option.");
+    if (!taxInput) return alert("You must define the tax (or set to 0).");
     
     setConfirmModal({
       isOpen: true,
-      title: "Enviar Propuesta",
-      message: "¿Confirmas que los impuestos y envíos son correctos? Se enviará un correo al cliente para que realice el pago.",
-      actionLabel: "Enviar Propuesta",
+      title: "Send Proposal",
+      message: "Confirm that taxes and shipping are correct? An email will be sent to the customer for payment.",
+      actionLabel: "Send Proposal",
       actionColor: "bg-blue-600 hover:bg-blue-700",
       onConfirm: async () => {
         setConfirmModal({ ...confirmModal, isOpen: false });
@@ -121,9 +121,9 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const handleRejectOrder = () => {
     setConfirmModal({
       isOpen: true,
-      title: "Rechazar Orden",
-      message: "Esta acción cancelará la solicitud del cliente. ¿Estás seguro?",
-      actionLabel: "Sí, Rechazar",
+      title: "Reject Order",
+      message: "This action will cancel the customer's request. Are you sure?",
+      actionLabel: "Yes, Reject",
       actionColor: "bg-red-600 hover:bg-red-700",
       onConfirm: async () => {
         setConfirmModal({ ...confirmModal, isOpen: false });
@@ -136,9 +136,9 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const handleApprovePayment = () => {
     setConfirmModal({
       isOpen: true,
-      title: "Validar Pago",
-      message: "Al confirmar, la orden pasará a 'En Proceso' y el cliente será notificado de que su pago fue exitoso.",
-      actionLabel: "Aprobar Pago",
+      title: "Validate Payment",
+      message: "By confirming, the order will move to 'Processing' and the customer will be notified of their successful payment.",
+      actionLabel: "Approve Payment",
       actionColor: "bg-emerald-600 hover:bg-emerald-700",
       onConfirm: async () => {
         setConfirmModal({ ...confirmModal, isOpen: false });
@@ -148,13 +148,13 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     });
   };
 
-  // ✅ NUEVO: Marcar enviado directamente (Sin Tracking)
+  // ✅ Direct Mark as Shipped
   const handleMarkShippedDirectly = () => {
     setConfirmModal({
       isOpen: true,
-      title: "Marcar como Enviado",
-      message: "¿Confirmas que el paquete ya está en camino hacia el cliente?",
-      actionLabel: "Confirmar Envío",
+      title: "Mark as Shipped",
+      message: "Confirm that the package is already on its way to the customer?",
+      actionLabel: "Confirm Shipment",
       actionColor: "bg-blue-600 hover:bg-blue-700",
       onConfirm: async () => {
         setConfirmModal({ ...confirmModal, isOpen: false });
@@ -167,9 +167,9 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const handleMarkDelivered = () => {
     setConfirmModal({
       isOpen: true,
-      title: "Finalizar Pedido",
-      message: "¿Confirmas que el cliente recibió el paquete correctamente? Esto cerrará el ciclo de venta.",
-      actionLabel: "Marcar como Entregado",
+      title: "Complete Order",
+      message: "Confirm that the customer received the package correctly? This will close the sales cycle.",
+      actionLabel: "Mark as Delivered",
       actionColor: "bg-emerald-600 hover:bg-emerald-700",
       onConfirm: async () => {
         setConfirmModal({ ...confirmModal, isOpen: false });
@@ -186,22 +186,22 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
       await api.post(`/orders/${orderId}/message`, { message: newMessage });
       setConfirmModal({
         isOpen: true,
-        title: "Mensaje Enviado",
-        message: "El mensaje ha sido enviado y registrado en la bitácora.",
-        actionLabel: "Entendido",
+        title: "Message Sent",
+        message: "The message has been sent and recorded in the log.",
+        actionLabel: "Got it",
         actionColor: "bg-slate-900",
         onConfirm: () => setConfirmModal({ ...confirmModal, isOpen: false })
       });
       setNewMessage(""); 
     } catch (error) {
       console.error(error);
-      alert("Error al enviar el mensaje.");
+      alert("Error sending the message.");
     } finally {
       setIsSendingMsg(false);
     }
   };
 
-  // ✅ Parsear Dirección Segura y Completa
+  // ✅ Parse Address safely
   let parsedAddress: any = null;
   if (order?.shipping_address_json) {
     if (typeof order.shipping_address_json === 'string') {
@@ -226,7 +226,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
             </div>
             <div>
               <div className="flex items-center gap-3">
-                <h2 className="text-xl font-black text-slate-800">Orden #{orderId?.slice(0,8)}</h2>
+                <h2 className="text-xl font-black text-slate-800">Order #{orderId?.slice(0,8)}</h2>
                 {order && (
                   <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(order.status)}`}>
                     {getStatusLabel(order.status)}
@@ -259,28 +259,28 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
           ) : order ? (
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
               
-              {/* IZQUIERDA: PRODUCTOS */}
+              {/* LEFT: PRODUCTS */}
               <div className="xl:col-span-2 space-y-6">
                 <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                     <span className="font-bold text-slate-700 flex items-center gap-2">
-                      <Package size={18} className="text-blue-500"/> Productos
+                      <Package size={18} className="text-blue-500"/> Products
                     </span>
                     {suppliers.length > 0 && (
                       <button 
                         onClick={() => setShowSupplierModal(true)}
                         className="text-xs bg-slate-900 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-600 transition-colors flex items-center gap-2"
                       >
-                        <Building2 size={14}/> Ver Proveedores ({suppliers.length})
+                        <Building2 size={14}/> View Suppliers ({suppliers.length})
                       </button>
                     )}
                   </div>
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
                       <tr>
-                        <th className="px-6 py-3">Producto</th>
-                        <th className="px-6 py-3 text-center">Lote</th>
-                        <th className="px-6 py-3 text-center">Cant.</th>
+                        <th className="px-6 py-3">Product</th>
+                        <th className="px-6 py-3 text-center">Lot</th>
+                        <th className="px-6 py-3 text-center">Qty.</th>
                         <th className="px-6 py-3 text-right">Total</th>
                       </tr>
                     </thead>
@@ -304,11 +304,11 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                   </table>
                 </div>
 
-                {/* VISOR DE EVIDENCIA */}
+                {/* EVIDENCE VIEWER */}
                 {order.evidence_file && (
                   <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
                     <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                      <FileText className="text-purple-500" size={20}/> Evidencia de Pago Adjunta
+                      <FileText className="text-purple-500" size={20}/> Attached Payment Evidence
                     </h4>
                     <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 flex flex-col items-center">
                       <a 
@@ -316,27 +316,27 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                         target="_blank"
                         className="text-blue-600 font-bold hover:underline flex items-center gap-2"
                       >
-                        <ExternalLink size={16}/> Ver Documento
+                        <ExternalLink size={16}/> View Document
                       </a>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* DERECHA: PANEL DE CONTROL */}
+              {/* RIGHT: CONTROL PANEL */}
               <div className="space-y-6">
                 
-                {/* 1. PANEL DE ACCIÓN DINÁMICO */}
+                {/* 1. DYNAMIC ACTION PANEL */}
                 <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl shadow-slate-900/20">
                   <h4 className="font-bold text-xs uppercase tracking-widest text-slate-400 mb-5 border-b border-slate-700 pb-2">
-                    Panel de Control
+                    Control Panel
                   </h4>
 
-                  {/* CASO 1: PENDIENTE DE VALUACIÓN */}
+                  {/* CASE 1: PENDING VALUATION */}
                   {order.status === 'pending_valuation' && (
                     <div className="space-y-4">
                       <div>
-                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Impuestos (USD)</label>
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Taxes (USD)</label>
                         <div className="relative">
                            <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
                            <input 
@@ -354,41 +354,41 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
 
                       <div>
                         <label className="text-xs font-bold text-slate-400 uppercase mb-2 block flex justify-between">
-                          <span>Opciones de Envío</span>
-                          <span className="text-blue-400">{shippingOptions.length} agregadas</span>
+                          <span>Shipping Options</span>
+                          <span className="text-blue-400">{shippingOptions.length} added</span>
                         </label>
                         <div className="space-y-2 mb-3">
                           {shippingOptions.map(opt => (
                             <div key={opt.id} className="bg-slate-800 p-2 rounded-lg flex justify-between items-center text-xs">
                                <div>
                                  <span className="font-bold block text-white">{opt.name}</span>
-                                 <span className="text-slate-400">{opt.estimated_days}</span>
+                                 <span className="text-slate-400">{opt.estimated_days} days</span>
                                </div>
                                <span className="font-mono text-emerald-400 font-bold">${parseFloat(opt.cost).toFixed(2)}</span>
                             </div>
                           ))}
                           {shippingOptions.length === 0 && (
-                            <p className="text-xs text-slate-500 italic">No hay opciones de envío aún.</p>
+                            <p className="text-xs text-slate-500 italic">No shipping options yet.</p>
                           )}
                         </div>
 
                         <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 space-y-2">
                            <input 
-                             placeholder="Nombre (Ej: Express, Estándar)" 
+                             placeholder="Name (e.g., Express, Standard)" 
                              value={newOption.name}
                              onChange={(e) => setNewOption({...newOption, name: e.target.value})}
                              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500"
                            />
                            <div className="flex gap-2">
                              <input 
-                               placeholder="Días (Ej: 2-3)" 
+                               placeholder="Days (e.g., 2-3)" 
                                value={newOption.days}
                                onChange={(e) => setNewOption({...newOption, days: e.target.value})}
                                className="w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500"
                              />
                              <input 
                                type="number"
-                               placeholder="Costo $" 
+                               placeholder="Cost $" 
                                value={newOption.cost}
                                onChange={(e) => setNewOption({...newOption, cost: e.target.value})}
                                className="w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500"
@@ -399,7 +399,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                              disabled={isAddingOption}
                              className="w-full py-1.5 bg-slate-700 hover:bg-blue-600 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1"
                            >
-                             <Plus size={12}/> Agregar Opción
+                             <Plus size={12}/> Add Option
                            </button>
                         </div>
                       </div>
@@ -411,74 +411,74 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                         disabled={isSubmittingValuation}
                         className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition-all"
                       >
-                         <Send size={16}/> Enviar Propuesta al Cliente
+                         <Send size={16}/> Send Proposal to Customer
                       </button>
                       <button 
                         onClick={handleRejectOrder}
                         className="w-full py-3 bg-transparent text-red-400 hover:text-red-300 text-xs font-bold"
                       >
-                        Cancelar y Rechazar
+                        Cancel and Reject
                       </button>
                     </div>
                   )}
 
-                  {/* CASO 2: ESPERANDO APROBACIÓN CLIENTE */}
+                  {/* CASE 2: WAITING FOR CUSTOMER APPROVAL */}
                   {order.status === 'waiting_customer_approval' && (
                     <div className="text-center py-4">
                       <div className="w-12 h-12 bg-sky-500/20 text-sky-400 rounded-full flex items-center justify-center mx-auto mb-3 animate-pulse">
                         <Clock size={24}/>
                       </div>
-                      <p className="font-bold text-white">Esperando al Cliente</p>
+                      <p className="font-bold text-white">Waiting for Customer</p>
                       <p className="text-xs text-slate-400 mt-1">
-                        Se enviaron opciones de envío. El cliente debe elegir una para continuar.
+                        Shipping options sent. Customer must choose one to proceed.
                       </p>
                     </div>
                   )}
 
-                  {/* CASO 3: ESPERANDO PAGO */}
+                  {/* CASE 3: PAYMENT PENDING */}
                   {order.status === 'payment_pending' && (
                     <div className="text-center py-4">
                       <div className="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-3">
                         <AlertTriangle size={24}/>
                       </div>
-                      <p className="font-bold text-white">Pago Pendiente</p>
+                      <p className="font-bold text-white">Payment Pending</p>
                       <p className="text-xs text-slate-400 mt-1">
-                        Esperando que el cliente suba su comprobante.
+                        Waiting for the customer to upload their payment receipt.
                       </p>
                     </div>
                   )}
 
-                  {/* CASO 4: REVISIÓN DE PAGO */}
+                  {/* CASE 4: PAYMENT REVIEW */}
                   {order.status === 'payment_review' && (
                      <div className="space-y-3">
-                       <p className="text-sm text-slate-300 mb-2">Comprobante recibido. Revisa el documento adjunto y valida.</p>
+                       <p className="text-sm text-slate-300 mb-2">Receipt received. Review the attached document and validate.</p>
                        <button onClick={handleApprovePayment} className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold flex items-center justify-center gap-2">
-                         <ShieldCheck size={18}/> Validar Pago y Procesar
+                         <ShieldCheck size={18}/> Validate Payment and Process
                        </button>
                      </div>
                   )}
 
-                  {/* ✅ CASO 5: EN PROCESO (Boton Directo sin Tracking) */}
+                  {/* CASE 5: PROCESSING */}
                   {order.status === 'processing' && (
                     <div className="space-y-3 text-center">
-                      <p className="text-sm text-slate-300 mb-2">Prepara el paquete para envío.</p>
+                      <p className="text-sm text-slate-300 mb-2">Prepare the package for shipping.</p>
                       <button onClick={handleMarkShippedDirectly} className="w-full py-3 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
-                        <Truck size={18}/> Marcar como Enviado
+                        <Truck size={18}/> Mark as Shipped
                       </button>
                     </div>
                   )}
 
-                  {/* CASO 6: ENVIADO - SEGUIMIENTO Y CIERRE */}
+                  {/* CASE 6: SHIPPED - TRACKING AND CLOSURE */}
                   {order.status === 'shipped' && (
                     <div className="space-y-6">
 
                       <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
                         <label className="text-xs font-bold text-blue-400 uppercase mb-2 flex items-center gap-2">
-                          <MessageCircle size={14}/> Notificación Directa
+                          <MessageCircle size={14}/> Direct Notification
                         </label>
                         <textarea
                           rows={3}
-                          placeholder="Ej: El repartidor ya está en tu zona."
+                          placeholder="e.g.: The delivery person is already in your area."
                           className="w-full bg-slate-900 text-white text-sm p-3 rounded-lg border border-slate-600 focus:border-blue-500 outline-none resize-none mb-3 placeholder-slate-500"
                           onChange={(e) => setNewMessage(e.target.value)} 
                           value={newMessage}
@@ -489,7 +489,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                           className="w-full py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                         >
                           {isSendingMsg ? <Loader2 className="animate-spin" size={14}/> : <Send size={14}/>} 
-                          {isSendingMsg ? 'Enviando...' : 'Enviar al Cliente'}
+                          {isSendingMsg ? 'Sending...' : 'Send to Customer'}
                         </button>
                       </div>
 
@@ -500,36 +500,36 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                           className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
                         >
                           {isUpdating ? <Loader2 className="animate-spin"/> : <CheckCircle2 size={18}/>} 
-                          Finalizar Pedido (Entregado)
+                          Complete Order (Delivered)
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* CASO 7: FINALIZADO */}
+                  {/* CASE 7: DELIVERED */}
                   {order.status === 'delivered' && (
                      <div className="text-center py-4">
                         <div className="bg-emerald-500/20 text-emerald-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
                           <CheckCircle2 size={32}/>
                         </div>
-                        <h3 className="font-bold text-lg text-white">Pedido Completado</h3>
-                        <p className="text-slate-400 text-xs mt-1">Este ciclo de venta se ha cerrado.</p>
+                        <h3 className="font-bold text-lg text-white">Order Completed</h3>
+                        <p className="text-slate-400 text-xs mt-1">This sales cycle has been closed.</p>
                      </div>
                   )}
 
-                  {/* CASOS CANCELADOS */}
+                  {/* CANCELLED CASES */}
                   {['cancelled', 'rejected'].includes(order.status) && (
                      <div className="text-center py-4 opacity-50">
                         <XCircle size={32} className="mx-auto mb-2 text-slate-500"/>
-                        <p className="font-bold">Orden Cancelada</p>
+                        <p className="font-bold">Order Cancelled</p>
                      </div>
                   )}
                 </div>
 
-                {/* 2. RESUMEN FINANCIERO */}
+                {/* 2. FINANCIAL SUMMARY */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                   <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <CreditCard size={18} className="text-slate-400"/> Resumen Financiero
+                    <CreditCard size={18} className="text-slate-400"/> Financial Summary
                   </h4>
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between text-slate-500">
@@ -537,17 +537,17 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                       <span>{formatCurrency(parseFloat(order.subtotal || '0'))}</span>
                     </div>
                     <div className="flex justify-between text-slate-500">
-                      <span>Impuestos</span>
+                      <span>Taxes</span>
                       {order.status === 'pending_valuation' ? (
-                        <span className="text-blue-500 font-bold italic">Pendiente</span>
+                        <span className="text-blue-500 font-bold italic">Pending</span>
                       ) : (
                         <span>{formatCurrency(parseFloat(order.tax || '0'))}</span>
                       )}
                     </div>
                     <div className="flex justify-between text-slate-500">
-                      <span>Envío {order.shipping_method ? `(${order.shipping_method})` : ''}</span>
+                      <span>Shipping {order.shipping_method ? `(${order.shipping_method})` : ''}</span>
                       {order.status === 'pending_valuation' || order.status === 'waiting_customer_approval' ? (
-                        <span className="text-blue-500 font-bold italic">Por definir</span>
+                        <span className="text-blue-500 font-bold italic">To be defined</span>
                       ) : (
                         <span>{formatCurrency(parseFloat(order.shipping_cost || '0'))}</span>
                       )}
@@ -555,7 +555,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                     <div className="pt-3 border-t border-slate-100 flex justify-between font-black text-lg text-slate-900">
                       <span>Total</span>
                       {order.status === 'pending_valuation' ? (
-                        <span className="text-slate-400 text-base">Calculando...</span>
+                        <span className="text-slate-400 text-base">Calculating...</span>
                       ) : (
                         <span>{formatCurrency(order.total)}</span>
                       )}
@@ -563,36 +563,36 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                   </div>
                 </div>
 
-                {/* ✅ 3. DIRECCIÓN COMPLETA Y FORMATEADA */}
+                {/* 3. SHIPPING ADDRESS */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                    <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                     <MapPin size={18} className="text-slate-400"/> Dirección de Envío
+                     <MapPin size={18} className="text-slate-400"/> Shipping Address
                    </h4>
                    {parsedAddress ? (
                       <div className="text-sm text-slate-600 space-y-1">
                         <p className="font-bold text-slate-900">{parsedAddress.street} {parsedAddress.street_number}</p>
                         <p>{parsedAddress.colony ? `${parsedAddress.colony}, ` : ''}{parsedAddress.city}</p>
                         <p className="text-xs uppercase mt-2 font-bold text-slate-400">
-                          {parsedAddress.state}, {parsedAddress.country} • CP {parsedAddress.postal_code}
+                          {parsedAddress.state}, {parsedAddress.country} • ZIP {parsedAddress.postal_code}
                         </p>
                       </div>
                    ) : (
-                     <p className="text-slate-400 text-xs italic">Dirección no especificada.</p>
+                     <p className="text-slate-400 text-xs italic">Address not specified.</p>
                    )}
                 </div>
 
               </div>
             </div>
           ) : (
-            <div className="text-center text-red-500">Error cargando datos</div>
+            <div className="text-center text-red-500">Error loading data</div>
           )}
         </div>
       </div>
     </div>
 
-    {/* ✅ MODALES DE DISEÑO MEDBAY */}
+    {/* DESIGN MODALS */}
 
-    {/* Modal de Confirmación General */}
+    {/* General Confirmation Modal */}
     {confirmModal.isOpen && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in">
         <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setConfirmModal({...confirmModal, isOpen: false})}></div>
@@ -602,7 +602,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
           <p className="text-slate-500 text-sm mb-8 leading-relaxed">{confirmModal.message}</p>
           <div className="flex gap-3">
             <button onClick={() => setConfirmModal({...confirmModal, isOpen: false})} className="w-1/2 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">
-              Cancelar
+              Cancel
             </button>
             <button onClick={confirmModal.onConfirm} className={`w-1/2 py-3 rounded-xl font-bold text-white transition-colors shadow-lg ${confirmModal.actionColor}`}>
               {confirmModal.actionLabel}
@@ -612,22 +612,22 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
       </div>
     )}
 
-    {/* Modal Mini de Proveedores */}
+    {/* Suppliers Mini Modal */}
     {showSupplierModal && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in">
-         <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowSupplierModal(false)}></div>
-         <div className="bg-white rounded-3xl shadow-2xl p-6 relative w-full max-w-md animate-in zoom-in-95">
-           <button onClick={() => setShowSupplierModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800"><X size={20}/></button>
-           <h3 className="font-black text-lg mb-4 text-slate-800 flex items-center gap-2"><Building2 size={18}/> Proveedores</h3>
-           <div className="space-y-3">
-             {suppliers.map(sup => (
-               <div key={sup.id} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                 <p className="font-bold text-slate-800">{sup.name}</p>
-                 <p className="text-xs text-slate-500 mt-1">{sup.country} • Contacto: {sup.contact_info}</p>
-               </div>
-             ))}
-           </div>
-         </div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowSupplierModal(false)}></div>
+          <div className="bg-white rounded-3xl shadow-2xl p-6 relative w-full max-w-md animate-in zoom-in-95">
+            <button onClick={() => setShowSupplierModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800"><X size={20}/></button>
+            <h3 className="font-black text-lg mb-4 text-slate-800 flex items-center gap-2"><Building2 size={18}/> Suppliers</h3>
+            <div className="space-y-3">
+              {suppliers.map(sup => (
+                <div key={sup.id} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <p className="font-bold text-slate-800">{sup.name}</p>
+                  <p className="text-xs text-slate-500 mt-1">{sup.country} • Contact: {sup.contact_info}</p>
+                </div>
+              ))}
+            </div>
+          </div>
       </div>
     )}
     </>

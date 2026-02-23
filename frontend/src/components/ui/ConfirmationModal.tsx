@@ -1,4 +1,4 @@
-//frontend/src/components/ui/ConfirmationModal.tsx
+// frontend/src/components/ui/ConfirmationModal.tsx
 "use client";
 
 import { createPortal } from "react-dom";
@@ -23,8 +23,8 @@ export const ConfirmationModal = ({
   title,
   description,
   type = "warning",
-  confirmText = "Confirmar",
-  cancelText = "Cancelar",
+  confirmText = "Confirm",
+  cancelText = "Cancel",
   isLoading = false
 }: ConfirmationModalProps) => {
   if (!isOpen) return null;
@@ -67,7 +67,7 @@ export const ConfirmationModal = ({
               disabled={isLoading}
               className={`flex-1 py-3 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${style.btn} ${isLoading ? 'opacity-70' : ''}`}
             >
-              {isLoading ? "Procesando..." : confirmText}
+              {isLoading ? "Processing..." : confirmText}
             </button>
           </div>
         </div>

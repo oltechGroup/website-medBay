@@ -45,24 +45,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'MXN',
+      currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(amount);
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'Sin fecha';
-    return new Date(dateString).toLocaleDateString('es-MX');
+    if (!dateString) return 'No date';
+    return new Date(dateString).toLocaleDateString('en-US');
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'available': return '🟢 En Fecha';
-      case 'near_expiry': return '🟡 Fecha Corta';
-      case 'expired': return '🔴 Caducado';
+      case 'available': return '🟢 Current';
+      case 'near_expiry': return '🟡 Short-Date';
+      case 'expired': return '🔴 Expired';
       default: return status;
     }
   };
@@ -71,7 +71,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   return (
     <div className={`border-2 rounded-xl p-4 ${colors.bg} ${colors.border} hover:shadow-md transition-all duration-200`}>
-      {/* Header Compacto */}
+      {/* Compact Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-gray-900 text-base leading-tight mb-1 line-clamp-2">
@@ -83,25 +83,25 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               <span className="font-medium">{product.product_code}</span>
             </div>
             <span>•</span>
-            <span className="font-medium">Lote: {product.lot_number}</span>
+            <span className="font-medium">Lot: {product.lot_number}</span>
           </div>
         </div>
         
-        {/* Badge de Estado - Solo una vez */}
+        {/* Status Badge - Only once */}
         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${colors.badge} whitespace-nowrap ml-2`}>
-          {getStatusLabel(product.status).split(' ')[1]} {/* Solo el texto, sin el emoji */}
+          {getStatusLabel(product.status).split(' ')[1]} {/* Only text, without emoji */}
         </span>
       </div>
 
-      {/* Proveedor */}
+      {/* Supplier */}
       <div className="mb-3">
         <p className="text-sm font-medium text-gray-700">{product.supplier_name}</p>
         {product.manufacturer_name && (
-          <p className="text-xs text-gray-600">Fabricante: {product.manufacturer_name}</p>
+          <p className="text-xs text-gray-600">Manufacturer: {product.manufacturer_name}</p>
         )}
       </div>
 
-      {/* Descripción - Solo si existe y con mejor formato */}
+      {/* Description - Only if it exists and with better format */}
       {product.product_description && (
         <div className="mb-3">
           <p className="text-sm text-gray-700 line-clamp-2 leading-relaxed">
@@ -110,7 +110,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
       )}
 
-      {/* Información Crítica - Mejor Organizada */}
+      {/* Critical Information - Better Organized */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="flex items-center space-x-2">
           <div className="p-1.5 bg-white rounded-lg border border-gray-200">
@@ -118,7 +118,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
           <div>
             <p className="text-xs text-gray-600">Stock</p>
-            <p className="text-sm font-bold text-gray-900">{product.quantity} und</p>
+            <p className="text-sm font-bold text-gray-900">{product.quantity} units</p>
           </div>
         </div>
 
@@ -127,17 +127,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             <Calendar className="h-3 w-3 text-purple-600" />
           </div>
           <div>
-            <p className="text-xs text-gray-600">Caduca</p>
+            <p className="text-xs text-gray-600">Expires</p>
             <p className="text-sm font-bold text-gray-900">{formatDate(product.expiry_date)}</p>
           </div>
         </div>
       </div>
 
-      {/* Precio y Valor Total - Con mejor jerarquía */}
+      {/* Price and Total Value - With better hierarchy */}
       <div className="pt-3 border-t border-gray-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-600 mb-1">Precio unitario</p>
+            <p className="text-xs text-gray-600 mb-1">Unit price</p>
             <div className="flex items-center space-x-1">
               <DollarSign className="h-4 w-4 text-gray-500" />
               <span className="text-lg font-bold text-gray-900">
@@ -147,7 +147,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
           
           <div className="text-right">
-            <p className="text-xs text-gray-600 mb-1">Valor total</p>
+            <p className="text-xs text-gray-600 mb-1">Total value</p>
             <p className="text-base font-bold text-blue-600">
               {formatCurrency(product.quantity * product.price)}
             </p>

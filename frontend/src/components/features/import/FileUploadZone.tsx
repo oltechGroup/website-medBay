@@ -79,7 +79,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Zona de Drop */}
+      {/* Drop Zone */}
       <div
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
           isDragging
@@ -105,12 +105,12 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           
           <div className="space-y-1">
             <p className="text-lg font-medium text-gray-900">
-              {selectedFile ? 'Archivo seleccionado' : 'Arrastra tu archivo aquí'}
+              {selectedFile ? 'File selected' : 'Drag your file here'}
             </p>
             <p className="text-sm text-gray-600">
               {selectedFile 
-                ? `Listo para procesar: ${selectedFile.name}`
-                : `O haz clic para seleccionar (${acceptedFormats})`
+                ? `Ready to process: ${selectedFile.name}`
+                : `Or click to select (${acceptedFormats})`
               }
             </p>
           </div>
@@ -121,13 +121,13 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
               disabled={isUploading}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
             >
-              Seleccionar Archivo
+              Select File
             </button>
           )}
         </div>
       </div>
 
-      {/* Archivo Seleccionado */}
+      {/* Selected File */}
       {selectedFile && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
@@ -152,25 +152,25 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         </div>
       )}
 
-      {/* Estado de Carga */}
+      {/* Upload Status */}
       {isUploading && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center space-x-3">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             <div>
-              <p className="font-medium text-blue-900">Subiendo archivo...</p>
-              <p className="text-sm text-blue-700">Procesando, por favor espera.</p>
+              <p className="font-medium text-blue-900">Uploading file...</p>
+              <p className="text-sm text-blue-700">Processing, please wait.</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Información de Formatos */}
+      {/* Format Information */}
       <div className="bg-gray-50 rounded-lg p-4">
-        <h4 className="text-sm font-medium text-gray-900 mb-2">Formatos soportados:</h4>
+        <h4 className="text-sm font-medium text-gray-900 mb-2">Supported formats:</h4>
         <ul className="text-sm text-gray-600 space-y-1">
-          <li>• <strong>Excel</strong> (.xlsx, .xls) - Hasta 10MB</li>
-          <li>• <strong>CSV</strong> (.csv) - Hasta 10MB</li>
+          <li>• <strong>Excel</strong> (.xlsx, .xls) - Up to 10MB</li>
+          <li>• <strong>CSV</strong> (.csv) - Up to 10MB</li>
         </ul>
       </div>
     </div>

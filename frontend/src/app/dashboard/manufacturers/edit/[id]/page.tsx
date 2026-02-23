@@ -1,54 +1,63 @@
+// frontend/src/app/dashboard/manufacturers/edit/[id]/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ManufacturerForm } from '@/components/features/manufacturers/ManufacturerForm';
-import { useManufacturers, UpdateManufacturerData } from '@/hooks/useManufacturers';
+import { useManufacturers } from '@/hooks/useManufacturers';
 
 export default function EditManufacturerPage() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
   
+  // Adjusted destructuring to match the hook's real return type
   const { 
     manufacturers, 
     updateManufacturer, 
-    isUpdating 
+    isLoading: isHookLoading 
   } = useManufacturers();
   
   const [manufacturer, setManufacturer] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  // Buscar el fabricante por ID
+  // Search for manufacturer by ID
   useEffect(() => {
     if (manufacturers.length > 0) {
       const foundManufacturer = manufacturers.find(m => m.id === id);
       if (foundManufacturer) {
         setManufacturer(foundManufacturer);
       } else {
-        setError('Fabricante no encontrado');
+        setError('Manufacturer not found');
       }
       setIsLoading(false);
+    } else if (!isHookLoading) {
+      // If hook finished loading and no manufacturers were found
+      setIsLoading(false);
     }
-  }, [manufacturers, id]);
+  }, [manufacturers, id, isHookLoading]);
 
-  const handleSubmit = async (data: UpdateManufacturerData) => {
+  const handleSubmit = async (data: any) => {
     try {
       setError(null);
+      setIsUpdating(true);
       await updateManufacturer({ id, data });
-      // Redirigir a la lista después de actualizar exitosamente
+      // Redirect to list after successful update
       router.push('/dashboard/manufacturers');
     } catch (err: any) {
-      console.error('Error al actualizar fabricante:', err);
+      console.error('Error updating manufacturer:', err);
       setError(
         err.response?.data?.error || 
-        'Error al actualizar el fabricante. Por favor, intenta de nuevo.'
+        'Error updating the manufacturer. Please try again.'
       );
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isHookLoading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-7xl mx-auto">
@@ -70,13 +79,13 @@ export default function EditManufacturerPage() {
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-7xl mx-auto">
           <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-            <h2 className="text-lg font-semibold text-red-800 mb-2">Fabricante no encontrado</h2>
+            <h2 className="text-lg font-semibold text-red-800 mb-2">Manufacturer Not Found</h2>
             <p className="text-red-600 mb-4">{error}</p>
             <button
               onClick={() => router.push('/dashboard/manufacturers')}
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors duration-200"
             >
-              Volver a Fabricantes
+              Back to Manufacturers
             </button>
           </div>
         </div>
@@ -87,7 +96,7 @@ export default function EditManufacturerPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Mostrar error general */}
+        {/* Show general error */}
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
             <div className="flex items-center">
