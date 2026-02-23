@@ -1,3 +1,4 @@
+// frontend/src/components/layout/Header.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -9,7 +10,7 @@ import {
   Settings, Menu, X, Bell, Stethoscope, 
   Building2, ShieldCheck, Store, Briefcase, 
   MessageSquareQuote, Trash2, ChevronRight,
-  ArrowRight, Globe // ✅ Añadimos Globe para el idioma
+  ArrowRight
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
@@ -33,12 +34,13 @@ export default function Header({
   const { user, isAuthenticated, logout } = useAuth();
   const { summary } = useCart(); 
   const pathname = usePathname();
-  const router = useRouter(); 
+  const router = useRouter(); // ✅ Necesario para redirección del cliente
   
   const isAdmin = user?.verification_level === 'admin';
   const isSalesAgent = user?.verification_level === 'sales_agent';
   const isStaff = isAdmin || isSalesAgent;
 
+  // Notificaciones (Cargamos condicionalmente)
   const { 
     notifications: adminNotifs, 
     unreadCount: adminUnread,
@@ -51,6 +53,7 @@ export default function Header({
     deleteNotification: deleteClientNotif 
   } = useClientNotifications();
 
+  // Seleccionamos la fuente correcta de datos
   const activeNotifications = isStaff ? adminNotifs : clientNotifs;
   const activeUnreadCount = isStaff ? adminUnread : clientUnread;
 
@@ -96,6 +99,8 @@ export default function Header({
   }, []);
 
   // --- MANEJADORES ---
+  
+  // Borrar notificación
   const handleDeleteNotification = async (e: React.MouseEvent, id: any) => {
     e.stopPropagation(); 
     if (isStaff) {
@@ -105,14 +110,19 @@ export default function Header({
     }
   };
 
+  // ✅ NUEVO: Manejador Inteligente de Clics en Notificaciones
   const handleNotificationClick = (n: any) => {
-    setIsNotifOpen(false); 
+    setIsNotifOpen(false); // Cerrar dropdown siempre
+
     if (isStaff) {
+      // 👔 ADMIN: Abrir Modal de Gestión
       setSelectedNotif(n); 
     } else {
+      // 👤 CLIENTE: Redirigir a la página correspondiente
+      // Los endpoints de cliente devuelven 'order' o 'quote' en el campo type
       if (n.type === 'order') router.push('/orders');
       else if (n.type === 'quote') router.push('/quotes');
-      else router.push('/notifications'); 
+      else router.push('/notifications'); // Fallback
     }
   };
 
@@ -141,26 +151,6 @@ export default function Header({
 
   return (
     <>
-      {/* ✅ Estilos Globales para limpiar el widget de Google */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        .goog-te-gadget { font-family: inherit !important; color: transparent !important; font-size: 0 !important; }
-        .goog-te-gadget .goog-te-combo { 
-          margin: 0 !important; 
-          background: #f8fafc; 
-          border: 1px solid #e2e8f0; 
-          border-radius: 0.75rem; 
-          padding: 4px 8px; 
-          color: #1e293b; 
-          font-weight: 700; 
-          font-size: 12px; 
-          outline: none; 
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .goog-te-gadget .goog-te-combo:hover { border-color: #3b82f6; background: white; }
-        .goog-te-gadget span { display: none !important; }
-      `}} />
-
       <header 
         className={`fixed top-0 left-0 right-0 transition-all duration-300 ease-in-out border-b
           ${variant === 'dashboard' ? 'z-[40]' : 'z-[999]'} 
@@ -172,6 +162,7 @@ export default function Header({
       >
         <div className={`mx-auto flex items-center justify-between gap-3 ${variant === 'dashboard' ? 'px-4 sm:px-6 max-w-full' : 'w-[92%] max-w-[1400px]'}`}>
           
+          {/* === IZQUIERDA: LOGO O HAMBURGUESA (DASHBOARD) === */}
           <div className="flex items-center gap-3 md:gap-4 flex-1 md:flex-none">
             {(variant === 'dashboard') && (
               <button onClick={onMenuToggle} className="lg:hidden p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition-colors active:scale-95">
@@ -197,6 +188,7 @@ export default function Header({
             )}
           </div>
 
+          {/* === CENTRO: NAVEGACIÓN DESKTOP === */}
           {variant !== 'dashboard' && (
             <div className="hidden lg:flex flex-1 justify-center px-4">
               {variant === 'catalog' ? (
@@ -225,14 +217,10 @@ export default function Header({
             </div>
           )}
 
+          {/* === DERECHA: ACCIONES Y USUARIO === */}
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 z-50">
             
-            {/* ✅ SELECTOR DE IDIOMA (Integrado) */}
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all group">
-              <Globe size={18} className="text-slate-400 group-hover:text-blue-600 transition-colors" />
-              <div id="google_translate_element" className="scale-90 origin-left"></div>
-            </div>
-
+            {/* 🔔 NOTIFICACIONES (INTEGRADO ADMIN / CLIENTE) */}
             {mounted && isAuthenticated && user && (
               <div className="relative" ref={notifRef}>
                 <button onClick={() => setIsNotifOpen(!isNotifOpen)} className={`p-2.5 rounded-xl transition-all relative active:scale-95 ${isNotifOpen ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-100 text-slate-500 hover:text-blue-600'}`}>
@@ -254,11 +242,13 @@ export default function Header({
                         </div>
                       ) : (
                         activeNotifications.slice(0, 5).map((n: any) => (
+                          // ✅ USO DE handleNotificationClick EN LUGAR DE ABRIR MODAL DIRECTO
                           <div key={n.id} onClick={() => handleNotificationClick(n)} className="relative p-4 border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors group">
                             <div className="flex gap-3">
                               <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${!n.is_read ? 'bg-blue-500' : 'bg-slate-200'}`}></div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-slate-800 group-hover:text-blue-700 truncate">{n.subject || n.title}</p>
+                                {/* Admin ve nombre del cliente, Cliente ve sistema */}
                                 <p className="text-xs text-slate-500 mt-0.5 truncate">{isStaff ? (n.sender_name || 'Desconocido') : 'Sistema MedBay'}</p>
                                 <p className="text-[10px] text-slate-400 mt-2">{new Date(n.created_at).toLocaleDateString()}</p>
                               </div>
@@ -274,6 +264,7 @@ export default function Header({
               </div>
             )}
 
+            {/* Iconos Públicos */}
             {variant !== 'dashboard' && (
               <>
                 <Link href="/wishlist" className="hidden sm:flex p-2.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-red-500 transition-colors">
@@ -287,6 +278,7 @@ export default function Header({
               </>
             )}
 
+            {/* MENÚ DE USUARIO */}
             <div className={variant === 'dashboard' ? 'block' : 'hidden sm:block'}>
               {mounted && isAuthenticated && user ? (
                 <div className="relative" ref={menuRef}>
@@ -334,6 +326,7 @@ export default function Header({
               )}
             </div>
 
+            {/* BOTÓN MENÚ MÓVIL PÚBLICO */}
             {variant !== 'dashboard' && (
               <button 
                 className="lg:hidden p-2.5 text-slate-800 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors active:scale-95 z-50" 
@@ -346,7 +339,7 @@ export default function Header({
         </div>
       </header>
 
-      {/* MENÚ MÓVIL (Sin cambios) */}
+      {/* MENÚ MÓVIL (Sin cambios, solo para referencia visual) */}
       {isMobileMenuOpen && variant !== 'dashboard' && (
         <div className="lg:hidden fixed inset-0 z-[990] bg-white animate-in slide-in-from-top-10 fade-in duration-200 flex flex-col pt-[72px]">
           <div className="flex-1 overflow-y-auto px-6 pb-20 custom-scrollbar">
@@ -405,6 +398,7 @@ export default function Header({
         </div>
       )}
 
+      {/* ✅ MODAL SOLO PARA ADMIN (CLIENTE NO LO USA AQUÍ) */}
       {selectedNotif && isStaff && (
         <NotificationModal 
           isOpen={!!selectedNotif}
