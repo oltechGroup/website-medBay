@@ -35,7 +35,8 @@ export default function RegisterPage() {
     formState: { errors },
     setError,
     setValue,
-    trigger
+    trigger,
+    watch // ✅ Extraemos watch para escuchar la contraseña en tiempo real
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -47,6 +48,25 @@ export default function RegisterPage() {
       reference_point: ''
     },
   });
+
+  // ✅ LÓGICA DE FORTALEZA DE CONTRASEÑA
+  const passwordValue = watch('password') || '';
+  
+  const getPasswordStrength = (pass: string) => {
+    if (!pass) return { score: 0, label: '', bg: 'bg-slate-200', text: 'text-slate-500' };
+    let score = 0;
+    if (pass.length >= 8) score += 1;
+    if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score += 1;
+    if (/[0-9]/.test(pass)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pass)) score += 1;
+
+    if (score <= 1) return { score: 1, label: 'Weak', bg: 'bg-red-500', text: 'text-red-600' };
+    if (score === 2) return { score: 2, label: 'Fair', bg: 'bg-orange-500', text: 'text-orange-600' };
+    if (score === 3) return { score: 3, label: 'Good', bg: 'bg-yellow-500', text: 'text-yellow-600' };
+    return { score: 4, label: 'Strong', bg: 'bg-green-500', text: 'text-green-600' };
+  };
+
+  const strength = getPasswordStrength(passwordValue);
 
   useEffect(() => {
     if (selectedRole) {
@@ -249,7 +269,32 @@ export default function RegisterPage() {
                   </div>
                   <Input label="Email Address" type="email" placeholder="contact@domain.com" error={errors.email?.message} {...register('email')} />
                   <Input label="Contact Phone" type="tel" placeholder="(55) 0000 0000" error={errors.phone?.message} {...register('phone')} />
-                  <Input label="Password" type="password" placeholder="••••••••" error={errors.password?.message} {...register('password')} />
+                  
+                  {/* ✅ MODIFICACIÓN: Envolvemos el input y el medidor de fuerza */}
+                  <div className="space-y-1">
+                    <Input label="Password" type="password" placeholder="••••••••" error={errors.password?.message} {...register('password')} />
+                    {passwordValue.length > 0 && (
+                      <div className="mt-1 animate-in fade-in duration-300">
+                        <div className="flex gap-1 h-1 w-full rounded-full overflow-hidden">
+                          {[1, 2, 3, 4].map((level) => (
+                            <div 
+                              key={level} 
+                              className={`h-full flex-1 transition-colors duration-300 ${level <= strength.score ? strength.bg : 'bg-slate-200'}`} 
+                            />
+                          ))}
+                        </div>
+                        <div className="flex justify-between items-center mt-1.5 px-0.5">
+                          <span className="text-[10px] text-slate-400">
+                            Min 8 chars, A-Z, 0-9 & Symbol
+                          </span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider ${strength.text}`}>
+                            {strength.label}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <Input label="Confirm Password" type="password" placeholder="••••••••" error={errors.confirmPassword?.message} {...register('confirmPassword')} />
                </div>
             </section>

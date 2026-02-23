@@ -28,14 +28,16 @@ const fileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
     cb(null, true);
   } else {
-    cb(new Error('Formato no válido. Solo imágenes o PDF.'), false);
+    // ✅ TEXTO EN INGLÉS: Aviso de formato no compatible
+    cb(new Error('Invalid file format. Please upload only PDF, JPG, or PNG files.'), false);
   }
 };
 
 const uploadEvidence = multer({ 
   storage: storage,
   fileFilter: fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+  // ✅ LÍMITE AUMENTADO: Ahora acepta hasta 15MB
+  limits: { fileSize: 15 * 1024 * 1024 } 
 });
 
 module.exports = uploadEvidence;

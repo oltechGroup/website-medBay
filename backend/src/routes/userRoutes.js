@@ -1,6 +1,7 @@
 // backend/src/routes/userRoutes.js
 const express = require('express');
 const router = express.Router();
+const multer = require('multer'); // ✅ NUEVO: Importamos multer para identificar sus errores
 const userController = require('../controllers/userController');
 const authMiddleware = require('../middleware/auth');
 const uploadEvidence = require('../middleware/uploadEvidence'); 
@@ -10,7 +11,23 @@ const uploadEvidence = require('../middleware/uploadEvidence');
 // ==========================================
 
 // Registro de clientes (Business/Médicos) con documento
-router.post('/register', uploadEvidence.single('documentFile'), userController.register);
+// ✅ MODIFICACIÓN: Envolvemos el middleware de Multer para atrapar errores y enviar un mensaje limpio en inglés.
+router.post('/register', (req, res, next) => {
+  uploadEvidence.single('documentFile')(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      // Error nativo de Multer (ej. archivo muy pesado)
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File is too large. Maximum size allowed is 15MB.' });
+      }
+      return res.status(400).json({ error: err.message });
+    } else if (err) {
+      // Error personalizado (ej. el que pusimos en el fileFilter para formatos no válidos)
+      return res.status(400).json({ error: err.message });
+    }
+    // Si todo sale bien, pasamos al controlador
+    next();
+  });
+}, userController.register);
 
 // ==========================================
 // 🔒 RUTAS PROTEGIDAS (Gestión de Usuarios)
