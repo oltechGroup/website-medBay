@@ -22,7 +22,7 @@ const Product = {
     return result.rows[0];
   },
 
-  // ✅ FUNCION TOTALMENTE OPTIMIZADA: Soporta categoryStatus y mejora performance
+  // ✅ FUNCION ESTABILIZADA: Tie-breaker añadido para evitar saltos en la paginación
   findPaginated: async ({ 
     page = 1, 
     limit = 20, 
@@ -30,7 +30,7 @@ const Product = {
     hasImages = 'all', 
     manufacturerId = '', 
     categoryId = '', 
-    categoryStatus = 'all', // 🆕 Nuevo parámetro soportado
+    categoryStatus = 'all', 
     status = 'all', 
     minPrice = null,
     maxPrice = null,
@@ -78,7 +78,7 @@ const Product = {
       paramCount++;
     }
 
-    // --- 5. CATEGORY STATUS (🆕 Uncategorized / Categorized) ---
+    // --- 5. CATEGORY STATUS (Uncategorized / Categorized) ---
     if (categoryStatus === 'uncategorized') {
       whereConditions.push(`NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id)`);
     } else if (categoryStatus === 'categorized') {
@@ -120,8 +120,9 @@ const Product = {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    // --- ORDENAMIENTO ---
-    let orderByClause = 'ORDER BY p.created_at DESC'; 
+    // --- ORDENAMIENTO (CORREGIDO CON TIE-BREAKER) ---
+    // ✅ IMPORTANTE: Añadimos p.id ASC al final de cada orden para que Postgres sea determinista.
+    let orderByClause = 'ORDER BY p.created_at DESC, p.id ASC'; 
 
     const priceSortColumn = `(
       SELECT MIN(pl.price) 
@@ -134,19 +135,19 @@ const Product = {
 
     switch (sortBy) {
       case 'price_asc':
-        orderByClause = `ORDER BY ${priceSortColumn} ASC NULLS LAST`;
+        orderByClause = `ORDER BY ${priceSortColumn} ASC NULLS LAST, p.id ASC`;
         break;
       case 'price_desc':
-        orderByClause = `ORDER BY ${priceSortColumn} DESC NULLS LAST`;
+        orderByClause = `ORDER BY ${priceSortColumn} DESC NULLS LAST, p.id ASC`;
         break;
       case 'name_asc':
-        orderByClause = `ORDER BY p.description ASC`;
+        orderByClause = `ORDER BY p.description ASC, p.id ASC`;
         break;
       case 'name_desc':
-        orderByClause = `ORDER BY p.description DESC`;
+        orderByClause = `ORDER BY p.description DESC, p.id ASC`;
         break;
       default:
-        orderByClause = `ORDER BY p.created_at DESC`;
+        orderByClause = `ORDER BY p.created_at DESC, p.id ASC`;
         break;
     }
 
@@ -157,7 +158,6 @@ const Product = {
     params.push(limit);
     params.push(offset);
 
-    // ✅ CONSULTA PRINCIPAL MEJORADA
     const dataQuery = `
       SELECT 
         p.id,
@@ -181,7 +181,6 @@ const Product = {
           JOIN categories c ON pc.category_id = c.id 
           WHERE pc.product_id = p.id) as category_names,
           
-        -- Precios (quantity >= 0)
         (SELECT MIN(pl.price)::float FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
           WHERE ps.product_id = p.id AND pl.quantity >= 0
@@ -277,7 +276,6 @@ const Product = {
     return result.rows[0];
   },
 
-  // ✅ STATS MEJORADAS: Ahora incluyen contadores de categorías para la barra de progreso
   getStats: async () => {
     const query = `
       SELECT 

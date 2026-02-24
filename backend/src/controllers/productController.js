@@ -56,7 +56,7 @@ const productController = {
     }
   },
 
-  // ✅ GET ALL - OPTIMIZADO CON ORDENAMIENTO (SORTBY)
+  // ✅ GET ALL - CORREGIDO: Ahora captura categoryStatus para los filtros de asignación
   getAll: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
@@ -66,13 +66,13 @@ const productController = {
       const manufacturerId = req.query.manufacturerId || '';
       const categoryId = req.query.categoryId || '';
       
-      // Filtros avanzados
+      // ✅ NUEVO: Capturamos el estado de categorización (all, uncategorized, categorized)
+      const categoryStatus = req.query.categoryStatus || 'all';
+      
       const status = req.query.status || 'all'; 
       const minPrice = req.query.minPrice ? parseFloat(req.query.minPrice) : null;
       const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice) : null;
-      
-      // ✅ NUEVO: Ordenamiento
-      const sortBy = req.query.sortBy || 'newest'; // 'price_asc', 'price_desc', etc.
+      const sortBy = req.query.sortBy || 'newest';
 
       const result = await Product.findPaginated({
         page,
@@ -81,6 +81,7 @@ const productController = {
         hasImages,
         manufacturerId,
         categoryId,
+        categoryStatus, // 🚀 Enviamos el filtro al modelo
         status,
         minPrice,
         maxPrice,
@@ -229,7 +230,7 @@ const productController = {
   getProductLots: async (req, res) => {
     try {
       const { id } = req.params;
-      const statusFilter = req.query.status || 'all'; // Capturamos el filtro
+      const statusFilter = req.query.status || 'all'; 
       
       const lots = await ProductLot.findByProductId(id, statusFilter);
       res.json(lots);
