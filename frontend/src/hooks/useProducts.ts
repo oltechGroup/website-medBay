@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
-// --- INTERFACES --- (Se mantienen igual)
+// --- INTERFACES ---
 export interface Product {
   id: string;
   description: string;
@@ -32,6 +32,7 @@ export interface ProductStats {
   total_products: number;
   products_with_images: number;
   products_without_images: number;
+  // ✅ Nuevos campos añadidos para la barra de progreso
   with_categories: number;
   without_categories: number;
 }
@@ -77,7 +78,7 @@ interface UseProductsParams {
   categoryId?: string;
   categoryStatus?: 'all' | 'uncategorized' | 'categorized'; 
   status?: string; 
-  minPrice?: number | string; // Permitir string para manejar inputs vacíos
+  minPrice?: number | string; 
   maxPrice?: number | string;
   sortBy?: string;
 }
@@ -102,7 +103,7 @@ export const useProducts = (params?: UseProductsParams) => {
     data: responseData, 
     isLoading, 
     isFetching, 
-    isPlaceholderData, // 🟢 IMPORTANTE: Para saber si estamos viendo datos de la página anterior
+    isPlaceholderData, 
     error,
     refetch 
   } = useQuery({
@@ -116,10 +117,14 @@ export const useProducts = (params?: UseProductsParams) => {
       if (hasImages !== 'all') queryParams.append('hasImages', hasImages);
       if (manufacturerId) queryParams.append('manufacturerId', manufacturerId);
       if (categoryId) queryParams.append('categoryId', categoryId);
-      if (categoryStatus !== 'all') queryParams.append('categoryStatus', categoryStatus);
+      
+      // ✅ CORRECCIÓN: Aseguramos que el parámetro se envíe al backend
+      if (categoryStatus && categoryStatus !== 'all') {
+        queryParams.append('categoryStatus', categoryStatus);
+      }
+      
       if (status !== 'all') queryParams.append('status', status);
       
-      // Limpieza de precios para evitar enviar strings vacíos
       if (minPrice !== undefined && minPrice !== '') queryParams.append('minPrice', minPrice.toString());
       if (maxPrice !== undefined && maxPrice !== '') queryParams.append('maxPrice', maxPrice.toString());
       if (sortBy) queryParams.append('sortBy', sortBy);
@@ -128,7 +133,7 @@ export const useProducts = (params?: UseProductsParams) => {
       return response.data;
     },
     placeholderData: keepPreviousData,
-    staleTime: 1000 * 60 * 5, // ⚡ 5 minutos de caché: Hace la navegación entre páginas instantánea
+    staleTime: 1000 * 60 * 5, 
   });
 
   const products: Product[] = responseData?.products || [];
@@ -139,17 +144,17 @@ export const useProducts = (params?: UseProductsParams) => {
     totalPages: 1
   };
 
-  // 📊 Estadísticas (Optimizado con staleTime)
+  // 📊 Estadísticas (Actualizado para recibir los nuevos contadores)
   const statsQuery = useQuery({
     queryKey: ['products', 'stats'],
     queryFn: async (): Promise<ProductStats> => {
       const response = await api.get('/products/stats/overview');
       return response.data;
     },
-    staleTime: 1000 * 60 * 10, // Las estadísticas no necesitan refrescarse cada segundo
+    staleTime: 1000 * 60 * 5, 
   });
 
-  // --- El resto de las queries y mutaciones se mantienen igual para no romper funcionalidades ---
+  // --- El resto de las queries se mantienen IGUAL ---
   
   const productsWithoutImagesQuery = useQuery({
     queryKey: ['products', 'without-images'],
@@ -190,7 +195,7 @@ export const useProducts = (params?: UseProductsParams) => {
     }
   };
 
-  // --- MUTACIONES --- (Se mantienen intactas para preservar la lógica de negocio)
+  // --- MUTACIONES (Intactas) ---
   const createMutation = useMutation({
     mutationFn: async (productData: CreateProductData) => {
       const response = await api.post('/products', productData);
@@ -209,6 +214,7 @@ export const useProducts = (params?: UseProductsParams) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
     },
   });
 
@@ -223,7 +229,6 @@ export const useProducts = (params?: UseProductsParams) => {
     },
   });
 
-  // Mutaciones de imágenes
   const uploadImageMutation = useMutation({
     mutationFn: async ({ productId, formData }: { productId: string; formData: FormData }) => {
       const response = await api.post(`/products/${productId}/images/upload`, formData, {
@@ -231,7 +236,10 @@ export const useProducts = (params?: UseProductsParams) => {
       });
       return response.data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['products'] }); },
+    onSuccess: () => { 
+      queryClient.invalidateQueries({ queryKey: ['products'] }); 
+      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
+    },
   });
 
   const uploadImagesWithMetadataMutation = useMutation({
@@ -241,7 +249,10 @@ export const useProducts = (params?: UseProductsParams) => {
       });
       return response.data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['products'] }); },
+    onSuccess: () => { 
+      queryClient.invalidateQueries({ queryKey: ['products'] }); 
+      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
+    },
   });
 
   const setPrimaryImageMutation = useMutation({
@@ -258,7 +269,10 @@ export const useProducts = (params?: UseProductsParams) => {
       const response = await api.delete(`/products/images/${imageId}`);
       return response.data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['products'] }); },
+    onSuccess: () => { 
+      queryClient.invalidateQueries({ queryKey: ['products'] }); 
+      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
+    },
   });
 
   const batchAssignCategoriesMutation = useMutation({
@@ -266,7 +280,10 @@ export const useProducts = (params?: UseProductsParams) => {
       const response = await api.post('/products/batch/categories', data);
       return response.data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['products'] }); },
+    onSuccess: () => { 
+      queryClient.invalidateQueries({ queryKey: ['products'] }); 
+      queryClient.invalidateQueries({ queryKey: ['products', 'stats'] });
+    },
   });
 
   // Wrappers de métodos
@@ -298,7 +315,7 @@ export const useProducts = (params?: UseProductsParams) => {
     
     isLoading,
     isFetching,
-    isPlaceholderData, // 🟢 Exportado para que la UI pueda dar feedback visual
+    isPlaceholderData, 
     isProductsWithoutImagesLoading: productsWithoutImagesQuery.isLoading,
     
     isCreating: createMutation.isPending,

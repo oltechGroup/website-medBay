@@ -5,6 +5,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Product } from '@/hooks/useProducts';
+// ✅ IMPORTACIÓN UNIFICADA: Usamos la función que ya funciona en el Home
+import { getImageUrl, formatCurrency } from '@/lib/formatters';
 
 interface ProductTableProps {
   products: Product[];
@@ -22,33 +24,8 @@ export const ProductTable = ({
   const router = useRouter();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // ✅ CORRECTION APPLIED:
-  // We use the same logic as in ProductImageFormUpload to maintain consistency.
-  // This allows next.config.ts to handle the proxy for local images (/uploads/...)
-  const getImageUrl = (path: string) => {
-    if (!path) return '';
-    
-    // 1. If it's an external URL (http/https), return as is
-    if (path.startsWith('http')) return path;
-    
-    // 2. Basic cleanup of Windows slashes just in case
-    const cleanPath = path.replace(/\\/g, '/');
-
-    // 3. If it already starts with /, it's a valid relative path for the Frontend
-    if (cleanPath.startsWith('/')) return cleanPath;
-    
-    // 4. If it doesn't have a slash, we add it
-    return `/${cleanPath}`;
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(price);
-  };
+  // ✅ LOCAL getImageUrl ELIMINADO para usar la función maestra de @/lib/formatters
+  // Esto asegura que las imágenes se carguen siempre desde https://api.medbaysupply.com
 
   const renderPrice = (product: Product) => {
     const { min_price, max_price, active_lots } = product;
@@ -66,7 +43,7 @@ export const ProductTable = ({
     if (min_price === max_price || active_lots === 1) {
       return (
         <span className="text-sm font-semibold text-green-600">
-          {formatPrice(min_price || 0)}
+          {formatCurrency(min_price || 0)}
         </span>
       );
     }
@@ -74,10 +51,10 @@ export const ProductTable = ({
     return (
       <div className="flex flex-col space-y-1">
         <span className="text-sm font-semibold text-green-600">
-          From {formatPrice(min_price || 0)}
+          From {formatCurrency(min_price || 0)}
         </span>
         <span className="text-sm font-semibold text-green-600">
-          To {formatPrice(max_price || 0)}
+          To {formatCurrency(max_price || 0)}
         </span>
       </div>
     );
@@ -194,24 +171,15 @@ export const ProductTable = ({
               <div className="flex items-start space-x-4 flex-1 min-w-0">
                 {/* Image */}
                 <div className="flex-shrink-0">
-                  {product.primary_image ? (
-                    <img
-                      src={getImageUrl(product.primary_image)}
-                      alt={product.description}
-                      className="w-20 h-20 rounded-lg object-cover bg-gray-100"
-                      onError={(e) => { 
-                          console.warn('Error loading image in table:', product.primary_image);
-                          e.currentTarget.onerror = null; 
-                          e.currentTarget.src = "https://placehold.co/100x100/f3f4f6/9ca3af?text=No+Image"; 
-                      }}
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded-lg bg-gray-100 flex items-center justify-center">
-                      <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                  )}
+                  <img
+                    src={getImageUrl(product.primary_image)}
+                    alt={product.description}
+                    className="w-20 h-20 rounded-lg object-cover bg-gray-50 border border-gray-100"
+                    onError={(e) => { 
+                        e.currentTarget.onerror = null; 
+                        e.currentTarget.src = "https://placehold.co/100x100/f3f4f6/9ca3af?text=No+Image"; 
+                    }}
+                  />
                 </div>
 
                 {/* Info */}

@@ -22,7 +22,7 @@ const Product = {
     return result.rows[0];
   },
 
-  // ✅ FUNCION OPTIMIZADA: Ordenamiento y Filtros Corregidos
+  // ✅ FUNCION TOTALMENTE OPTIMIZADA: Soporta categoryStatus y mejora performance
   findPaginated: async ({ 
     page = 1, 
     limit = 20, 
@@ -30,6 +30,7 @@ const Product = {
     hasImages = 'all', 
     manufacturerId = '', 
     categoryId = '', 
+    categoryStatus = 'all', // 🆕 Nuevo parámetro soportado
     status = 'all', 
     minPrice = null,
     maxPrice = null,
@@ -70,16 +71,21 @@ const Product = {
       whereConditions.push(`NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id)`);
     }
     
-    // --- 4. CATEGORÍA ---
+    // --- 4. CATEGORÍA ESPECÍFICA ---
     if (categoryId) {
       whereConditions.push(`EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id AND pc.category_id = $${paramCount})`);
       params.push(categoryId);
       paramCount++;
     }
 
-    // --- 5. STATUS (Filtro Estricto) ---
-    // Si status != 'all', el producto DEBE tener al menos un lote con ese status
-    // CORRECCIÓN: Permitimos quantity >= 0 para incluir productos bajo pedido
+    // --- 5. CATEGORY STATUS (🆕 Uncategorized / Categorized) ---
+    if (categoryStatus === 'uncategorized') {
+      whereConditions.push(`NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id)`);
+    } else if (categoryStatus === 'categorized') {
+      whereConditions.push(`EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id)`);
+    }
+
+    // --- 6. STATUS DE INVENTARIO (Lotes) ---
     if (status && status !== 'all') {
       whereConditions.push(`EXISTS (
         SELECT 1 FROM product_lots pl 
@@ -92,7 +98,7 @@ const Product = {
       paramCount++;
     }
 
-    // --- 6. PRECIO (Filtro) ---
+    // --- 7. PRECIO ---
     if (minPrice !== null) {
       whereConditions.push(`EXISTS (
         SELECT 1 FROM product_lots pl 
@@ -114,9 +120,7 @@ const Product = {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    // --- ORDENAMIENTO (CORREGIDO) ---
-    // Calculamos el precio mínimo válido para ordenar
-    // CORRECCIÓN: quantity >= 0 en subconsulta de ordenamiento
+    // --- ORDENAMIENTO ---
     let orderByClause = 'ORDER BY p.created_at DESC'; 
 
     const priceSortColumn = `(
@@ -141,7 +145,6 @@ const Product = {
       case 'name_desc':
         orderByClause = `ORDER BY p.description DESC`;
         break;
-      case 'newest':
       default:
         orderByClause = `ORDER BY p.created_at DESC`;
         break;
@@ -154,7 +157,7 @@ const Product = {
     params.push(limit);
     params.push(offset);
 
-    // ✅ CONSULTA PRINCIPAL CORREGIDA (quantity >= 0)
+    // ✅ CONSULTA PRINCIPAL MEJORADA
     const dataQuery = `
       SELECT 
         p.id,
@@ -178,7 +181,7 @@ const Product = {
           JOIN categories c ON pc.category_id = c.id 
           WHERE pc.product_id = p.id) as category_names,
           
-        -- Precios (CORREGIDO: quantity >= 0 para incluir referencia)
+        -- Precios (quantity >= 0)
         (SELECT MIN(pl.price)::float FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
           WHERE ps.product_id = p.id AND pl.quantity >= 0
@@ -191,9 +194,6 @@ const Product = {
           ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
         ) as max_price,
           
-        -- Lotes Activos (Aquí mantenemos > 0 porque 'active_lots' suele significar stock real para badges)
-        -- Si quieres que el badge diga "1 lote disponible" aunque sea stock 0, cámbialo a >= 0.
-        -- Por ahora lo dejo en > 0 para que el frontend distinga entre "Con Stock" y "Bajo Pedido".
         (SELECT COUNT(pl.id)::integer FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
           WHERE ps.product_id = p.id AND pl.quantity > 0
@@ -277,12 +277,15 @@ const Product = {
     return result.rows[0];
   },
 
+  // ✅ STATS MEJORADAS: Ahora incluyen contadores de categorías para la barra de progreso
   getStats: async () => {
     const query = `
       SELECT 
         (SELECT COUNT(*) FROM products) as total_products,
         (SELECT COUNT(DISTINCT product_id) FROM product_images) as products_with_images,
-        (SELECT COUNT(*) FROM products) - (SELECT COUNT(DISTINCT product_id) FROM product_images) as products_without_images
+        ((SELECT COUNT(*) FROM products) - (SELECT COUNT(DISTINCT product_id) FROM product_images)) as products_without_images,
+        (SELECT COUNT(DISTINCT product_id) FROM product_categories) as with_categories,
+        ((SELECT COUNT(*) FROM products) - (SELECT COUNT(DISTINCT product_id) FROM product_categories)) as without_categories
     `;
     const result = await db.query(query);
     return result.rows[0];
