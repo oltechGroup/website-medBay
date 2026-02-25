@@ -1,4 +1,4 @@
-//backend/src/routes/categoryRoutes.js
+// backend/src/routes/categoryRoutes.js
 const express = require('express');
 const router = express.Router();
 const categoryController = require('../controllers/categoryController');
@@ -22,7 +22,7 @@ router.put('/:id', categoryController.update);
 router.delete('/:id', categoryController.delete);
 
 // Operaciones de gestión y estadísticas
-router.post('/batch/products', categoryController.batchAssignProducts);
+// ✅ ELIMINADA: La ruta /batch/products ya no existe en el controlador
 router.get('/filters/without-products', categoryController.getWithoutProducts);
 router.get('/stats/overview', categoryController.getStats);
 
