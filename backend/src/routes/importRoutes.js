@@ -1,4 +1,4 @@
-//backend/src/routes/importRoutes.js
+// backend/src/routes/importRoutes.js
 
 const express = require('express');
 const router = express.Router();
@@ -25,7 +25,6 @@ const upload = multer({
 router.use(authMiddleware.verifyToken);
 
 // 2. 🛡️ BLINDAJE DE SEGURIDAD: Solo 'admin' puede pasar de aquí en adelante
-// Si un 'sales_agent' intenta entrar, recibirá un error 403 Forbidden automáticamente.
 router.use(authMiddleware.requireRole(['admin']));
 
 // --- RUTAS PROTEGIDAS (Solo Admins) ---
@@ -33,24 +32,26 @@ router.use(authMiddleware.requireRole(['admin']));
 // 1. Proveedor Rápido
 router.post('/quick-supplier', importController.createQuickSupplier);
 
-// 2. Subida y Previsualización
+// 2. Subida y Previsualización de Excel
 router.post('/upload', upload.single('file'), importController.uploadFile);
 router.get('/preview/:upload_id', importController.getPreview);
 
-// 3. Gestión de Plantillas de Mapeo
+// ✅ 3. NUEVA RUTA: ENTRADA MANUAL (CIRUGÍA DE PRECISIÓN)
+// Maneja el formulario manual con soporte para subir una imagen
+router.post('/manual', upload.single('image'), importController.processManualImport);
+
+// 4. Gestión de Plantillas de Mapeo
 router.get('/mapping-template', importController.getMappingTemplate);
 router.post('/mapping-template', importController.saveMappingTemplate);
 
-// 4. Limpieza de Inventario (Por Proveedor + Categoría)
+// 5. Limpieza de Inventario (Por Proveedor + Categoría)
 router.post('/clean-catalog', importController.cleanCatalog);
 
-// 5. Procesamiento (El motor pesado)
+// 6. Procesamiento (El motor pesado para Excel)
 router.post('/process', importController.processImport);
 
-// 6. Monitoreo y Estadísticas
-// ✅ NUEVA RUTA: Estado Activo Global (Para la ventanita flotante)
+// 7. Monitoreo y Estadísticas
 router.get('/active-status', importController.getActiveStatus);
-
 router.get('/progress/:upload_id', importController.getProgress);
 router.get('/history', importController.getHistory);
 router.get('/stats', importController.getStats);

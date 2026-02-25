@@ -27,13 +27,11 @@ const importController = {
       
       const { supplier_id, sales_category } = req.body;
       
-      // Optimizamos la lectura inicial: solo cargamos las primeras 10 filas
       const workbook = XLSX.readFile(req.file.path, { sheetRows: 10 });
       const sheetName = workbook.SheetNames[0];
       const previewData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
       const columns = previewData.length > 0 ? Object.keys(previewData[0]) : [];
 
-      // Registrar el upload en BD
       const uploadId = await ImportModel.createUploadRecord({
         filename: req.file.originalname,
         path: req.file.path,
@@ -56,9 +54,47 @@ const importController = {
     }
   },
 
-  // 3. Previsualización
-  getPreview: async (req, res) => {
-    res.json({ message: "Usar datos retornados en upload" });
+  // ✅ 3. NUEVO: PROCESAR ENTRADA MANUAL (CIRUGÍA DE PRECISIÓN)
+  // Maneja la creación de un solo producto desde el formulario
+  processManualImport: async (req, res) => {
+    try {
+      const { 
+        supplier_id, sales_category, description, sku, 
+        manufacturer, quantity, price, expiry_date, image_url 
+      } = req.body;
+
+      // Validación básica quirúrgica
+      if (!description || !supplier_id) {
+        return res.status(400).json({ error: 'Descripción y Proveedor son obligatorios.' });
+      }
+
+      // Detectar si hay una imagen física subida vía Multer
+      const local_image_path = req.file ? req.file.path : null;
+
+      const result = await ImportModel.createManualEntry({
+        supplier_id,
+        sales_category,
+        user_id: req.user.id,
+        description,
+        sku,
+        manufacturer,
+        quantity: parseInt(quantity) || 0,
+        price: parseFloat(price) || 0,
+        expiry_date,
+        image_url, // Si el usuario pegó un link
+        local_image_path // Si el usuario subió un archivo
+      });
+
+      res.json({
+        success: true,
+        message: 'Entrada manual procesada exitosamente',
+        upload_id: result.upload_id
+      });
+
+    } catch (error) {
+      console.error('❌ Error en processManualImport:', error);
+      res.status(500).json({ error: 'Error al procesar la entrada manual: ' + error.message });
+    }
   },
 
   // 4. Plantillas de Mapeo
@@ -98,7 +134,7 @@ const importController = {
     }
   },
 
-  // 6. PROCESAMIENTO PRINCIPAL
+  // 6. PROCESAMIENTO MASIVO (Excel)
   processImport: async (req, res) => {
     const { upload_id, mappings } = req.body;
     
@@ -106,17 +142,13 @@ const importController = {
       return res.status(400).json({ error: 'La configuración de mapeo es necesaria.' });
     }
 
-    // --- RESPUESTA INMEDIATA ---
     res.json({ 
       success: true, 
       message: 'El procesamiento masivo ha comenzado en segundo plano.' 
     });
 
-    // --- PROCESO EN BACKGROUND ---
     try {
-      console.log(`🚀 Iniciando ejecución de importación ID: ${upload_id}`);
       await ImportModel.executeImportProcess(upload_id, mappings);
-      console.log(`✅ Importación ID: ${upload_id} finalizada.`);
     } catch (error) {
       console.error("❌ Error CRÍTICO en el proceso de fondo:", error);
       await ImportModel.logFatalError(upload_id, error.message);
@@ -151,44 +183,37 @@ const importController = {
     }
   },
 
-  // ✅ 8. ESTADO ACTIVO GLOBAL (INTELIGENTE: IGNORA BORRADORES)
+  // ✅ 8. ESTADO ACTIVO GLOBAL (MEJORADO PARA RESTAURACIÓN DE SESIÓN)
   getActiveStatus: async (req, res) => {
     try {
-      // Obtenemos el historial (el [0] es el último registrado)
       const history = await ImportModel.getImportHistory();
       const latestImport = history[0];
 
       if (latestImport) {
-         // --- LÓGICA DE FILTRADO ---
-
-         // 🛡️ REGLA ANTI-BLOQUEO: Si el estado es 'uploaded', lo ignoramos.
-         // Esto significa que el usuario subió el archivo pero nunca inició el proceso.
-         // Devolvemos NULL para que el sistema permita una nueva importación.
+         // 🛡️ REGLA ANTI-BLOQUEO: Solo ignoramos si está subido pero sin mapear
          if (latestImport.status === 'uploaded') {
              return res.json({ success: true, activeImport: null });
          }
          
-         // 1. Si está procesando, SIEMPRE lo devolvemos (es prioridad para la UI)
+         // Prioridad 1: Si está procesando, lo devolvemos de inmediato
          if (latestImport.status === 'processing') {
              const progress = await ImportModel.getImportProgress(latestImport.id);
              return res.json({ success: true, activeImport: progress });
          }
 
-         // 2. Si ya terminó (éxito o fallo), verificamos la caducidad (24 horas)
+         // Prioridad 2: Si terminó hace poco (menos de 1 hora para restaurar resultados)
          const importDate = new Date(latestImport.created_at);
-         const oneDayAgo = new Date();
-         oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+         const oneHourAgo = new Date();
+         oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
-         if (importDate > oneDayAgo) {
+         if (importDate > oneHourAgo) {
              const progress = await ImportModel.getImportProgress(latestImport.id);
-             // Si el progreso existe, lo devolvemos para mostrar resultados
              if (progress) {
                 return res.json({ success: true, activeImport: progress });
              }
          }
       }
 
-      // Si no hay nada relevante, devolvemos null
       res.json({ success: true, activeImport: null });
 
     } catch (error) {
