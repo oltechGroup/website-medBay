@@ -54,8 +54,12 @@ const importController = {
     }
   },
 
-  // ✅ 3. NUEVO: PROCESAR ENTRADA MANUAL (CIRUGÍA DE PRECISIÓN)
-  // Maneja la creación de un solo producto desde el formulario
+  // ✅ RESTAURADO: Previsualización (Faltaba en el paso anterior y causaba el crash)
+  getPreview: async (req, res) => {
+    res.json({ message: "Usar datos retornados en upload" });
+  },
+
+  // ✅ NUEVO: PROCESAR ENTRADA MANUAL (CIRUGÍA DE PRECISIÓN)
   processManualImport: async (req, res) => {
     try {
       const { 
@@ -63,13 +67,11 @@ const importController = {
         manufacturer, quantity, price, expiry_date, image_url 
       } = req.body;
 
-      // Validación básica quirúrgica
       if (!description || !supplier_id) {
         return res.status(400).json({ error: 'Descripción y Proveedor son obligatorios.' });
       }
 
-      // Detectar si hay una imagen física subida vía Multer
-      const local_image_path = req.file ? req.file.path : null;
+      const local_image_path = req.file?.path || null;
 
       const result = await ImportModel.createManualEntry({
         supplier_id,
@@ -81,8 +83,8 @@ const importController = {
         quantity: parseInt(quantity) || 0,
         price: parseFloat(price) || 0,
         expiry_date,
-        image_url, // Si el usuario pegó un link
-        local_image_path // Si el usuario subió un archivo
+        image_url, 
+        local_image_path 
       });
 
       res.json({
@@ -183,25 +185,22 @@ const importController = {
     }
   },
 
-  // ✅ 8. ESTADO ACTIVO GLOBAL (MEJORADO PARA RESTAURACIÓN DE SESIÓN)
+  // 8. ESTADO ACTIVO GLOBAL
   getActiveStatus: async (req, res) => {
     try {
       const history = await ImportModel.getImportHistory();
       const latestImport = history[0];
 
       if (latestImport) {
-         // 🛡️ REGLA ANTI-BLOQUEO: Solo ignoramos si está subido pero sin mapear
          if (latestImport.status === 'uploaded') {
              return res.json({ success: true, activeImport: null });
          }
          
-         // Prioridad 1: Si está procesando, lo devolvemos de inmediato
          if (latestImport.status === 'processing') {
              const progress = await ImportModel.getImportProgress(latestImport.id);
              return res.json({ success: true, activeImport: progress });
          }
 
-         // Prioridad 2: Si terminó hace poco (menos de 1 hora para restaurar resultados)
          const importDate = new Date(latestImport.created_at);
          const oneHourAgo = new Date();
          oneHourAgo.setHours(oneHourAgo.getHours() - 1);
