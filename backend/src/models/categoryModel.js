@@ -23,13 +23,63 @@ const Category = {
     }
   },
 
-  // Obtener todas las categorías
+  // ✅ NUEVA FUNCIÓN: Paginación robusta con búsqueda y tie-breaker
+  findPaginated: async ({ page = 1, limit = 10, searchTerm = '' }) => {
+    const offset = (page - 1) * limit;
+    let whereConditions = [];
+    let params = [];
+    let paramCount = 1;
+
+    // Filtro de búsqueda por nombre o descripción
+    if (searchTerm) {
+      whereConditions.push(`(c.name ILIKE $${paramCount} OR c.description ILIKE $${paramCount})`);
+      params.push(`%${searchTerm}%`);
+      paramCount++;
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // 1. Obtener el total para la paginación
+    const countQuery = `SELECT COUNT(*) FROM categories c ${whereClause}`;
+    const countResult = await db.query(countQuery, params);
+    const totalItems = parseInt(countResult.rows[0].count);
+
+    // 2. Obtener los datos con JOIN para el nombre del padre
+    // ✅ Añadimos c.id como tie-breaker para un orden determinista
+    const dataParams = [...params, limit, offset];
+    const dataQuery = `
+      SELECT c.*, p.name as parent_name 
+      FROM categories c 
+      LEFT JOIN categories p ON c.parent_id = p.id 
+      ${whereClause}
+      ORDER BY c.name ASC, c.id ASC
+      LIMIT $${paramCount} OFFSET $${paramCount + 1}
+    `;
+
+    try {
+      const result = await db.query(dataQuery, dataParams);
+      return {
+        categories: result.rows,
+        pagination: {
+          total: totalItems,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(totalItems / limit)
+        }
+      };
+    } catch (error) {
+      console.error('Error en findPaginated categories:', error);
+      throw error;
+    }
+  },
+
+  // Obtener todas las categorías (útil para selectores y el árbol)
   findAll: async () => {
     const query = `
       SELECT c.*, p.name as parent_name 
       FROM categories c 
       LEFT JOIN categories p ON c.parent_id = p.id 
-      ORDER BY c.name
+      ORDER BY c.name ASC, c.id ASC
     `;
     try {
       const result = await db.query(query);
@@ -39,7 +89,7 @@ const Category = {
     }
   },
 
-  // ✅ NUEVO: Buscar categoría por nombre (REEMPLAZA findByNameOrSlug)
+  // Buscar categoría por nombre
   findByName: async (name) => {
     const query = 'SELECT * FROM categories WHERE LOWER(name) = LOWER($1)';
     try {
@@ -50,7 +100,7 @@ const Category = {
     }
   },
 
-  // ✅ NUEVO: Buscar categoría por ID
+  // Buscar categoría por ID
   findById: async (id) => {
     const query = `
       SELECT c.*, p.name as parent_name 
@@ -66,7 +116,7 @@ const Category = {
     }
   },
 
-  // ✅ NUEVO: Actualizar categoría
+  // Actualizar categoría
   update: async (id, categoryData) => {
     const { name, parent_id, description } = categoryData;
     
@@ -87,7 +137,7 @@ const Category = {
     }
   },
 
-  // ✅ NUEVO: Eliminar categoría
+  // Eliminar categoría
   delete: async (id) => {
     const query = 'DELETE FROM categories WHERE id = $1 RETURNING *';
     try {
@@ -98,7 +148,7 @@ const Category = {
     }
   },
 
-  // ✅ ACTUALIZADO: Buscar o crear categoría (SIN SLUG)
+  // Buscar o crear categoría (SIN SLUG)
   findOrCreate: async (categoryData) => {
     const { name, parent_id, description } = categoryData;
     
@@ -110,15 +160,12 @@ const Category = {
     return await Category.create({ name, parent_id, description });
   },
 
-  // 🆕 NUEVOS MÉTODOS PARA ASIGNACIÓN MASIVA (NO AFECTA LO EXISTENTE)
-  
-  // Asignación masiva de productos a categorías
+  // Asignación masiva de productos a categorías (Mantenido por integridad)
   batchAssignProducts: async (categoryIds, productIds) => {
     if (!categoryIds.length || !productIds.length) {
       throw new Error('Se requieren al menos una categoría y un producto');
     }
 
-    // Construir consulta para insertar todas las combinaciones
     const values = [];
     let valueIndex = 1;
     let valueStrings = [];

@@ -1,7 +1,8 @@
-//frontend/src/components/UseCategories.ts
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+// frontend/src/hooks/useCategories.ts
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
+// --- INTERFACES ---
 export interface Category {
   id: string;
   name: string;
@@ -13,15 +14,17 @@ export interface Category {
   parent_name?: string;
 }
 
+export interface PaginationMetadata {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface CreateCategoryData {
   name: string;
   parent_id?: string;
   description?: string;
-}
-
-export interface BatchAssignProductsData {
-  categoryIds: string[];
-  productIds: string[];
 }
 
 export interface CategoryStats {
@@ -30,30 +33,60 @@ export interface CategoryStats {
   categories_without_products: number;
 }
 
-export const useCategories = () => {
+interface UseCategoriesParams {
+  page?: number;
+  limit?: number;
+  searchTerm?: string;
+}
+
+export const useCategories = (params?: UseCategoriesParams) => {
   const queryClient = useQueryClient();
 
-  // Consulta principal de categorías
-  const { 
-    data: categories = [], 
-    isLoading, 
-    isFetching, // 🟢 Agregado para consistencia y monitoreo de carga
-    error,
-    refetch 
-  } = useQuery({
-    queryKey: ['categories'],
+  // Valores por defecto para la paginación
+  const page = params?.page;
+  const limit = params?.limit || 20;
+  const searchTerm = params?.searchTerm || '';
+
+  // 1. 🌳 CONSULTA PARA EL ÁRBOL (Trae todo el catálogo sin paginar)
+  // Se usa para CategoryTree.tsx porque necesita la estructura completa.
+  const fullCategoriesQuery = useQuery({
+    queryKey: ['categories', 'full-list'],
     queryFn: async (): Promise<Category[]> => {
-      try {
-        const response = await api.get('/categories');
-        return response.data;
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-        throw error;
-      }
+      const response = await api.get('/categories');
+      return response.data;
     },
-    // ⚡ Optimización: Evita que el catálogo parpadee o tarde al navegar
-    staleTime: 1000 * 60 * 10, // 10 minutos (las categorías no cambian seguido)
+    staleTime: 1000 * 60 * 10, // 10 minutos (la estructura no cambia seguido)
   });
+
+  // 2. 📋 CONSULTA PAGINADA (Para la Tabla de gestión)
+  // Solo se activa si se pasa el parámetro 'page'.
+  const paginatedQuery = useQuery({
+    queryKey: ['categories', 'paginated', page, limit, searchTerm],
+    queryFn: async () => {
+      const queryParams = new URLSearchParams();
+      if (page) queryParams.append('page', page.toString());
+      queryParams.append('limit', limit.toString());
+      if (searchTerm) queryParams.append('search', searchTerm);
+
+      const response = await api.get(`/categories?${queryParams.toString()}`);
+      return response.data;
+    },
+    enabled: !!page, // Solo se ejecuta si hay intención de paginar
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // 📊 Estadísticas (Actualizado con staleTime)
+  const statsQuery = useQuery({
+    queryKey: ['categories', 'stats'],
+    queryFn: async (): Promise<CategoryStats> => {
+      const response = await api.get('/categories/stats/overview');
+      return response.data;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // --- MUTACIONES (Simplificadas y Reforzadas) ---
 
   const createMutation = useMutation({
     mutationFn: async (categoryData: CreateCategoryData) => {
@@ -61,12 +94,9 @@ export const useCategories = () => {
       return response.data;
     },
     onSuccess: () => {
+      // Invalidamos todas las queries relacionadas para refrescar árbol, tabla y stats
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
-    onError: (error: any) => {
-      console.error('Error creating category:', error);
-      throw error;
-    }
   });
 
   const updateMutation = useMutation({
@@ -77,10 +107,6 @@ export const useCategories = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
-    onError: (error: any) => {
-      console.error('Error updating category:', error);
-      throw error;
-    }
   });
 
   const deleteMutation = useMutation({
@@ -91,84 +117,46 @@ export const useCategories = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
-    onError: (error: any) => {
-      console.error('Error deleting category:', error);
-      throw error;
-    }
   });
 
-  // Consultas de administración (Estas pueden quedarse sin staleTime largo si prefieres)
-  const categoriesWithoutProductsQuery = useQuery({
-    queryKey: ['categories', 'without-products'],
-    queryFn: async (): Promise<Category[]> => {
-      try {
-        const response = await api.get('/categories/filters/without-products');
-        return response.data;
-      } catch (error) {
-        console.error('Error fetching categories without products:', error);
-        return [];
-      }
-    },
-  });
-
-  const categoriesStatsQuery = useQuery({
-    queryKey: ['categories', 'stats'],
-    queryFn: async (): Promise<CategoryStats> => {
-      try {
-        const response = await api.get('/categories/stats/overview');
-        return response.data;
-      } catch (error) {
-        console.error('Error fetching categories stats:', error);
-        return {
-          total_categories: 0,
-          categories_with_products: 0,
-          categories_without_products: 0
-        };
-      }
-    },
-  });
-
-  const batchAssignProductsMutation = useMutation({
-    mutationFn: async (data: BatchAssignProductsData) => {
-      const response = await api.post('/categories/batch/products', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['categories', 'without-products'] });
-      queryClient.invalidateQueries({ queryKey: ['categories', 'stats'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-    },
-    onError: (error: any) => {
-      console.error('Error in batch assign products:', error);
-      throw error;
-    }
-  });
-
-  const batchAssignProducts = async (categoryIds: string[], productIds: string[]) => {
-    return batchAssignProductsMutation.mutateAsync({ categoryIds, productIds });
-  };
+  // --- RETORNO DE DATOS ---
 
   return {
-    categories,
-    isLoading,
-    isFetching,
-    error,
-    refetch,
+    // Si estamos en modo paginado, devolvemos las categorías de la página, si no, la lista completa
+    categories: page ? (paginatedQuery.data?.categories || []) : fullCategoriesQuery.data || [],
+    fullCategories: fullCategoriesQuery.data || [], // Siempre disponible para el TreeView
+    
+    pagination: paginatedQuery.data?.pagination || {
+      total: 0,
+      page: 1,
+      limit: 20,
+      totalPages: 1
+    },
+    
+    stats: statsQuery.data,
+    
+    isLoading: fullCategoriesQuery.isLoading || paginatedQuery.isLoading || statsQuery.isLoading,
+    isFetching: fullCategoriesQuery.isFetching || paginatedQuery.isFetching,
+    isPlaceholderData: paginatedQuery.isPlaceholderData,
+    
+    error: fullCategoriesQuery.error || paginatedQuery.error,
+    
     createCategory: createMutation.mutateAsync,
     updateCategory: updateMutation.mutateAsync,
     deleteCategory: deleteMutation.mutateAsync,
+    
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    
     createError: createMutation.error,
     updateError: updateMutation.error,
     deleteError: deleteMutation.error,
-
-    categoriesWithoutProducts: categoriesWithoutProductsQuery.data,
-    categoriesStats: categoriesStatsQuery.data,
-    batchAssignProducts,
-    isBatchAssigning: batchAssignProductsMutation.isPending,
-    batchAssignError: batchAssignProductsMutation.error,
+    
+    refetch: () => {
+      fullCategoriesQuery.refetch();
+      if (page) paginatedQuery.refetch();
+      statsQuery.refetch();
+    }
   };
 };

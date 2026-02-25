@@ -12,7 +12,6 @@ const categoryController = {
         return res.status(400).json({ error: 'El nombre de la categoría es requerido' });
       }
 
-      // ✅ CORREGIDO: Usar findByName en lugar de findByNameOrSlug
       const existingCategory = await Category.findByName(name);
       if (existingCategory) {
         return res.status(409).json({
@@ -21,7 +20,6 @@ const categoryController = {
         });
       }
 
-      // ✅ CORREGIDO: Sin slug
       const newCategory = await Category.create({ name, parent_id, description });
       res.status(201).json({
         message: 'Categoría creada exitosamente',
@@ -33,18 +31,35 @@ const categoryController = {
     }
   },
 
-  // Obtener todas las categorías
+  // ✅ OBTENER CATEGORÍAS - SOPORTA PAGINACIÓN Y BÚSQUEDA
   getAll: async (req, res) => {
     try {
+      // Capturamos parámetros de la query string
+      const page = req.query.page ? parseInt(req.query.page) : null;
+      const limit = req.query.limit ? parseInt(req.query.limit) : 20;
+      const searchTerm = req.query.search || '';
+
+      // Si se envía el parámetro "page", usamos la lógica de paginación eficiente
+      if (page) {
+        const result = await Category.findPaginated({
+          page,
+          limit,
+          searchTerm
+        });
+        return res.json(result);
+      }
+
+      // Si no hay página (ej. para cargar el árbol o selectores), devolvemos la lista completa
       const categories = await Category.findAll();
       res.json(categories);
+      
     } catch (error) {
       console.error('Error al obtener categorías:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
 
-  // Obtener categoría por ID (✅ AHORA FUNCIONA)
+  // Obtener categoría por ID
   getById: async (req, res) => {
     try {
       const { id } = req.params;
@@ -61,7 +76,7 @@ const categoryController = {
     }
   },
 
-  // Actualizar categoría (✅ AHORA FUNCIONA - SIN SLUG)
+  // Actualizar categoría
   update: async (req, res) => {
     try {
       const { id } = req.params;
@@ -83,7 +98,7 @@ const categoryController = {
     }
   },
 
-  // Eliminar categoría (✅ AHORA FUNCIONA)
+  // Eliminar categoría
   delete: async (req, res) => {
     try {
       const { id } = req.params;
@@ -103,33 +118,7 @@ const categoryController = {
     }
   },
 
-  // 🆕 NUEVOS CONTROLADORES PARA ASIGNACIÓN MASIVA (NO AFECTA LO EXISTENTE)
-  
-  // Asignación masiva de productos a categorías
-  batchAssignProducts: async (req, res) => {
-    try {
-      const { categoryIds, productIds } = req.body;
-
-      if (!categoryIds || !productIds || 
-          !Array.isArray(categoryIds) || !Array.isArray(productIds) ||
-          categoryIds.length === 0 || productIds.length === 0) {
-        return res.status(400).json({ 
-          error: 'Se requieren arrays no vacíos de categoryIds y productIds' 
-        });
-      }
-
-      const results = await Category.batchAssignProducts(categoryIds, productIds);
-      res.json({
-        message: 'Productos asignados a categorías exitosamente',
-        results: results
-      });
-    } catch (error) {
-      console.error('Error en asignación masiva de productos a categorías:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  },
-
-  // Obtener categorías sin productos
+  // Obtener categorías sin productos (Útil para filtros de limpieza)
   getWithoutProducts: async (req, res) => {
     try {
       const categories = await Category.findWithoutProducts();
@@ -140,7 +129,7 @@ const categoryController = {
     }
   },
 
-  // Obtener estadísticas de categorías
+  // Obtener estadísticas de categorías (Para las Stats Cards)
   getStats: async (req, res) => {
     try {
       const stats = await Category.getStats();
@@ -150,7 +139,6 @@ const categoryController = {
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
-
 };
 
 module.exports = categoryController;
