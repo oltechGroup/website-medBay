@@ -2,14 +2,26 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  ArrowLeft, Search, Filter, Download, 
-  DollarSign, Box, BarChart3, RefreshCw,
-  Package, Tag
+  ArrowLeft, 
+  Search, 
+  Filter, 
+  Download, 
+  DollarSign, 
+  Box, 
+  BarChart3, 
+  RefreshCw,
+  Package, 
+  Tag,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  LayoutGrid
 } from 'lucide-react';
-import { useInventory, ProductLot } from '@/hooks/useInventory';
+import { useInventory, ProductLot, PaginationMetadata } from '@/hooks/useInventory';
 import { ProductCard } from '@/components/features/inventory/ProductCard';
 
 interface CatalogViewProps {
@@ -34,391 +46,235 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
   const router = useRouter();
   const { getCatalogBySupplier, loading, error } = useInventory();
   
+  // 1. Estados de Datos
   const [products, setProducts] = useState<ProductLot[]>([]);
+  const [pagination, setPagination] = useState<PaginationMetadata | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  // 2. Estados de Filtro Local (El servidor filtra por Status, nosotros por texto aquí)
   const [filteredProducts, setFilteredProducts] = useState<ProductLot[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState(colorScheme.defaultSort);
-  const [refreshing, setRefreshing] = useState(false);
+
+  // 3. Carga de Datos Paginada
+  const loadProducts = useCallback(async () => {
+    try {
+      const response = await getCatalogBySupplier(supplierId, status, {
+        page: currentPage,
+        limit: 20
+      });
+      
+      // ✅ CORRECCIÓN TS: Extraemos .lots y .pagination
+      setProducts(response.lots);
+      setPagination(response.pagination);
+    } catch (err) {
+      console.error('Error loading products:', err);
+    }
+  }, [supplierId, status, currentPage, getCatalogBySupplier]);
 
   useEffect(() => {
     loadProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supplierId, status]);
+  }, [loadProducts]);
 
+  // 4. Filtrado y Ordenamiento Local (Sobre la página actual)
   useEffect(() => {
-    filterAndSortProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, searchTerm, sortBy]);
+    let filtered = [...products];
 
-  const loadProducts = async () => {
-    try {
-      const productsData = await getCatalogBySupplier(supplierId, status);
-      setProducts(productsData);
-    } catch (err) {
-      console.error('Error loading products:', err);
-    } finally {
-      setRefreshing(false);
+    if (searchTerm) {
+      const lowerTerm = searchTerm.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.product_name?.toLowerCase().includes(lowerTerm) ||
+        p.product_code?.toLowerCase().includes(lowerTerm)
+      );
     }
-  };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadProducts();
-  };
-
-  const filterAndSortProducts = () => {
-    let filtered = products.filter(product =>
-      product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.product_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.manufacturer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    // Sort products
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'name':
-          return (a.product_name || '').localeCompare(b.product_name || '');
-        case 'price':
-          return (a.price || 0) - (b.price || 0);
-        case 'quantity':
-          return (b.quantity || 0) - (a.quantity || 0);
-        case 'expiry':
-          return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
-        default:
-          return 0;
+        case 'name': return (a.product_name || '').localeCompare(b.product_name || '');
+        case 'price': return (a.price || 0) - (b.price || 0);
+        case 'quantity': return (b.quantity || 0) - (a.quantity || 0);
+        case 'expiry': return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+        default: return 0;
       }
     });
 
     setFilteredProducts(filtered);
+  }, [products, searchTerm, sortBy]);
+
+  const handlePageChange = (newPage: number) => {
+    if (pagination && newPage >= 1 && newPage <= pagination.totalPages) {
+      setCurrentPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
-  // Determine color classes dynamically
-  const getColorClasses = (type: 'bg' | 'text' | 'border' | 'ring' | 'badge') => {
-    const colorMap = {
-      green: {
-        bg: 'bg-green-50',
-        text: 'text-green-600',
-        border: 'border-green-200',
-        ring: 'ring-green-500',
-        badge: 'bg-green-100 text-green-800 border-green-200'
-      },
-      amber: {
-        bg: 'bg-amber-50',
-        text: 'text-amber-600',
-        border: 'border-amber-200',
-        ring: 'ring-amber-500',
-        badge: 'bg-amber-100 text-amber-800 border-amber-200'
-      },
-      red: {
-        bg: 'bg-red-50',
-        text: 'text-red-600',
-        border: 'border-red-200',
-        ring: 'ring-red-500',
-        badge: 'bg-red-100 text-red-800 border-red-200'
-      }
-    };
-    return colorMap[colorScheme.primary][type];
+  // Helpers visuales de color
+  const getColorClasses = (type: 'bg' | 'text' | 'border' | 'btn') => {
+    const theme = {
+      green: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100', btn: 'bg-green-600 hover:bg-green-700' },
+      amber: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100', btn: 'bg-amber-600 hover:bg-amber-700' },
+      red: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-100', btn: 'bg-red-600 hover:bg-red-700' }
+    }[colorScheme.primary];
+    return theme[type];
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      style: 'currency', currency: 'USD', minimumFractionDigits: 0
     }).format(amount);
   };
-
-  const totalValue = products.reduce((sum, product) => 
-    sum + ((product.quantity || 0) * (product.price || 0)), 0
-  );
-
-  const totalUnits = products.reduce((sum, product) => sum + (product.quantity || 0), 0);
-  const uniqueProducts = new Set(products.map(p => p.product_code)).size;
 
   const Icon = colorScheme.icon;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* 🎯 HEADER */}
-        <div className="mb-8">
-          <button
-            onClick={() => router.push(`/dashboard/inventory/${supplierId}`)}
-            className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 mb-4 hover:underline transition-all duration-200 group"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-            Back to supplier
+    <div className="space-y-10 animate-in fade-in duration-500 pb-20">
+      
+      {/* 🚀 HEADER AREA */}
+      <div className="space-y-6">
+        <button
+          onClick={() => router.push(`/dashboard/inventory/${supplierId}`)}
+          className="group inline-flex items-center text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-slate-900 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform stroke-[3]" />
+          Return to Partner Detail
+        </button>
+        
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <div className={`p-5 rounded-[2rem] shadow-xl ${getColorClasses('bg')} ${getColorClasses('text')} border-2 ${getColorClasses('border')}`}>
+              <Icon className="h-10 w-10 stroke-[2.5]" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">{title}</h1>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mt-1">{description}</p>
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={loadProducts}
+              disabled={loading}
+              className="inline-flex items-center px-6 py-3 border-2 border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-700 bg-white hover:bg-gray-50 transition-all active:scale-95"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 stroke-[3] ${loading ? 'animate-spin' : ''}`} />
+              Re-Sync
+            </button>
+            <button className="inline-flex items-center px-6 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 active:scale-95">
+              <Download className="h-4 w-4 mr-2 stroke-[3]" />
+              Export CSV
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 📊 CATALOG KPIS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm flex items-center gap-4">
+          <div className={`p-3 rounded-2xl ${getColorClasses('bg')} ${getColorClasses('text')}`}><Package className="h-6 w-6" /></div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Batch Count</p>
+            <p className="text-2xl font-black text-slate-900 tracking-tighter">{pagination?.total || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl"><Tag className="h-6 w-6" /></div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Unique Items</p>
+            <p className="text-2xl font-black text-slate-900 tracking-tighter">{new Set(products.map(p => p.product_code)).size}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-green-50 text-green-600 rounded-2xl"><Box className="h-6 w-6" /></div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Stock Mass</p>
+            <p className="text-2xl font-black text-slate-900 tracking-tighter">{products.reduce((s, p) => s + (p.quantity || 0), 0).toLocaleString()}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl"><DollarSign className="h-6 w-6" /></div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Asset Value</p>
+            <p className="text-2xl font-black text-slate-900 tracking-tighter">{formatCurrency(products.reduce((s, p) => s + ((p.quantity || 0) * (p.price || 0)), 0))}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 🔍 SEARCH & FILTERS - CERO TRANSPARENCIAS */}
+      <div className="bg-white rounded-[2.5rem] border border-slate-200 p-5 shadow-sm flex flex-col lg:flex-row items-center gap-5">
+        <div className="relative flex-1 w-full">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search within this catalog..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all font-bold text-slate-900 placeholder-slate-400 text-sm"
+          />
+        </div>
+        
+        <div className="flex items-center gap-4 w-full lg:w-auto">
+          <div className="relative w-full lg:w-56">
+            <Filter className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full pl-12 pr-10 py-4 bg-slate-50 border-2 border-transparent rounded-[1.5rem] focus:bg-white focus:border-blue-500 outline-none transition-all font-black text-[10px] uppercase tracking-[0.2em] appearance-none cursor-pointer text-slate-900"
+            >
+              <option value="name">SORT BY NAME</option>
+              <option value="price">SORT BY PRICE</option>
+              <option value="quantity">SORT BY QUANTITY</option>
+              <option value="expiry">SORT BY EXPIRY</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 📦 PRODUCT GRID */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-80 bg-white rounded-[2.5rem] border border-slate-100 animate-pulse"></div>
+          ))}
+        </div>
+      ) : filteredProducts.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-32 bg-white rounded-[3rem] border border-dashed border-slate-300">
+           <LayoutGrid className="h-16 w-16 text-slate-200 mx-auto mb-6" />
+           <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest">No entries found</h3>
+        </div>
+      )}
+
+      {/* 📟 PAGINATION CONTROLS */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 pt-10">
+          <button onClick={() => handlePageChange(1)} disabled={currentPage === 1} className="p-3 rounded-2xl bg-white border-2 border-slate-100 text-slate-600 hover:text-blue-600 disabled:opacity-20 transition-all shadow-sm">
+            <ChevronsLeft className="h-5 w-5 stroke-[3]" />
+          </button>
+          <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="p-3 rounded-2xl bg-white border-2 border-slate-100 text-slate-600 hover:text-blue-600 disabled:opacity-20 transition-all shadow-sm">
+            <ChevronLeft className="h-5 w-5 stroke-[3]" />
           </button>
           
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center space-x-4 mb-4 sm:mb-0">
-              <div className={`p-3 ${getColorClasses('bg')} rounded-xl border ${getColorClasses('border')}`}>
-                <Icon className={`h-8 w-8 ${getColorClasses('text')}`} />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-                <p className="text-gray-600">{description}</p>
-              </div>
-            </div>
-            
-            <div className="flex space-x-3">
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-all duration-200"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                {refreshing ? 'Updating...' : 'Update'}
-              </button>
-              <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </button>
-            </div>
+          <div className="flex items-center gap-2 px-8 py-3 bg-white rounded-2xl border-2 border-slate-100 shadow-inner">
+             <span className="text-sm font-black text-slate-900">{currentPage}</span>
+             <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">of {pagination.totalPages}</span>
           </div>
+
+          <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === pagination.totalPages} className="p-3 rounded-2xl bg-white border-2 border-slate-100 text-slate-600 hover:text-blue-600 disabled:opacity-20 transition-all shadow-sm">
+            <ChevronRight className="h-5 w-5 stroke-[3]" />
+          </button>
+          <button onClick={() => handlePageChange(pagination.totalPages)} disabled={currentPage === pagination.totalPages} className="p-3 rounded-2xl bg-white border-2 border-slate-100 text-slate-600 hover:text-blue-600 disabled:opacity-20 transition-all shadow-sm">
+            <ChevronsRight className="h-5 w-5 stroke-[3]" />
+          </button>
         </div>
-
-        {/* 📊 STATISTICS */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Lots</p>
-                <p className="text-2xl font-bold text-gray-900">{products.length}</p>
-                <p className="text-xs text-gray-500 mt-1">Lots found</p>
-              </div>
-              <div className={`p-3 ${getColorClasses('bg')} rounded-xl`}>
-                <Package className={`h-6 w-6 ${getColorClasses('text')}`} />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Unique Products</p>
-                <p className="text-2xl font-bold text-gray-900">{uniqueProducts}</p>
-                <p className="text-xs text-gray-500 mt-1">Different products</p>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-xl">
-                <Tag className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Units</p>
-                <p className="text-2xl font-bold text-gray-900">{totalUnits.toLocaleString()}</p>
-                <p className="text-xs text-gray-500 mt-1">In inventory</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-xl">
-                <Box className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Value</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalValue)}</p>
-                <p className="text-xs text-gray-500 mt-1">Catalog value</p>
-              </div>
-              <div className="p-3 bg-amber-100 rounded-xl">
-                <DollarSign className="h-6 w-6 text-amber-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 🔍 SEARCH AND FILTERS */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm hover:shadow-md transition-all duration-200">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search products by name, code, manufacturer or supplier..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 ${getColorClasses('ring')} focus:border-blue-500 transition-all duration-200 text-gray-900 bg-white placeholder-gray-400`}
-                />
-              </div>
-            </div>
-            
-            <div className="flex space-x-4">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className={`border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 ${getColorClasses('ring')} focus:border-blue-500 transition-all duration-200 text-gray-900 bg-white`}
-              >
-                <option value="name">Sort by name</option>
-                <option value="price">Sort by price</option>
-                <option value="quantity">Sort by quantity</option>
-                <option value="expiry">Sort by expiry</option>
-              </select>
-
-              {(searchTerm || sortBy !== colorScheme.defaultSort) && (
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSortBy(colorScheme.defaultSort);
-                  }}
-                  className="inline-flex items-center px-4 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200"
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 📈 RESULTS SUMMARY */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
-            <div className={`${getColorClasses('badge')} rounded-lg px-4 py-2 border`}>
-              <p className={`text-sm font-medium ${getColorClasses('text')}`}>
-                Showing {filteredProducts.length} of {products.length} lots
-              </p>
-            </div>
-            
-            {searchTerm && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1">
-                <p className="text-sm text-blue-800">
-                  Search: "<span className="font-medium">{searchTerm}</span>"
-                </p>
-              </div>
-            )}
-          </div>
-          
-          {filteredProducts.length > 0 && (
-            <div className="text-right">
-              <p className="text-sm text-gray-600">
-                Filtered value: <span className="font-semibold text-gray-900">
-                  {formatCurrency(filteredProducts.reduce((sum, lot) => sum + (lot.quantity * lot.price), 0))}
-                </span>
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* ❌ ERROR MESSAGE */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                  <span className="text-red-600 text-sm font-bold">!</span>
-                </div>
-              </div>
-              <div className="ml-3">
-                <p className="text-red-800 font-medium">Error loading catalog</p>
-                <p className="text-red-700 text-sm mt-1">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 📦 PRODUCT GRID */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-64 bg-gray-200 rounded-xl"></div>
-              </div>
-            ))}
-          </div>
-        ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        ) : (
-          /* 📭 EMPTY STATE */
-          <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-            <div className={`p-4 ${getColorClasses('bg')} rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center border ${getColorClasses('border')}`}>
-              <Icon className={`h-12 w-12 ${getColorClasses('text')}`} />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-3">
-              {searchTerm ? 'No lots found' : `No lots in ${title.toLowerCase()}`}
-            </h3>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
-              {searchTerm 
-                ? 'No lots found matching your search. Try other terms.'
-                : 'Lots will appear here once they are imported and match this status.'
-              }
-            </p>
-            <div className="flex justify-center space-x-4">
-              {(searchTerm || sortBy !== colorScheme.defaultSort) && (
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSortBy(colorScheme.defaultSort);
-                  }}
-                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200"
-                >
-                  <Filter className="h-5 w-5 mr-2" />
-                  Clear filters
-                </button>
-              )}
-              <button
-                onClick={handleRefresh}
-                className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200"
-              >
-                <RefreshCw className="h-5 w-5 mr-2" />
-                Update
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 📊 INFORMATIVE FOOTER */}
-        {filteredProducts.length > 0 && (
-          <div className="mt-8 bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-                  Catalog Summary
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
-                  <div>
-                    <p className="text-gray-600 mb-1">Unique products:</p>
-                    <p className="font-medium text-gray-900">
-                      {new Set(filteredProducts.map(lot => lot.product_code)).size} products
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 mb-1">Suppliers:</p>
-                    <p className="font-medium text-gray-900">
-                      {new Set(filteredProducts.map(lot => lot.supplier_name)).size} suppliers
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 mb-1">Average stock:</p>
-                    <p className="font-medium text-gray-900">
-                      {Math.round(filteredProducts.reduce((sum, lot) => sum + lot.quantity, 0) / filteredProducts.length)} units
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 mb-1">Average value:</p>
-                    <p className="font-medium text-gray-900">
-                      {formatCurrency(filteredProducts.reduce((sum, lot) => sum + (lot.quantity * lot.price), 0) / filteredProducts.length)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };

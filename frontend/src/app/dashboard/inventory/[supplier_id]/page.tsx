@@ -2,20 +2,23 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   Building, 
   Package, 
   Calendar, 
   ArrowLeft,
+  ArrowRight, // ✅ AGREGADO
   Tag,
   BarChart3,
   Upload,
   Eye,
   DollarSign,
   Box,
-  ShoppingCart
+  ShoppingCart,
+  RefreshCw,
+  Clock // ✅ AGREGADO
 } from 'lucide-react';
 import { useInventory, SupplierMetrics } from '@/hooks/useInventory';
 import Link from 'next/link';
@@ -27,333 +30,213 @@ export default function SupplierDetailPage() {
   
   const [supplier, setSupplier] = useState<SupplierMetrics | null>(null);
 
-  useEffect(() => {
-    loadSupplierData();
-  }, [params.supplier_id]);
-
-  const loadSupplierData = async () => {
+  // ✅ LOGICA CORREGIDA: getSuppliersMetrics ahora devuelve un objeto, entramos a .suppliers
+  const loadSupplierData = useCallback(async () => {
     try {
-      const suppliers = await getSuppliersMetrics();
-      const foundSupplier = suppliers.find(s => s.id === params.supplier_id);
+      // Cargamos un rango amplio para encontrar al proveedor específico en la lista
+      const response = await getSuppliersMetrics({ limit: 100 }); 
+      const foundSupplier = response.suppliers.find((s: SupplierMetrics) => s.id === params.supplier_id);
       setSupplier(foundSupplier || null);
     } catch (error) {
       console.error('Error loading supplier data:', error);
     }
-  };
+  }, [getSuppliersMetrics, params.supplier_id]);
+
+  useEffect(() => {
+    loadSupplierData();
+  }, [loadSupplierData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'MXN',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      style: 'currency', currency: 'USD', minimumFractionDigits: 2
     }).format(amount);
-  };
-
-  const formatDateTime = (dateString: string) => {
-    if (!dateString) return 'No imports found';
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
 
   if (loading && !supplier) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-            <div className="h-32 bg-gray-200 rounded-lg mb-6"></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-48 bg-gray-200 rounded-lg"></div>
-              ))}
-            </div>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-50 p-8 flex items-center justify-center">
+        <RefreshCw className="h-10 w-10 text-blue-600 animate-spin" />
       </div>
     );
   }
 
   if (!supplier) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Supplier not found</h3>
-            <p className="text-gray-500 mb-6">The supplier you are looking for does not exist or is not available.</p>
-            <button
-              onClick={() => router.push('/dashboard/inventory')}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to inventory
-            </button>
-          </div>
+      <div className="min-h-screen bg-gray-50 p-12 text-center">
+        <div className="bg-white rounded-[2.5rem] border border-gray-200 p-12 max-w-xl mx-auto shadow-sm">
+          <Building className="h-16 w-16 text-gray-200 mx-auto mb-6" />
+          <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-2">Supplier Not Found</h3>
+          <p className="text-gray-500 font-medium mb-8 text-sm">The requested entity is not available in the current scope.</p>
+          <button
+            onClick={() => router.push('/dashboard/inventory')}
+            className="inline-flex items-center px-8 py-3 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2 stroke-[3]" />
+            Return to Inventory
+          </button>
         </div>
       </div>
     );
   }
 
-  const catalogStats = [
-    {
-      title: 'In-Date Lots',
-      value: supplier.available_lots,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200',
-      icon: Package,
-      description: 'Lots with current expiration dates',
-      link: `/dashboard/inventory/${supplier.id}/available`
-    },
-    {
-      title: 'Short-Dated Lots',
-      value: supplier.near_expiry_lots,
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-50',
-      borderColor: 'border-amber-200',
-      icon: Calendar,
-      description: 'Lots nearing expiration',
-      link: `/dashboard/inventory/${supplier.id}/near-expiry`
-    },
-    {
-      title: 'Expired Lots',
-      value: supplier.expired_lots,
-      color: 'text-red-600',
-      bgColor: 'bg-red-50',
-      borderColor: 'border-red-200',
-      icon: Tag,
-      description: 'Expired lots',
-      link: `/dashboard/inventory/${supplier.id}/expired`
-    }
-  ];
-
-  // Calculate percentages for progress bar
   const totalLots = supplier.total_lots || 1;
-  const availablePercent = (supplier.available_lots / totalLots) * 100;
-  const nearExpiryPercent = (supplier.near_expiry_lots / totalLots) * 100;
-  const expiredPercent = (supplier.expired_lots / totalLots) * 100;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => router.push('/dashboard/inventory')}
-            className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to inventory
-          </button>
+    <div className="space-y-10 animate-in fade-in duration-500 pb-12">
+      
+      {/* 🚀 HEADER AREA */}
+      <div className="space-y-6">
+        <button
+          onClick={() => router.push('/dashboard/inventory')}
+          className="group inline-flex items-center text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-blue-600 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform stroke-[3]" />
+          Back to Global Inventory
+        </button>
+        
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <div className="p-5 bg-blue-600 rounded-[2rem] shadow-xl shadow-blue-200">
+              <Building className="h-10 w-10 text-white" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">{supplier.supplier_name}</h1>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Supply Partner</span>
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                <span className="text-[10px] font-black text-green-600 uppercase tracking-widest">Active Connection</span>
+              </div>
+            </div>
+          </div>
           
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center space-x-4 mb-4 sm:mb-0">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Building className="h-8 w-8 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">{supplier.supplier_name}</h1>
-                <p className="text-gray-600">
-                  Manage catalogs and products for this supplier
-                </p>
-              </div>
+          <div className="flex gap-3">
+            <Link
+              href={`/dashboard/import?supplier_id=${supplier.id}`}
+              className="inline-flex items-center px-6 py-3 border border-gray-200 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-700 bg-white hover:bg-gray-50 transition-all shadow-sm active:scale-95"
+            >
+              <Upload className="h-4 w-4 mr-2 stroke-[3] text-blue-600" />
+              Import Data
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* 📊 CORE PERFORMANCE METRICS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm group hover:border-blue-200 transition-all">
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Stock Diversity</p>
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-3xl font-black text-slate-900 tracking-tighter">{supplier.unique_products}</p>
+              <p className="text-[10px] font-bold text-purple-600 uppercase tracking-tight">Unique SKUs</p>
             </div>
-            
-            <div className="flex space-x-3">
-              <Link
-                href={`/dashboard/import?supplier_id=${supplier.id}`}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:shadow-md transition-all"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Import Catalog
-              </Link>
-              
-              <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 hover:shadow-md transition-all">
-                <Eye className="h-4 w-4 mr-2" />
-                View Details
-              </button>
-            </div>
+            <Tag className="h-8 w-8 text-purple-100 group-hover:text-purple-500 transition-colors" />
           </div>
         </div>
 
-        {/* 🎯 IMPROVED MAIN STATISTICS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* 🏷️ UNIQUE PRODUCTS */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Unique Products</p>
-                <p className="text-2xl font-bold text-gray-900">{supplier.unique_products}</p>
-                <p className="text-xs text-gray-500 mt-1">Distinct products</p>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Tag className="h-6 w-6 text-purple-600" />
-              </div>
+        <div className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm group hover:border-blue-200 transition-all">
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Operational Batches</p>
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-3xl font-black text-slate-900 tracking-tighter">{supplier.active_lots}</p>
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-tight">Active Lots</p>
             </div>
-          </div>
-
-          {/* 📦 ACTIVE LOTS */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active Lots</p>
-                <p className="text-2xl font-bold text-gray-900">{supplier.active_lots}</p>
-                <p className="text-xs text-gray-500 mt-1">With available stock</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Box className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          {/* 🛒 UNITS IN STOCK */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Stock Units</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {supplier.total_units?.toLocaleString('en-US')}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Total inventory</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <ShoppingCart className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          {/* 💰 ACTUAL INVENTORY VALUE */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Inventory Value</p>
-                <p className="text-xl font-bold text-gray-900">
-                  {formatCurrency(supplier.total_value)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Actual value in MXN</p>
-              </div>
-              <div className="p-3 bg-amber-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-amber-600" />
-              </div>
-            </div>
+            <Box className="h-8 w-8 text-blue-100 group-hover:text-blue-500 transition-colors" />
           </div>
         </div>
 
-        {/* 📊 LOT CATEGORIES */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Lot Distribution</h2>
+        <div className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm group hover:border-blue-200 transition-all">
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Volume Mass</p>
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-3xl font-black text-slate-900 tracking-tighter">{supplier.total_units?.toLocaleString()}</p>
+              <p className="text-[10px] font-bold text-green-600 uppercase tracking-tight">Total Units</p>
+            </div>
+            <ShoppingCart className="h-8 w-8 text-green-100 group-hover:text-green-500 transition-colors" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm group hover:border-blue-200 transition-all">
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Asset Value</p>
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-2xl font-black text-slate-900 tracking-tighter">{formatCurrency(supplier.total_value)}</p>
+              <p className="text-[10px] font-bold text-amber-600 uppercase tracking-tight">Estimated Capital</p>
+            </div>
+            <DollarSign className="h-8 w-8 text-amber-100 group-hover:text-amber-500 transition-colors" />
+          </div>
+        </div>
+      </div>
+
+      {/* 🩺 INVENTORY HEALTH & NAVIGATION */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-blue-600" />
+          <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">Health Distribution</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            { title: 'Optimal', val: supplier.available_lots, desc: 'Ready for market', col: 'green', link: 'available', icon: Package },
+            { title: 'Warning', val: supplier.near_expiry_lots, desc: 'Short-dated risk', col: 'amber', link: 'near-expiry', icon: Clock },
+            { title: 'Alert', val: supplier.expired_lots, desc: 'Expired units', col: 'red', link: 'expired', icon: Tag }
+          ].map((status) => (
+            <Link key={status.title} href={`/dashboard/inventory/${supplier.id}/${status.link}`} className="group">
+              <div className={`bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-sm hover:shadow-xl transition-all relative overflow-hidden`}>
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">{status.title}</h3>
+                    <p className="text-sm font-bold text-slate-600 italic mt-1">{status.desc}</p>
+                  </div>
+                  <div className={`p-3 rounded-2xl ${status.col === 'green' ? 'bg-green-50 text-green-600 border-green-100' : status.col === 'amber' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-red-50 text-red-600 border-red-100'} border`}>
+                    <status.icon className="h-5 w-5 stroke-[3]" />
+                  </div>
+                </div>
+                <div className="flex items-end justify-between">
+                  <span className={`text-5xl font-black text-slate-900 tracking-tighter transition-colors`}>{status.val}</span>
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 group-hover:translate-x-2 transition-transform">
+                    View Catalog
+                    <ArrowRight className="h-3 w-3 stroke-[4]" />
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* 🔮 VISUAL TIMELINE PROGRESS */}
+        <div className="bg-slate-900 rounded-[2.5rem] p-10 shadow-2xl shadow-slate-200">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <div>
+              <h3 className="text-xl font-black text-white tracking-tight">Inventory Composition</h3>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Real-time batch synchronization</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Last Activity Record</p>
+              <p className="text-sm font-bold text-white mt-1">
+                {supplier.last_import ? new Date(supplier.last_import).toLocaleString() : 'No data'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex w-full bg-white/10 rounded-full h-4 overflow-hidden mb-6 border border-white/5">
+            <div className="bg-green-500 h-full transition-all duration-1000" style={{ width: `${(supplier.available_lots/totalLots)*100}%` }} />
+            <div className="bg-amber-500 h-full transition-all duration-1000" style={{ width: `${(supplier.near_expiry_lots/totalLots)*100}%` }} />
+            <div className="bg-red-500 h-full transition-all duration-1000" style={{ width: `${(supplier.expired_lots/totalLots)*100}%` }} />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {catalogStats.map((stat, index) => (
-              <Link
-                key={index}
-                href={stat.link}
-                className="block"
-              >
-                <div className={`border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer ${stat.bgColor} ${stat.borderColor}`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{stat.title}</h3>
-                      <p className="text-sm text-gray-600">{stat.description}</p>
-                    </div>
-                    <div className="p-3 bg-white rounded-lg">
-                      <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className={`text-3xl font-bold ${stat.color}`}>{stat.value}</span>
-                    <span className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors">
-                      View Catalog
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* 📈 SUPPLIER PROGRESS BAR */}
-        {supplier.total_lots > 0 && (
-          <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8 hover:shadow-md transition-shadow">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Lot Distribution</h3>
-            
-            {/* Progress bar */}
-            <div className="flex w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
-              {supplier.available_lots > 0 && (
-                <div 
-                  className="bg-green-500 h-3 transition-all duration-300"
-                  style={{ width: `${availablePercent}%` }}
-                  title={`${supplier.available_lots} in-date lots`}
-                />
-              )}
-              {supplier.near_expiry_lots > 0 && (
-                <div 
-                  className="bg-amber-500 h-3 transition-all duration-300"
-                  style={{ width: `${nearExpiryPercent}%` }}
-                  title={`${supplier.near_expiry_lots} short-dated lots`}
-                />
-              )}
-              {supplier.expired_lots > 0 && (
-                <div 
-                  className="bg-red-500 h-3 transition-all duration-300"
-                  style={{ width: `${expiredPercent}%` }}
-                  title={`${supplier.expired_lots} expired lots`}
-                />
-              )}
+            <div className="flex items-center gap-3">
+               <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+               <span className="text-[10px] font-black text-white uppercase tracking-widest">Optimal: {Math.round((supplier.available_lots/totalLots)*100)}%</span>
             </div>
-
-            {/* Legend */}
-            <div className="flex flex-wrap justify-between text-sm text-gray-600 gap-2">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                <span>In-date: {supplier.available_lots} lots</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-amber-500 rounded-full mr-2"></div>
-                <span>Short-dated: {supplier.near_expiry_lots} lots</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                <span>Expired: {supplier.expired_lots} lots</span>
-              </div>
+            <div className="flex items-center gap-3">
+               <div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]"></div>
+               <span className="text-[10px] font-black text-white uppercase tracking-widest">Risk: {Math.round((supplier.near_expiry_lots/totalLots)*100)}%</span>
             </div>
-          </div>
-        )}
-
-        {/* ℹ️ IMPROVED SUPPLIER INFORMATION */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Supplier Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Last Import</p>
-                  <p className="font-medium text-gray-900 mb-2">
-                    {formatDateTime(supplier.last_import)}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Category: Pending implementation
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Supplier Status</p>
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                    <p className="font-medium text-green-600">Active</p>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {supplier.total_lots > 0 ? 'With active inventory' : 'No active inventory'}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="p-3 bg-gray-100 rounded-lg ml-4">
-              <BarChart3 className="h-6 w-6 text-gray-600" />
+            <div className="flex items-center gap-3">
+               <div className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+               <span className="text-[10px] font-black text-white uppercase tracking-widest">Alert: {Math.round((supplier.expired_lots/totalLots)*100)}%</span>
             </div>
           </div>
         </div>
