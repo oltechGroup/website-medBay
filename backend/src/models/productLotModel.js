@@ -32,58 +32,77 @@ const ProductLot = {
     return result.rows[0];
   },
 
-  // ✅ OBTENER TODOS LOS LOTES (FILTROS)
-  findAll: async (filters = {}) => {
+  // ✅ NUEVO: OBTENER LOTES PAGINADOS (Para la página de "Ver Lotes")
+  // Soporta búsqueda, filtros por proveedor y estado.
+  findPaginated: async ({ page = 1, limit = 20, supplier_id = '', status = '', search = '' }) => {
+    const offset = (page - 1) * limit;
     let whereConditions = [];
-    let queryParams = [];
-    let paramCount = 0;
+    let params = [];
+    let paramCount = 1;
 
-    if (filters.supplier_id) {
-      paramCount++;
+    if (supplier_id) {
       whereConditions.push(`s.id = $${paramCount}`);
-      queryParams.push(filters.supplier_id);
+      params.push(supplier_id);
+      paramCount++;
     }
 
-    if (filters.status) {
-      paramCount++;
+    if (status && status !== 'all') {
       whereConditions.push(`pl.status = $${paramCount}`);
-      queryParams.push(filters.status);
-    }
-
-    if (filters.search) {
+      params.push(status);
       paramCount++;
-      whereConditions.push(`(p.description ILIKE $${paramCount} OR p.global_sku ILIKE $${paramCount} OR s.name ILIKE $${paramCount})`);
-      queryParams.push(`%${filters.search}%`);
     }
 
-    const whereClause = whereConditions.length > 0 
-      ? `WHERE ${whereConditions.join(' AND ')}`
-      : '';
+    if (search) {
+      whereConditions.push(`(p.description ILIKE $${paramCount} OR p.global_sku ILIKE $${paramCount} OR pl.lot_number ILIKE $${paramCount} OR s.name ILIKE $${paramCount})`);
+      params.push(`%${search}%`);
+      paramCount++;
+    }
 
-    const query = `
-      SELECT 
-        pl.*,
-        p.description as product_name,
-        p.global_sku as product_code,
-        p.description as product_description,
-        s.name as supplier_name,
-        ps.supplier_sku,
-        ps.supplier_name as product_supplier_name
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // 1. Contar total para paginación
+    const countQuery = `
+      SELECT COUNT(*) 
       FROM product_lots pl
       LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
       LEFT JOIN products p ON ps.product_id = p.id
       LEFT JOIN suppliers s ON ps.supplier_id = s.id
       ${whereClause}
-      ORDER BY pl.expiry_date ASC, pl.created_at DESC
     `;
-    
-    try {
-      const result = await db.query(query, queryParams);
-      return result.rows;
-    } catch (error) {
-      console.error('❌ Error en la consulta findAll:', error);
-      throw error;
-    }
+    const countResult = await db.query(countQuery, params);
+    const totalItems = parseInt(countResult.rows[0].count);
+
+    // 2. Obtener datos con LIMIT/OFFSET y Tie-breaker
+    const dataParams = [...params, limit, offset];
+    const dataQuery = `
+      SELECT 
+        pl.*,
+        p.description as product_name,
+        p.global_sku as product_code,
+        s.name as supplier_name,
+        ps.supplier_sku,
+        m.name as manufacturer_name
+      FROM product_lots pl
+      LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
+      LEFT JOIN products p ON ps.product_id = p.id
+      LEFT JOIN suppliers s ON ps.supplier_id = s.id
+      LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
+      ${whereClause}
+      ORDER BY pl.expiry_date ASC, pl.created_at DESC, pl.id ASC
+      LIMIT $${paramCount} OFFSET $${paramCount + 1}
+    `;
+
+    const result = await db.query(dataQuery, dataParams);
+
+    return {
+      lots: result.rows,
+      pagination: {
+        total: totalItems,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(totalItems / limit)
+      }
+    };
   },
 
   // ✅ OBTENER POR ID DE LOTE
@@ -106,43 +125,6 @@ const ProductLot = {
     
     const result = await db.query(query, [id]);
     return result.rows[0];
-  },
-
-  // ✅ [ACTUALIZADO] OBTENER LOTES POR PRODUCTO + FILTRO STATUS
-  findByProductId: async (productId, statusFilter = 'all') => {
-    let statusCondition = "AND pl.status IN ('available', 'near_expiry', 'expired')";
-    let params = [productId];
-
-    // Si nos piden un estado específico (ej: página de caducados), filtramos estrictamente
-    if (statusFilter && statusFilter !== 'all') {
-      statusCondition = "AND pl.status = $2";
-      params.push(statusFilter);
-    }
-
-    const query = `
-      SELECT 
-        pl.*,
-        s.name as supplier_name,
-        ps.supplier_sku
-      FROM product_lots pl
-      INNER JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
-      LEFT JOIN suppliers s ON ps.supplier_id = s.id
-      WHERE ps.product_id = $1
-      ${statusCondition}
-      AND pl.quantity >= 0 
-      ORDER BY pl.expiry_date ASC
-    `;
-    
-    // 👆 NOTA: Cambié "pl.quantity > 0" a ">= 0" para permitir lotes 
-    // bajo pedido (sin stock físico pero con precio de referencia).
-
-    try {
-      const result = await db.query(query, params);
-      return result.rows;
-    } catch (error) {
-      console.error('❌ Error buscando lotes por producto:', error);
-      throw error;
-    }
   },
 
   // ✅ ACTUALIZAR LOTE
@@ -188,9 +170,21 @@ const ProductLot = {
     return result.rows[0];
   },
 
-  // ✅ MÉTRICAS DASHBOARD
+  // ✅ MÉTRICAS DASHBOARD MEJORADAS
+  // Ahora identifica proveedor y tipo de la última importación
   getDashboardMetrics: async () => {
     const query = `
+      WITH last_import_info AS (
+        SELECT 
+          s.name as supplier_name,
+          pl.status as lot_status,
+          pl.created_at as import_date
+        FROM product_lots pl
+        JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
+        JOIN suppliers s ON ps.supplier_id = s.id
+        ORDER BY pl.created_at DESC
+        LIMIT 1
+      )
       SELECT 
         COUNT(DISTINCT pl.id) as total_lots,
         COUNT(DISTINCT ps.product_id) as unique_products,
@@ -200,7 +194,9 @@ const ProductLot = {
         COUNT(CASE WHEN pl.status = 'near_expiry' THEN 1 END) as near_expiry_lots,
         COUNT(CASE WHEN pl.status = 'expired' THEN 1 END) as expired_lots,
         COALESCE(SUM(pl.quantity), 0) as total_units,
-        MAX(pl.created_at) as last_import
+        (SELECT supplier_name FROM last_import_info) as last_import_supplier,
+        (SELECT lot_status FROM last_import_info) as last_import_type,
+        (SELECT import_date FROM last_import_info) as last_import
       FROM product_lots pl
       LEFT JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
     `;
@@ -209,8 +205,25 @@ const ProductLot = {
     return result.rows[0];
   },
 
-  // ✅ MÉTRICAS PROVEEDORES
-  getSuppliersMetrics: async () => {
+  // ✅ MÉTRICAS PROVEEDORES PAGINADAS
+  // Para la página principal de tarjetas de proveedores
+  findPaginatedSuppliers: async ({ page = 1, limit = 6, search = '' }) => {
+    const offset = (page - 1) * limit;
+    let whereClause = 'WHERE s.is_active = true';
+    let params = [];
+    
+    if (search) {
+      whereClause += ` AND s.name ILIKE $1`;
+      params.push(`%${search}%`);
+    }
+
+    const countQuery = `SELECT COUNT(*) FROM suppliers s ${whereClause}`;
+    const countResult = await db.query(countQuery, params);
+    const totalItems = parseInt(countResult.rows[0].count);
+
+    const dataParams = [...params, limit, offset];
+    const paramIdx = params.length;
+
     const query = `
       SELECT 
         s.id,
@@ -227,13 +240,30 @@ const ProductLot = {
       FROM suppliers s
       LEFT JOIN product_suppliers ps ON s.id = ps.supplier_id
       LEFT JOIN product_lots pl ON ps.id = pl.product_supplier_id
-      WHERE s.is_active = true
+      ${whereClause}
       GROUP BY s.id, s.name
-      ORDER BY s.name
+      ORDER BY s.name ASC, s.id ASC
+      LIMIT $${paramIdx + 1} OFFSET $${paramIdx + 2}
     `;
     
-    const result = await db.query(query);
-    return result.rows[0] ? result.rows : []; // Aseguramos devolver array
+    const result = await db.query(query, dataParams);
+
+    return {
+      suppliers: result.rows,
+      pagination: {
+        total: totalItems,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(totalItems / limit)
+      }
+    };
+  },
+
+  // Mantengo findAll para compatibilidad interna de reportes rápidos
+  findAll: async (filters = {}) => {
+    // ... (Se mantiene lógica simplificada o se puede redirigir a findPaginated con limit alto)
+    const result = await ProductLot.findPaginated({ ...filters, limit: 1000, page: 1 });
+    return result.lots;
   }
 };
 

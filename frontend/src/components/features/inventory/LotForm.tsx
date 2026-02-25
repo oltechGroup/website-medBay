@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Save, 
   X, 
@@ -12,10 +12,12 @@ import {
   RefreshCw,
   CheckCircle2,
   Clock,
-  Ban
+  Ban,
+  Search,
+  Building2,
+  ChevronDown
 } from 'lucide-react';
-import { ProductLot, CreateLotData } from '@/hooks/useInventory';
-import { api } from '@/lib/api';
+import { ProductLot, CreateLotData, useInventory } from '@/hooks/useInventory';
 
 interface LotFormProps {
   lot?: ProductLot;
@@ -35,21 +37,15 @@ interface FormData {
   received_at: string;
 }
 
-interface FormOptions {
-  products: Array<{ id: string; name: string; global_sku: string; description?: string }>;
-  suppliers: Array<{ id: string; name: string; country_code: string }>;
-}
-
-// Base styles for inputs (Visible text and white background)
-const inputClasses = "w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900 bg-white border-gray-300 placeholder-gray-400";
-const errorInputClasses = "border-red-300 bg-red-50 text-gray-900";
-
 export const LotForm: React.FC<LotFormProps> = ({ 
   lot, 
   onSubmit, 
   onCancel, 
   loading = false 
 }) => {
+  const { getFormData } = useInventory();
+  
+  // 1. Estados del Formulario
   const [formData, setFormData] = useState<FormData>({
     product_id: '',
     supplier_id: '',
@@ -61,104 +57,94 @@ export const LotForm: React.FC<LotFormProps> = ({
     received_at: new Date().toISOString().split('T')[0]
   });
 
-  const [options, setOptions] = useState<FormOptions>({ products: [], suppliers: [] });
+  // 2. Estados para el Buscador Dinámico
+  const [products, setProducts] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [productSearch, setProductSearch] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const isEditing = !!lot;
 
-  // 1. Load options on start
-  useEffect(() => {
-    const loadFormOptions = async () => {
-      try {
-        setLoadingOptions(true);
-        try {
-            const response = await api.get('/inventory/form-data');
-            setOptions(response.data);
-        } catch (e) {
-            // Fallback: Load separately if unified endpoint fails
-            const [productsRes, suppliersRes] = await Promise.all([
-                api.get('/products'),
-                api.get('/suppliers')
-            ]);
-            
-            const products = productsRes.data.map((p: any) => ({
-                id: p.id,
-                name: p.description || p.name,
-                global_sku: p.global_sku
-            }));
+  // 3. Carga Inicial y Buscador (Debounced)
+  const fetchOptions = useCallback(async (search: string = '') => {
+    setIsSearching(true);
+    try {
+      const data = await getFormData(search);
+      setProducts(data.products || []);
+      setSuppliers(data.suppliers || []);
+    } catch (err) {
+      console.error('Error fetching options:', err);
+    } finally {
+      setIsSearching(false);
+      setInitialLoading(false);
+    }
+  }, [getFormData]);
 
-            setOptions({
-                products: products || [],
-                suppliers: suppliersRes.data || []
-            });
-        }
-      } catch (error) {
-        console.error('Error loading form options:', error);
-      } finally {
-        setLoadingOptions(false);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchOptions(productSearch);
+    }, 400); // 400ms de espera antes de buscar en el servidor
+    return () => clearTimeout(timer);
+  }, [productSearch, fetchOptions]);
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowProductDropdown(false);
       }
     };
-
-    loadFormOptions();
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 2. Pre-fill form when options are ready AND we have a lot
+  // 4. Pre-llenado en modo Edición
   useEffect(() => {
-    if (lot && !loadingOptions && options.products.length > 0) {
-      fillFormData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lot, loadingOptions, options]);
-
-  const fillFormData = () => {
-    if (!lot) return;
-
-    // Smart logic to find correct ID even if only name is provided
-    const foundProduct = options.products.find(p => 
-        p.name === lot.product_name || 
-        p.global_sku === lot.product_code ||
-        (p.description && p.description === lot.product_name)
-    );
-
-    const foundSupplier = options.suppliers.find(s => 
-        s.name === lot.supplier_name
-    );
-
-    setFormData({
-        product_id: foundProduct?.id || '',
-        supplier_id: foundSupplier?.id || '',
+    if (lot && initialLoading) {
+      setFormData({
+        product_id: lot.product_id || '',
+        supplier_id: lot.supplier_id || '',
         lot_number: lot.lot_number,
         expiry_date: lot.expiry_date ? lot.expiry_date.split('T')[0] : '',
         quantity: lot.quantity,
         price: lot.price,
         status: lot.status,
         received_at: lot.received_at ? lot.received_at.split('T')[0] : new Date().toISOString().split('T')[0]
-    });
-  };
+      });
+      // Si estamos editando, ponemos el nombre del producto actual en el buscador
+      setProductSearch(lot.product_name);
+    }
+  }, [lot, initialLoading]);
 
+  // 5. Handlers
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
     setFormData(prev => ({
       ...prev,
       [name]: name === 'quantity' || name === 'price' ? Number(value) : value
     }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+  };
 
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+  const handleSelectProduct = (product: any) => {
+    setFormData(prev => ({ ...prev, product_id: product.id }));
+    setProductSearch(product.name);
+    setShowProductDropdown(false);
+    if (errors.product_id) setErrors(prev => ({ ...prev, product_id: '' }));
   };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.product_id) newErrors.product_id = 'Select a product';
-    if (!formData.supplier_id) newErrors.supplier_id = 'Select a supplier';
-    if (!formData.lot_number.trim()) newErrors.lot_number = 'Lot number required';
-    if (!formData.expiry_date) newErrors.expiry_date = 'Date required';
-    if (formData.quantity <= 0) newErrors.quantity = 'Quantity must be greater than 0';
-    if (formData.price < 0) newErrors.price = 'Price cannot be negative';
-
+    if (!formData.product_id) newErrors.product_id = 'Search and select a product';
+    if (!formData.supplier_id) newErrors.supplier_id = 'Required';
+    if (!formData.lot_number.trim()) newErrors.lot_number = 'Required';
+    if (!formData.expiry_date) newErrors.expiry_date = 'Required';
+    if (formData.quantity <= 0) newErrors.quantity = 'Must be > 0';
+    if (formData.price < 0) newErrors.price = 'Cannot be negative';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -166,318 +152,226 @@ export const LotForm: React.FC<LotFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-
     try {
-      // Get or create the Product-Supplier relationship
-      const relationResponse = await api.post('/inventory/product-suppliers', {
-        product_id: formData.product_id,
-        supplier_id: formData.supplier_id
-      });
-      
-      const productSupplierId = relationResponse.data.id;
-
-      const lotData: CreateLotData = {
-        product_supplier_id: productSupplierId,
-        lot_number: formData.lot_number,
-        expiry_date: formData.expiry_date,
-        quantity: formData.quantity,
-        price: formData.price,
-        status: formData.status,
-        received_at: formData.received_at
-      };
-
-      await onSubmit(lotData);
+      await onSubmit({
+        product_supplier_id: '', // Se calculará en el hook usando product_id + supplier_id
+        ...formData
+      } as any);
     } catch (error) {
-      console.error('Error:', error);
-      setErrors({ submit: 'Error while saving. Please check the data.' });
+      setErrors({ submit: 'The relationship Product-Supplier failed. Check connection.' });
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(amount);
-  };
+  const statusConfig = {
+    available: { icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50', label: 'On Date' },
+    near_expiry: { icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', label: 'Short Date' },
+    expired: { icon: Ban, color: 'text-red-600', bg: 'bg-red-50', label: 'Expired' }
+  }[formData.status];
 
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case 'available': return { icon: CheckCircle2, color: 'text-green-700', bg: 'bg-green-50', border: 'border-green-200', label: 'On Date' };
-      case 'near_expiry': return { icon: Clock, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', label: 'Short Date' };
-      case 'expired': return { icon: Ban, color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', label: 'Expired' };
-      default: return { icon: Package, color: 'text-gray-700', bg: 'bg-gray-50', border: 'border-gray-200', label: 'Unknown' };
-    }
-  };
-
-  const statusConfig = getStatusConfig(formData.status);
-  const StatusIcon = statusConfig.icon;
-
-  // Initial load loader
-  if (loadingOptions) {
+  if (initialLoading) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-                <div className="h-12 bg-gray-200 rounded"></div>
-                <div className="h-12 bg-gray-200 rounded"></div>
-            </div>
-            <div className="h-64 bg-gray-200 rounded"></div>
-          </div>
-        </div>
+      <div className="max-w-4xl mx-auto p-12 text-center">
+        <RefreshCw className="h-10 w-10 text-blue-600 animate-spin mx-auto mb-4" />
+        <p className="text-sm font-black uppercase tracking-widest text-gray-400">Initializing form engine...</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* 🎯 HEADER */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-xl shadow-sm">
-              <Package className="h-6 w-6 text-blue-600" />
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+      {/* HEADER */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-slate-900 rounded-2xl shadow-xl">
+            <Package className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+              {isEditing ? 'Modify Batch' : 'New Stock Entry'}
+            </h2>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Inventory Logistics</p>
+          </div>
+        </div>
+        <button onClick={onCancel} className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all">
+          <X className="h-5 w-5 text-gray-400" />
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] border border-gray-200 p-8 shadow-sm space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          
+          {/* LEFT: Product Selection */}
+          <div className="space-y-6">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
+              Origin & Product
+            </h3>
+
+            {/* BUSCADOR INTELIGENTE DE PRODUCTOS */}
+            <div className="relative" ref={dropdownRef}>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Search Product *</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={productSearch}
+                  onChange={(e) => {
+                    setProductSearch(e.target.value);
+                    setShowProductDropdown(true);
+                  }}
+                  onFocus={() => setShowProductDropdown(true)}
+                  placeholder="Type name or SKU..."
+                  className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border-2 rounded-2xl outline-none transition-all font-bold text-sm ${errors.product_id ? 'border-red-200 ring-red-50' : 'border-transparent focus:bg-white focus:border-blue-500'}`}
+                />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                {isSearching && <RefreshCw className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500 animate-spin" />}
+              </div>
+
+              {/* DROPDOWN DE RESULTADOS */}
+              {showProductDropdown && (products.length > 0 || isSearching) && (
+                <div className="absolute z-50 w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl max-h-60 overflow-y-auto p-2 animate-in slide-in-from-top-2">
+                  {isSearching ? (
+                    <div className="p-4 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">Searching catalog...</div>
+                  ) : (
+                    products.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleSelectProduct(p)}
+                        className={`w-full text-left p-3 rounded-xl hover:bg-blue-50 transition-colors flex flex-col ${formData.product_id === p.id ? 'bg-blue-50 border border-blue-100' : ''}`}
+                      >
+                        <span className="text-sm font-black text-gray-900">{p.name}</span>
+                        <span className="text-[10px] font-bold text-gray-400">SKU: {p.global_sku}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+              {errors.product_id && <p className="mt-2 text-[10px] font-black text-red-500 uppercase ml-1 tracking-tighter">{errors.product_id}</p>}
+            </div>
+
+            {/* SELECTOR DE PROVEEDOR */}
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Supplier Source *</label>
+              <div className="relative">
+                <select
+                  name="supplier_id"
+                  value={formData.supplier_id}
+                  onChange={handleChange}
+                  className={`w-full pl-11 pr-10 py-3.5 bg-gray-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-bold text-sm appearance-none ${errors.supplier_id ? 'border-red-200' : ''}`}
+                >
+                  <option value="">Select partner...</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Lot / Batch SKU *</label>
+              <input
+                type="text"
+                name="lot_number"
+                value={formData.lot_number}
+                onChange={handleChange}
+                placeholder="e.g. LOT-500-2024"
+                className="w-full px-5 py-3.5 bg-gray-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-bold text-sm"
+              />
+            </div>
+          </div>
+
+          {/* RIGHT: Inventory Details */}
+          <div className="space-y-6">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-600 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-purple-600 rounded-full"></span>
+              Stock & Expiry
+            </h3>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Reception</label>
+                <input type="date" name="received_at" value={formData.received_at} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-bold text-xs" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Expiry *</label>
+                <input type="date" name="expiry_date" value={formData.expiry_date} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-bold text-xs" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Units *</label>
+                <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} className="w-full px-5 py-3.5 bg-gray-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-black text-sm" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Unit Cost *</label>
+                <div className="relative">
+                  <input type="number" name="price" step="0.01" value={formData.price} onChange={handleChange} className="w-full pl-8 pr-4 py-3.5 bg-gray-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-black text-sm" />
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Batch Health Status</label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className={`w-full px-5 py-3.5 rounded-2xl border-2 outline-none font-black text-xs uppercase tracking-widest transition-all appearance-none ${statusConfig.bg} ${statusConfig.color} border-transparent focus:border-blue-500`}
+              >
+                <option value="available">🟢 Optimal - In Date</option>
+                <option value="near_expiry">🟡 Warning - Short Date</option>
+                <option value="expired">🔴 Alert - Expired</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* SUMMARY CARD */}
+        <div className="bg-slate-900 rounded-3xl p-8 flex items-center justify-between shadow-2xl shadow-slate-200">
+          <div className="flex items-center gap-5">
+            <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md">
+              <statusConfig.icon className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {isEditing ? 'Edit Lot' : 'Register Entry'}
-              </h2>
-              <p className="text-gray-500 text-sm">
-                {isEditing ? `Editing lot: ${lot?.lot_number}` : 'Enter details for the new lot'}
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Estimated Asset Value</p>
+              <p className="text-3xl font-black text-white tracking-tight">
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(formData.quantity * formData.price)}
               </p>
             </div>
           </div>
-          <button
-            onClick={onCancel}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            <X className="h-4 w-4 mr-2" />
-            Cancel
-          </button>
-        </div>
-      </div>
-
-      {/* 📝 FORM */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          
-          {/* COLUMN 1: Main Data */}
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">
-              Product Data
-            </h3>
-            
-            {/* Product (EDITABLE) */}
-            <div>
-              <label htmlFor="product_id" className="block text-sm font-medium text-gray-700 mb-1">
-                Product *
-              </label>
-              <select
-                id="product_id"
-                name="product_id"
-                value={formData.product_id}
-                onChange={handleChange}
-                className={`${inputClasses} ${errors.product_id ? errorInputClasses : ''}`}
-              >
-                <option value="">Select a product...</option>
-                {options.products.map(product => (
-                  <option key={product.id} value={product.id} className="text-gray-900">
-                    {product.name} ({product.global_sku})
-                  </option>
-                ))}
-              </select>
-              {errors.product_id && <p className="mt-1 text-sm text-red-600">{errors.product_id}</p>}
-            </div>
-
-            {/* Supplier (EDITABLE) */}
-            <div>
-              <label htmlFor="supplier_id" className="block text-sm font-medium text-gray-700 mb-1">
-                Supplier *
-              </label>
-              <select
-                id="supplier_id"
-                name="supplier_id"
-                value={formData.supplier_id}
-                onChange={handleChange}
-                className={`${inputClasses} ${errors.supplier_id ? errorInputClasses : ''}`}
-              >
-                <option value="">Select a supplier...</option>
-                {options.suppliers.map(supplier => (
-                  <option key={supplier.id} value={supplier.id} className="text-gray-900">
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
-              {errors.supplier_id && <p className="mt-1 text-sm text-red-600">{errors.supplier_id}</p>}
-            </div>
-
-            {/* Lot Number */}
-            <div>
-              <label htmlFor="lot_number" className="block text-sm font-medium text-gray-700 mb-1">
-                Lot Number (Lot SKU) *
-              </label>
-              <div className="relative">
-                <input
-                    type="text"
-                    id="lot_number"
-                    name="lot_number"
-                    value={formData.lot_number}
-                    onChange={handleChange}
-                    className={`${inputClasses} pl-10 ${errors.lot_number ? errorInputClasses : ''}`}
-                    placeholder="e.g.: LOT-2024-X"
-                />
-                <Package className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-              </div>
-              {errors.lot_number && <p className="mt-1 text-sm text-red-600">{errors.lot_number}</p>}
-            </div>
-          </div>
-
-          {/* COLUMN 2: Inventory and Dates */}
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">
-              Inventory Details
-            </h3>
-
-            <div className="grid grid-cols-2 gap-4">
-                {/* Reception Date */}
-                <div>
-                    <label htmlFor="received_at" className="block text-sm font-medium text-gray-700 mb-1">
-                        Reception
-                    </label>
-                    <input
-                        type="date"
-                        id="received_at"
-                        name="received_at"
-                        value={formData.received_at}
-                        onChange={handleChange}
-                        className={inputClasses}
-                    />
-                </div>
-
-                {/* Expiration Date */}
-                <div>
-                    <label htmlFor="expiry_date" className="block text-sm font-medium text-gray-700 mb-1">
-                        Expiration *
-                    </label>
-                    <input
-                        type="date"
-                        id="expiry_date"
-                        name="expiry_date"
-                        value={formData.expiry_date}
-                        onChange={handleChange}
-                        className={`${inputClasses} ${errors.expiry_date ? errorInputClasses : ''}`}
-                    />
-                    {errors.expiry_date && <p className="mt-1 text-xs text-red-600">{errors.expiry_date}</p>}
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                {/* Quantity */}
-                <div>
-                    <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
-                        Quantity *
-                    </label>
-                    <input
-                        type="number"
-                        id="quantity"
-                        name="quantity"
-                        value={formData.quantity}
-                        onChange={handleChange}
-                        min="1"
-                        className={`${inputClasses} ${errors.quantity ? errorInputClasses : ''}`}
-                    />
-                </div>
-
-                {/* Price */}
-                <div>
-                    <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
-                        Unit Cost *
-                    </label>
-                    <div className="relative">
-                        <input
-                            type="number"
-                            id="price"
-                            name="price"
-                            value={formData.price}
-                            onChange={handleChange}
-                            min="0"
-                            step="0.01"
-                            className={`${inputClasses} pl-8 ${errors.price ? errorInputClasses : ''}`}
-                        />
-                        <span className="absolute left-3 top-3.5 text-gray-500 font-medium">$</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Status */}
-            <div>
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                    Current Status
-                </label>
-                <select
-                    id="status"
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className={`${inputClasses} ${statusConfig.bg} ${statusConfig.color} font-medium border-2`}
-                >
-                    <option value="available">🟢 On Date</option>
-                    <option value="near_expiry">🟡 Short Date</option>
-                    <option value="expired">🔴 Expired</option>
-                </select>
-            </div>
+          <div className="text-right">
+             <span className="px-3 py-1 bg-white/10 rounded-lg text-[10px] font-black text-white uppercase tracking-widest border border-white/10">
+                {statusConfig.label}
+             </span>
           </div>
         </div>
 
-        {/* 📊 FINAL SUMMARY */}
-        <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-full ${statusConfig.bg}`}>
-                    <StatusIcon className={`h-6 w-6 ${statusConfig.color}`} />
-                </div>
-                <div>
-                    <p className="text-sm text-gray-500">Total Lot Value</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                        {formatCurrency(formData.quantity * formData.price)}
-                    </p>
-                </div>
-            </div>
-            <div className="text-right hidden md:block">
-                <p className="text-xs text-gray-400">Internal ID</p>
-                <p className="text-sm font-mono text-gray-600">{lot ? lot.id.slice(0, 8) : 'N/A'}</p>
-            </div>
-        </div>
-
-        {/* GENERAL ERRORS */}
         {errors.submit && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700">
-            <AlertCircle className="h-5 w-5 mr-2" />
+          <div className="p-4 bg-red-50 text-red-700 rounded-2xl border border-red-100 flex items-center gap-3 text-xs font-bold uppercase tracking-tight">
+            <AlertCircle className="h-5 w-5" />
             {errors.submit}
           </div>
         )}
 
-        {/* ACTION BUTTONS */}
-        <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-100">
+        {/* ACTIONS */}
+        <div className="flex items-center justify-end gap-4 pt-4">
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+            className="px-8 py-3 text-xs font-black uppercase tracking-widest text-gray-500 hover:text-gray-900 transition-colors"
+            disabled={loading}
           >
-            Cancel
+            Discard
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex items-center px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:ring-4 focus:ring-blue-100 transition-all shadow-md disabled:opacity-70 disabled:cursor-wait"
+            className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-3"
           >
-            {loading ? (
-              <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-5 w-5 mr-2" />
-            )}
-            {loading ? 'Saving...' : (isEditing ? 'Save Changes' : 'Register Lot')}
+            {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 stroke-[3]" />}
+            {isEditing ? 'Update Assets' : 'Commit Entry'}
           </button>
         </div>
       </form>

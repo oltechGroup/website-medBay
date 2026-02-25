@@ -5,7 +5,8 @@
 import { useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 
-// ✅ TIPOS ACTUALIZADOS - SIN unit
+// --- INTERFACES ---
+
 export interface ProductLot {
   id: string;
   product_supplier_id: string;
@@ -23,7 +24,6 @@ export interface ProductLot {
   received_at: string;
   created_at: string;
   updated_at: string;
-  // ✅ CAMPOS NUEVOS PARA INTEGRACIÓN
   product_id?: string;
   supplier_id?: string;
   manufacturer_name?: string;
@@ -41,7 +41,6 @@ export interface SupplierMetrics {
   expired_lots: number;
   total_lots: number;
   last_import: string;
-  // ✅ CAMPOS NUEVOS PARA INTEGRACIÓN
   country_code?: string;
   is_active?: boolean;
 }
@@ -56,9 +55,31 @@ export interface InventoryDashboard {
   expired_lots: number;
   total_units: number;
   last_import: string;
+  // ✅ NUEVOS CAMPOS: Detalle de última importación
+  last_import_supplier?: string;
+  last_import_type?: string;
+}
+
+export interface PaginationMetadata {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PaginatedLots {
+  lots: ProductLot[];
+  pagination: PaginationMetadata;
+}
+
+export interface PaginatedSuppliers {
+  suppliers: SupplierMetrics[];
+  pagination: PaginationMetadata;
 }
 
 export interface LotFilters {
+  page?: number;
+  limit?: number;
   supplier_id?: string;
   status?: string;
   search?: string;
@@ -74,11 +95,13 @@ export interface CreateLotData {
   received_at?: string;
 }
 
+// --- HOOK PRINCIPAL ---
+
 export const useInventory = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ DASHBOARD
+  // ✅ DASHBOARD - MEJORADO
   const getDashboard = useCallback(async (): Promise<InventoryDashboard> => {
     try {
       setLoading(true);
@@ -86,37 +109,40 @@ export const useInventory = () => {
       const response = await api.get('/inventory/dashboard');
       return response.data;
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al cargar el dashboard');
+      const msg = err.response?.data?.error || 'Error loading dashboard';
+      setError(msg);
       throw err;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ✅ MÉTRICAS POR PROVEEDOR (SOLO ACTIVOS)
-  const getSuppliersMetrics = useCallback(async (): Promise<SupplierMetrics[]> => {
+  // ✅ MÉTRICAS POR PROVEEDOR - PAGINADAS
+  const getSuppliersMetrics = useCallback(async (params: { page?: number; limit?: number; search?: string } = {}): Promise<PaginatedSuppliers> => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get('/inventory/suppliers-metrics');
+      const response = await api.get('/inventory/suppliers-metrics', { params });
       return response.data;
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al cargar métricas de proveedores');
+      const msg = err.response?.data?.error || 'Error loading supplier metrics';
+      setError(msg);
       throw err;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ✅ OBTENER TODOS LOS LOTES (CON FILTROS)
-  const getLots = useCallback(async (filters: LotFilters = {}): Promise<ProductLot[]> => {
+  // ✅ OBTENER LOTES - PAGINACIÓN REAL
+  const getLots = useCallback(async (filters: LotFilters = {}): Promise<PaginatedLots> => {
     try {
       setLoading(true);
       setError(null);
       const response = await api.get('/inventory/lots', { params: filters });
       return response.data;
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al cargar lotes');
+      const msg = err.response?.data?.error || 'Error loading lots';
+      setError(msg);
       throw err;
     } finally {
       setLoading(false);
@@ -131,14 +157,14 @@ export const useInventory = () => {
       const response = await api.get(`/inventory/lots/${id}`);
       return response.data;
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al cargar el lote');
+      setError('Error loading lot details');
       throw err;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ✅ CREAR LOTE - SIN unit
+  // ✅ CREAR LOTE
   const createLot = useCallback(async (lotData: CreateLotData): Promise<ProductLot> => {
     try {
       setLoading(true);
@@ -146,7 +172,6 @@ export const useInventory = () => {
       const response = await api.post('/inventory/lots', lotData);
       return response.data.lot;
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al crear el lote');
       throw err;
     } finally {
       setLoading(false);
@@ -161,7 +186,6 @@ export const useInventory = () => {
       const response = await api.put(`/inventory/lots/${id}`, lotData);
       return response.data.lot;
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al actualizar el lote');
       throw err;
     } finally {
       setLoading(false);
@@ -172,32 +196,45 @@ export const useInventory = () => {
   const deleteLot = useCallback(async (id: string): Promise<void> => {
     try {
       setLoading(true);
-      setError(null);
       await api.delete(`/inventory/lots/${id}`);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al eliminar el lote');
       throw err;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ✅ CATÁLOGO POR PROVEEDOR Y ESTADO
-  const getCatalogBySupplier = useCallback(async (supplierId: string, status: string): Promise<ProductLot[]> => {
+  // ✅ CATÁLOGO POR PROVEEDOR Y ESTADO - PAGINADO
+  const getCatalogBySupplier = useCallback(async (
+    supplierId: string, 
+    status: string, 
+    params: { page?: number; limit?: number } = {}
+  ): Promise<PaginatedLots> => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get(`/inventory/catalog/supplier/${supplierId}/status/${status}`);
+      const response = await api.get(`/inventory/catalog/supplier/${supplierId}/status/${status}`, { params });
       return response.data;
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al cargar el catálogo');
+      setError('Error loading catalog');
       throw err;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ✅ CREAR LOTE PARA PRODUCTO EXISTENTE (INTEGRACIÓN CON PRODUCTOS) - SIN unit
+  // ✅ NUEVO: OBTENER DATOS PARA FORMULARIO CON BÚSQUEDA DINÁMICA
+  const getFormData = useCallback(async (search: string = '') => {
+    try {
+      const response = await api.get('/inventory/form-data', { params: { search } });
+      return response.data;
+    } catch (err) {
+      console.error('Error fetching form data:', err);
+      return { products: [], suppliers: [] };
+    }
+  }, []);
+
+  // ✅ CREAR LOTE PARA PRODUCTO EXISTENTE
   const createLotForProduct = useCallback(async (productData: {
     product_id: string;
     supplier_id?: string;
@@ -211,21 +248,15 @@ export const useInventory = () => {
       setLoading(true);
       setError(null);
       
-      // Primero buscar o crear la relación product_supplier
-      let productSupplierId = productData.supplier_id;
+      const relationResponse = await api.post('/inventory/product-suppliers', {
+        product_id: productData.product_id,
+        supplier_id: productData.supplier_id
+      });
       
-      if (!productSupplierId) {
-        // Buscar relación existente o crear una por defecto
-        const supplierResponse = await api.get('/suppliers?active=true');
-        const activeSuppliers = supplierResponse.data.data || [];
-        
-        if (activeSuppliers.length > 0) {
-          productSupplierId = activeSuppliers[0].id;
-        }
-      }
+      const productSupplierId = relationResponse.data.id;
 
       const lotData: CreateLotData = {
-        product_supplier_id: productSupplierId!,
+        product_supplier_id: productSupplierId,
         lot_number: productData.lot_number,
         expiry_date: productData.expiry_date,
         quantity: productData.quantity,
@@ -237,7 +268,7 @@ export const useInventory = () => {
       const response = await api.post('/inventory/lots', lotData);
       return response.data.lot;
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al crear lote para producto');
+      setError('Error creating lot for product');
       throw err;
     } finally {
       setLoading(false);
@@ -247,17 +278,15 @@ export const useInventory = () => {
   return {
     loading,
     error,
-    // Dashboard y métricas
     getDashboard,
     getSuppliersMetrics,
-    // Gestión de lotes
     getLots,
     getLotById,
     createLot,
     updateLot,
     deleteLot,
     createLotForProduct,
-    // Catálogos
     getCatalogBySupplier,
+    getFormData, // ✅ Exportado para el selector inteligente
   };
 };

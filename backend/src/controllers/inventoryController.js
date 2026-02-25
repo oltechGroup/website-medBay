@@ -1,10 +1,10 @@
-//backend/src/controllers/inventoryController.js
+// backend/src/controllers/inventoryController.js
 
-const { pool } = require('../config/database'); // ✅ AGREGAR importación de pool
+const { pool } = require('../config/database');
 const ProductLot = require('../models/productLotModel');
 
 const inventoryController = {
-  // ✅ DASHBOARD PRINCIPAL
+  // ✅ DASHBOARD PRINCIPAL - MEJORADO con info de última importación
   getDashboard: async (req, res) => {
     try {
       const metrics = await ProductLot.getDashboardMetrics();
@@ -15,28 +15,42 @@ const inventoryController = {
     }
   },
 
-  // ✅ MÉTRICAS POR PROVEEDOR
+  // ✅ MÉTRICAS POR PROVEEDOR - AHORA PAGINADAS
   getSuppliersMetrics: async (req, res) => {
     try {
-      const metrics = await ProductLot.getSuppliersMetrics();
-      res.json(metrics);
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 6; // Por defecto 6 tarjetas por página
+      const search = req.query.search || '';
+
+      const result = await ProductLot.findPaginatedSuppliers({
+        page,
+        limit,
+        search
+      });
+      
+      res.json(result);
     } catch (error) {
       console.error('Error en getSuppliersMetrics:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
 
-  // ✅ OBTENER TODOS LOS LOTES (CON FILTROS)
+  // ✅ OBTENER LOTES - AHORA CON PAGINACIÓN REAL (LIMIT/OFFSET)
   getLots: async (req, res) => {
     try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
+      
       const filters = {
+        page,
+        limit,
         supplier_id: req.query.supplier_id,
         status: req.query.status,
         search: req.query.search
       };
       
-      const lots = await ProductLot.findAll(filters);
-      res.json(lots);
+      const result = await ProductLot.findPaginated(filters);
+      res.json(result);
     } catch (error) {
       console.error('Error en getLots:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
@@ -60,7 +74,7 @@ const inventoryController = {
     }
   },
 
-  // ✅ CREAR NUEVO LOTE - SIN unit
+  // ✅ CREAR NUEVO LOTE
   createLot: async (req, res) => {
     try {
       const {
@@ -73,7 +87,6 @@ const inventoryController = {
         received_at
       } = req.body;
 
-      // Validaciones básicas (sin unit)
       if (!product_supplier_id || !lot_number || !expiry_date || !quantity || !price || !status) {
         return res.status(400).json({ 
           error: 'Faltan campos requeridos: product_supplier_id, lot_number, expiry_date, quantity, price, status' 
@@ -96,16 +109,14 @@ const inventoryController = {
       });
     } catch (error) {
       console.error('Error en createLot:', error);
-      
-      if (error.code === '23505') { // Violación de unique constraint
+      if (error.code === '23505') {
         return res.status(400).json({ error: 'El número de lote ya existe' });
       }
-      
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
 
-  // ✅ ACTUALIZAR LOTE - SIN unit
+  // ✅ ACTUALIZAR LOTE
   updateLot: async (req, res) => {
     try {
       const { id } = req.params;
@@ -163,48 +174,46 @@ const inventoryController = {
     }
   },
 
-  // ✅ CATÁLOGO POR PROVEEDOR Y ESTADO
+  // ✅ CATÁLOGO POR PROVEEDOR Y ESTADO - AHORA PAGINADO
   getCatalogBySupplier: async (req, res) => {
     try {
       const { supplier_id, status } = req.params;
-      
-      console.log(`📦 Buscando catálogo: proveedor ${supplier_id}, estado ${status}`);
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
 
-      // Validar que el estado sea válido
       const validStatuses = ['available', 'near_expiry', 'expired'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ error: 'Estado no válido' });
       }
 
-      // Usar el modelo con filtros
-      const lots = await ProductLot.findAll({
-        supplier_id: supplier_id,
-        status: status
+      const result = await ProductLot.findPaginated({
+        page,
+        limit,
+        supplier_id,
+        status
       });
 
-      console.log(`✅ Catálogo obtenido: ${lots.length} lotes`);
-      
-      res.json(lots);
+      res.json(result);
     } catch (error) {
       console.error('❌ Error en getCatalogBySupplier:', error);
-      res.status(500).json({ 
-        error: 'Error interno del servidor',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   },
 
-  // ✅ OBTENER PRODUCTOS Y PROVEEDORES PARA FORMULARIO
+  // ✅ OBTENER PRODUCTOS Y PROVEEDORES PARA FORMULARIO (Evita crashes de memoria)
   getFormData: async (req, res) => {
     try {
-      // Obtener productos activos
+      const search = req.query.search || '';
+      
+      // Si el frontend envía búsqueda, filtramos. Si no, solo mandamos los primeros 50 para evitar sobrecarga.
       const productsQuery = `
         SELECT id, description as name, global_sku 
         FROM products 
+        ${search ? "WHERE description ILIKE $1 OR global_sku ILIKE $1" : ""}
         ORDER BY description
+        LIMIT 50
       `;
       
-      // Obtener proveedores activos
       const suppliersQuery = `
         SELECT id, name, country_code 
         FROM suppliers 
@@ -212,8 +221,10 @@ const inventoryController = {
         ORDER BY name
       `;
       
+      const productsParams = search ? [`%${search}%`] : [];
+      
       const [productsResult, suppliersResult] = await Promise.all([
-        pool.query(productsQuery),
+        pool.query(productsQuery, productsParams),
         pool.query(suppliersQuery)
       ]);
 
@@ -232,9 +243,6 @@ const inventoryController = {
     try {
       const { product_id, supplier_id } = req.body;
       
-      console.log('🔍 Buscando relación producto-proveedor:', { product_id, supplier_id });
-
-      // Verificar si ya existe la relación
       const existingQuery = `
         SELECT ps.*, p.description as product_name, s.name as supplier_name
         FROM product_suppliers ps
@@ -246,11 +254,9 @@ const inventoryController = {
       const existingResult = await pool.query(existingQuery, [product_id, supplier_id]);
       
       if (existingResult.rows.length > 0) {
-        console.log('✅ Relación existente encontrada:', existingResult.rows[0].id);
         return res.json(existingResult.rows[0]);
       }
 
-      // Crear nueva relación
       const productResult = await pool.query('SELECT description FROM products WHERE id = $1', [product_id]);
       const supplierResult = await pool.query('SELECT name FROM suppliers WHERE id = $1', [supplier_id]);
       
@@ -271,8 +277,6 @@ const inventoryController = {
         productName,
         supplierName
       ]);
-
-      console.log('✅ Nueva relación creada:', createResult.rows[0].id);
       
       res.json(createResult.rows[0]);
     } catch (error) {
