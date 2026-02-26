@@ -46,7 +46,8 @@ const navigation = [
   { name: 'Countries', href: '/dashboard/countries', icon: Globe },
   { name: 'Users', href: '/dashboard/users', icon: Users },
   { name: 'Import', href: '/dashboard/import', icon: Upload },
-  { name: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
+  // ✅ CAMBIO REALIZADO: Reports -> Traffic
+  { name: 'Traffic', href: '/dashboard/traffic', icon: BarChart3 },
   { name: 'Documents', href: '/dashboard/documents', icon: FileText },
 ];
 
