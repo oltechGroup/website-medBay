@@ -7,7 +7,10 @@ const authMiddleware = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 
-// Configuración Multer (Carga de archivos)
+// ✅ 1. IMPORTAMOS EL MIDDLEWARE ESPECIALIZADO DE IMÁGENES
+const uploadImages = require('../middleware/uploadImages');
+
+// Configuración Multer (Carga de archivos EXCEL) - INTACTO
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => {
@@ -32,13 +35,13 @@ router.use(authMiddleware.requireRole(['admin']));
 // 1. Proveedor Rápido
 router.post('/quick-supplier', importController.createQuickSupplier);
 
-// 2. Subida y Previsualización de Excel
+// 2. Subida y Previsualización de Excel (INTACTO - Usa el upload genérico)
 router.post('/upload', upload.single('file'), importController.uploadFile);
 router.get('/preview/:upload_id', importController.getPreview);
 
-// ✅ 3. NUEVA RUTA: ENTRADA MANUAL (CIRUGÍA DE PRECISIÓN)
-// Maneja el formulario manual con soporte para subir una imagen
-router.post('/manual', upload.single('image'), importController.processManualImport);
+// ✅ 3. NUEVA RUTA: ENTRADA MANUAL (CORREGIDA)
+// Ahora usa 'uploadImages' en lugar del 'upload' genérico, asegurando que la foto caiga en uploads/images/
+router.post('/manual', uploadImages.single('image'), importController.processManualImport);
 
 // 4. Gestión de Plantillas de Mapeo
 router.get('/mapping-template', importController.getMappingTemplate);
