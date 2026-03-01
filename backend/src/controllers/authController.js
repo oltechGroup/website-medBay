@@ -27,7 +27,7 @@ const authController = {
         return res.status(401).json({ error: 'Credenciales inválidas' });
       }
 
-      // ✅ NUEVA VALIDACIÓN: Verificar estado de la cuenta
+      // ✅ VALIDACIÓN: Verificar estado de la cuenta
       // Solo permitimos el acceso si el estado es 'active'
       if (user.account_status !== 'active') {
         let errorMessage = 'Acceso denegado. Tu cuenta no está activa.';
@@ -45,13 +45,13 @@ const authController = {
         return res.status(403).json({ error: errorMessage });
       }
 
-      // Generar token JWT (Si pasó todas las validaciones)
+      // ✅ MODIFICADO: Agregamos supplier_id al Payload del Token
       const token = jwt.sign(
         { 
           id: user.id, 
           email: user.email, 
           verification_level: user.verification_level,
-          // Opcional: Podrías meter el status al token, pero es mejor consultarlo en vivo
+          supplier_id: user.supplier_id // <--- ESTO ES VITAL PARA LA SEGURIDAD B2B
         },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }

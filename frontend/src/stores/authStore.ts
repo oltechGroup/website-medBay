@@ -3,19 +3,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// ✅ CORRECCIÓN 1: Exportamos la interfaz y agregamos los campos faltantes
 export interface User {
   id: string;
   email: string;
   full_name: string;
   verification_level: string;
   
-  // Campos opcionales que faltaban y causaban errores:
+  // Campos opcionales
   company_name?: string;
   phone?: string;
   tax_id?: string;
   account_status?: string;
   avatar_url?: string;
+  
+  // ✅ NUEVO: Referencia al ID del proveedor (Para aislar la importación)
+  supplier_id?: string;
 }
 
 interface AuthState {
@@ -24,7 +26,6 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
-  // ✅ CORRECCIÓN 2: Agregamos la acción para actualizar datos del usuario
   updateUser: (user: User) => void;
 }
 
@@ -43,7 +44,6 @@ export const useAuthStore = create<AuthState>()(
         set({ token: null, user: null, isAuthenticated: false });
       },
 
-      // ✅ Implementación de la función para refrescar datos
       updateUser: (user: User) => {
         set({ user });
       }

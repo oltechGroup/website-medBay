@@ -3,8 +3,8 @@
 
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useUsers, User, CreateUserDTO } from "@/hooks/useUsers";
-import { api } from "@/lib/api"; // ✅ Needed for new endpoints
+import { useUsers, User } from "@/hooks/useUsers";
+import { api } from "@/lib/api"; 
 import { 
   Plus, Search, UserCog, Copy, Check, 
   Calculator, DollarSign, X, Loader2, AlertCircle 
@@ -14,8 +14,8 @@ import { formatCurrency, formatDate } from "@/lib/formatters";
 // --- COMMISSION TYPES ---
 interface CommissionSummary {
   referral_code: string;
-  total_orders: string; // Postgres returns count as string
-  total_sales_amount: string; // Postgres returns sum as string
+  total_orders: string; 
+  total_sales_amount: string; 
   oldest_pending_date: string;
 }
 
@@ -40,8 +40,8 @@ const useCommissions = () => {
     try {
       const { data } = await api.post(`/users/${userId}/pay-commissions`);
       if (data.success) {
-        alert(data.message); // Or use a toast
-        fetchSummary(); // Reload data to clear table
+        alert(data.message); 
+        fetchSummary(); 
         return true;
       }
       return false;
@@ -55,7 +55,6 @@ const useCommissions = () => {
     fetchSummary();
   }, []);
 
-  // Helper to find data for a specific salesperson
   const getDataForUser = (referralCode?: string) => {
     if (!referralCode) return null;
     return summary.find(s => s.referral_code === referralCode) || null;
@@ -79,7 +78,6 @@ const CommissionModal = ({
   const [percentage, setPercentage] = useState(5);
   const [isPaying, setIsPaying] = useState(false);
   
-  // Real data or zeros if no pending sales
   const totalSales = data ? parseFloat(data.total_sales_amount) : 0;
   const totalOrders = data ? parseInt(data.total_orders) : 0;
   const commissionAmount = totalSales * (percentage / 100);
@@ -191,16 +189,22 @@ export const CollaboratorsTable = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<User | null>(null);
   
-  const { register, handleSubmit, reset } = useForm<CreateUserDTO>();
-  const { users, isLoading, createUser, isCreating, getRoleLabel } = useUsers({ role: 'all' });
+  // ✅ Usamos 'any' para evitar errores de TS al agregar campos dinámicos
+  const { register, handleSubmit, reset, watch } = useForm<any>({
+    defaultValues: {
+      role: 'sales_agent'
+    }
+  });
   
-  // ✅ Use our new commissions hook
+  const { users, isLoading, createUser, isCreating, getRoleLabel } = useUsers({ role: 'all' });
   const { payCommission, getDataForUser } = useCommissions();
   
-  // Filter only Staff
-  const staff = users.filter(u => ['admin', 'sales_agent'].includes(u.verification_level));
+  const selectedRole = watch('role');
 
-  const onSubmit = async (data: CreateUserDTO) => {
+  // ✅ MODIFICADO: Agregamos 'supplier' para que se listen en la tabla de equipo
+  const staff = users.filter(u => ['admin', 'sales_agent', 'supplier'].includes(u.verification_level));
+
+  const onSubmit = async (data: any) => {
     try {
       await createUser(data);
       setIsCreateOpen(false);
@@ -221,7 +225,7 @@ export const CollaboratorsTable = () => {
           </div>
           <div>
             <h2 className="font-bold text-slate-800 text-sm">Internal Team</h2>
-            <p className="text-xs text-slate-400">Admins and active Sales Agents</p>
+            <p className="text-xs text-slate-400">Admins, Sales Agents and Suppliers</p>
           </div>
         </div>
         <button 
@@ -237,36 +241,54 @@ export const CollaboratorsTable = () => {
         <div className="bg-slate-50 border border-blue-100 p-6 rounded-[2rem] animate-in slide-in-from-top-4">
           <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
             <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-            Register New Staff
+            Register New Account
           </h3>
           <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 ml-1">Full Name</label>
               <input {...register("full_name", { required: true })} className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm" placeholder="e.g. John Doe" />
             </div>
+            
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 ml-1">Corporate Email</label>
               <input {...register("email", { required: true })} className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm" placeholder="john@medbay.com" type="email" />
             </div>
+            
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 ml-1">Password</label>
               <input {...register("password", { required: true })} className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm" type="password" placeholder="••••••••" />
             </div>
+            
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 ml-1">Phone</label>
               <input {...register("phone", { required: true })} className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm" placeholder="55 1234 5678" />
             </div>
+            
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-500 ml-1">Role</label>
+              {/* ✅ MODIFICADO: Solo opciones de Vendedor y Proveedor */}
               <select {...register("role")} className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm bg-white">
                 <option value="sales_agent">Sales Agent</option>
-                <option value="admin">Administrator</option>
+                <option value="supplier">B2B Supplier</option>
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-500 ml-1">Referral Code (Optional)</label>
-              <input {...register("referral_code")} className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm" placeholder="Auto-generated if empty" />
-            </div>
+            
+            {/* ✅ MODIFICADO: Mostrar campos dinámicos según el rol */}
+            {selectedRole === 'sales_agent' && (
+              <div className="space-y-1 animate-in fade-in duration-300">
+                <label className="text-xs font-bold text-slate-500 ml-1">Referral Code (Optional)</label>
+                <input {...register("referral_code")} className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm" placeholder="Auto-generated if empty" />
+              </div>
+            )}
+
+            {selectedRole === 'supplier' && (
+              <div className="space-y-1 animate-in fade-in duration-300">
+                <label className="text-xs font-bold text-slate-500 ml-1">Company Name</label>
+                <input {...register("company_name")} className="w-full p-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-sm" placeholder="e.g. Medline Industries" />
+              </div>
+            )}
+
             <div className="lg:col-span-3 flex justify-end gap-3 mt-4">
               <button type="button" onClick={() => setIsCreateOpen(false)} className="px-6 py-3 text-slate-500 font-bold text-sm hover:bg-white rounded-xl transition-colors">Cancel</button>
               <button type="submit" disabled={isCreating} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all flex items-center gap-2">
@@ -296,7 +318,6 @@ export const CollaboratorsTable = () => {
                 {staff.map((user) => {
                   const roleInfo = getRoleLabel(user.verification_level);
                   
-                  // ✅ Search for real commission data
                   const commissionData = getDataForUser(user.referral_code);
                   const hasPending = commissionData && parseFloat(commissionData.total_sales_amount) > 0;
 

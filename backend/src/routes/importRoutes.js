@@ -27,20 +27,19 @@ const upload = multer({
 // 1. Verificar que el usuario esté logueado (Cualquier rol)
 router.use(authMiddleware.verifyToken);
 
-// 2. 🛡️ BLINDAJE DE SEGURIDAD: Solo 'admin' puede pasar de aquí en adelante
-router.use(authMiddleware.requireRole(['admin']));
+// 2. 🛡️ BLINDAJE DE SEGURIDAD GENERAL: Ahora permite a Admin y a Proveedor
+router.use(authMiddleware.requireRole(['admin', 'supplier']));
 
-// --- RUTAS PROTEGIDAS (Solo Admins) ---
+// --- RUTAS PROTEGIDAS ---
 
-// 1. Proveedor Rápido
-router.post('/quick-supplier', importController.createQuickSupplier);
+// 1. Proveedor Rápido (✅ CANDADO ESPECÍFICO: Solo Admin puede crear a otros proveedores)
+router.post('/quick-supplier', authMiddleware.requireRole(['admin']), importController.createQuickSupplier);
 
-// 2. Subida y Previsualización de Excel (INTACTO - Usa el upload genérico)
+// 2. Subida y Previsualización de Excel 
 router.post('/upload', upload.single('file'), importController.uploadFile);
 router.get('/preview/:upload_id', importController.getPreview);
 
-// ✅ 3. NUEVA RUTA: ENTRADA MANUAL (CORREGIDA)
-// Ahora usa 'uploadImages' en lugar del 'upload' genérico, asegurando que la foto caiga en uploads/images/
+// 3. NUEVA RUTA: ENTRADA MANUAL 
 router.post('/manual', uploadImages.single('image'), importController.processManualImport);
 
 // 4. Gestión de Plantillas de Mapeo

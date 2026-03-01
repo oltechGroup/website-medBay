@@ -12,7 +12,8 @@ export function middleware(request: NextRequest) {
   const userRole = request.cookies.get('medbay_role')?.value;
 
   // 2. DEFINICIÓN DE RUTAS
-  const staffRoles = ['admin', 'sales_agent'];
+  // ✅ MODIFICADO: Agregamos 'supplier' a los roles con acceso general al Dashboard
+  const dashboardRoles = ['admin', 'sales_agent', 'supplier'];
   
   // Rutas que requieren ser STAFF (Dashboard/Admin)
   const isDashboardRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/admin');
@@ -34,11 +35,16 @@ export function middleware(request: NextRequest) {
   // --- LÓGICA DE REDIRECCIÓN ---
 
   // CASO A: Usuario YA LOGUEADO intentando entrar a Login o Registro
-  // Si ya tiene token, lo mandamos a su lugar correspondiente
   if (isAuthRoute && token) {
-    if (staffRoles.includes(userRole || '')) {
+    // ✅ NUEVO: Si es proveedor, lo mandamos directo a su zona
+    if (userRole === 'supplier') {
+      return NextResponse.redirect(new URL('/dashboard/import', request.url));
+    } 
+    // Si es admin/ventas, al dashboard general
+    else if (dashboardRoles.includes(userRole || '')) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
+    // Si es cliente, al inicio
     return NextResponse.redirect(new URL('/', request.url));
   }
 
@@ -50,9 +56,14 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
     
-    // Si tiene token pero no es staff, fuera de aquí
-    if (!staffRoles.includes(userRole || '')) {
+    // Si tiene token pero no pertenece a dashboardRoles, fuera de aquí
+    if (!dashboardRoles.includes(userRole || '')) {
       return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    // ✅ NUEVA REGLA ESTRICTA: El proveedor SOLO puede estar en /dashboard/import
+    if (userRole === 'supplier' && !pathname.startsWith('/dashboard/import')) {
+      return NextResponse.redirect(new URL('/dashboard/import', request.url));
     }
   }
 

@@ -75,7 +75,6 @@ const documentController = {
   },
 
   // --- REEMPLAZAR DOCUMENTO (ACTUALIZACIÓN DE PERFIL) ---
-  // Lógica: Nuevo archivo -> Resetea Doc a 'uploaded' -> Bloquea Usuario 'pending'
   replaceDocument: async (req, res) => {
     try {
       const { id } = req.params; 
@@ -107,30 +106,25 @@ const documentController = {
 
       const newPath = `/uploads/evidence/${file.filename}`;
       
-      // 3. ACTUALIZACIÓN EN DB (Transacción implícita con Promise.all)
-      
-      // A) Resetear el documento.
-      // ⚠️ CORRECCIÓN CRÍTICA: Eliminamos "updated_at" porque no existe en tu tabla.
+      // 3. ACTUALIZACIÓN EN DB 
       const updateDocQuery = `
         UPDATE documents 
         SET 
           file_path = $1, 
-          status = 'uploaded',      -- Se reinicia a pendiente de revisión
-          verified_by = NULL,       -- Se borra quién lo verificó antes
-          verified_at = NULL,       -- Se borra la fecha de verificación
+          status = 'uploaded',
+          verified_by = NULL,
+          verified_at = NULL,
           notes = $2
         WHERE id = $3
         RETURNING *
       `;
       
-      // B) Bloquear al usuario (Lo regresa a pending)
       const updateUserQuery = `
         UPDATE users
         SET account_status = 'pending'
         WHERE id = $1
       `;
 
-      // Ejecutamos ambas actualizaciones
       const [updateRes] = await Promise.all([
         pool.query(updateDocQuery, [newPath, notes || 'Actualización de documento', id]),
         pool.query(updateUserQuery, [doc.owner_id])
@@ -138,15 +132,14 @@ const documentController = {
 
       // 4. NOTIFICACIONES (Email y Dashboard)
       try {
-        const roleName = doc.verification_level === 'medical_professional' ? 'Profesional Salud' : 'Empresa';
+        const roleName = doc.verification_level === 'medical_professional' ? 'Profesional Salud' : 
+                         doc.verification_level === 'supplier' ? 'Proveedor' : 'Empresa';
         
-        // Obtener dirección para el reporte (Estético)
         const addressQuery = `SELECT * FROM addresses WHERE user_id = $1 AND (is_fiscal = true OR address_type = 'billing') LIMIT 1`;
         const addrRes = await pool.query(addressQuery, [doc.owner_id]);
         const addr = addrRes.rows[0];
         const fullAddress = addr ? `${addr.street} #${addr.street_number}, ${addr.city}` : 'N/A';
 
-        // Dashboard Notification payload
         const notifContent = {
           mensaje: `El usuario ha actualizado su ${doc.document_type}. Se requiere nueva validación.`,
           extra_data: {
@@ -165,7 +158,6 @@ const documentController = {
           ['Registro Usuario', doc.full_name, doc.email, `Documento Actualizado: ${roleName}`, JSON.stringify(notifContent)]
         );
 
-        // Email al Admin
         const htmlContent = generateDocumentUpdateTemplate({
           userName: doc.full_name,
           documentType: doc.document_type,
@@ -270,7 +262,6 @@ const documentController = {
   },
 
   // --- ACTUALIZAR ESTADO DEL DOCUMENTO (ADMIN) ---
-  // ✅ CAMBIO CRÍTICO: Lógica de estados ligados (Doc Aprobado = Cuenta Activa)
   updateStatus: async (req, res) => {
     try {
       const { id } = req.params;
@@ -289,42 +280,53 @@ const documentController = {
       
       const updatedDoc = result.rows[0];
 
-      // 2. LÓGICA DE ESTADOS LIGADOS: Si el documento es Legal y se Verifica -> Activar Usuario
+      // 2. LÓGICA DE ESTADOS LIGADOS: Si el documento es Legal -> Activar Usuario y Proveedor (si aplica)
       if (['license', 'business_registration'].includes(updatedDoc.document_type)) {
         
-        if (status === 'verified') {
-          // --- APROBACIÓN: Activar Usuario Automáticamente ---
-          
-          // Primero verificamos que el usuario exista
-          const userRes = await pool.query('SELECT * FROM users WHERE id = $1', [updatedDoc.owner_id]);
-          const user = userRes.rows[0];
+        // ✅ MODIFICADO: Subimos la consulta del usuario para usarla en ambos flujos (Aprobado/Rechazado)
+        const userRes = await pool.query('SELECT * FROM users WHERE id = $1', [updatedDoc.owner_id]);
+        const user = userRes.rows[0];
 
-          if (user && user.account_status !== 'active') {
-            await pool.query("UPDATE users SET account_status = 'active' WHERE id = $1", [updatedDoc.owner_id]);
-            
-            console.log(`✅ Estados Ligados: Documento verificado -> Cuenta Activada (${user.email})`);
+        if (user) {
+          if (status === 'verified') {
+            // --- APROBACIÓN ---
+            if (user.account_status !== 'active') {
+              await pool.query("UPDATE users SET account_status = 'active' WHERE id = $1", [user.id]);
+              console.log(`✅ Estados Ligados: Documento verificado -> Cuenta Activada (${user.email})`);
+              
+              // ✅ NUEVO: Si es proveedor, activar también su perfil en la tabla de suppliers
+              if (user.verification_level === 'supplier' && user.supplier_id) {
+                await pool.query("UPDATE suppliers SET is_active = true WHERE id = $1", [user.supplier_id]);
+                console.log(`✅ Estados Ligados: Perfil de Proveedor Activado (${user.supplier_id})`);
+              }
 
-            // Correo de Bienvenida / Reactivación
-            const html = generateResponseTemplate(
-              'Cuenta Verificada', 
-              `Hola <strong>${user.full_name}</strong>,<br><br>Tu documentación ha sido validada correctamente. Tu cuenta ahora está <strong>ACTIVA</strong> y tienes acceso completo a la plataforma.`, 
-              true
-            );
-            
-            await transporter.sendMail({
-              from: `"Admin MedBay" <${process.env.EMAIL_USER}>`,
-              to: user.email,
-              subject: "🎉 ¡Tu cuenta está Activa!",
-              html: html,
-              attachments: getBrandingAttachments()
-            });
+              // Correo de Bienvenida / Reactivación
+              const html = generateResponseTemplate(
+                'Cuenta Verificada', 
+                `Hola <strong>${user.full_name}</strong>,<br><br>Tu documentación ha sido validada correctamente. Tu cuenta ahora está <strong>ACTIVA</strong> y tienes acceso a la plataforma.`, 
+                true
+              );
+              
+              await transporter.sendMail({
+                from: `"Admin MedBay" <${process.env.EMAIL_USER}>`,
+                to: user.email,
+                subject: "🎉 ¡Tu cuenta está Activa!",
+                html: html,
+                attachments: getBrandingAttachments()
+              });
+            }
+
+          } else if (status === 'rejected') {
+            // --- RECHAZO ---
+            await pool.query("UPDATE users SET account_status = 'rejected' WHERE id = $1", [user.id]);
+            console.log(`⛔ Estados Ligados: Documento rechazado -> Cuenta Rechazada`);
+
+            // ✅ NUEVO: Si es proveedor, asegurar que su perfil en suppliers siga inactivo
+            if (user.verification_level === 'supplier' && user.supplier_id) {
+              await pool.query("UPDATE suppliers SET is_active = false WHERE id = $1", [user.supplier_id]);
+              console.log(`⛔ Estados Ligados: Perfil de Proveedor Desactivado (${user.supplier_id})`);
+            }
           }
-
-        } else if (status === 'rejected') {
-          // --- RECHAZO: Si se rechaza el documento legal, asegurar que el usuario esté Rejected/Pending ---
-          
-          await pool.query("UPDATE users SET account_status = 'rejected' WHERE id = $1", [updatedDoc.owner_id]);
-          console.log(`⛔ Estados Ligados: Documento rechazado -> Cuenta Rechazada`);
         }
       }
 

@@ -27,13 +27,11 @@ const ImportModel = {
     return result.rows[0] || { exchange_rate: 1, currency_code: 'USD', currency_symbol: '$' };
   },
 
-  // ✅ MEJORADO: Inicialización más robusta para evitar errores al reanudar sesión
   createUploadRecord: async ({ filename, path, supplier_id, sales_category, user_id }) => {
     const query = `INSERT INTO raw_uploads (filename, file_path, supplier_id, sales_category, uploaded_by, status) VALUES ($1, $2, $3, $4, $5, 'uploaded') RETURNING id`;
     const result = await db.query(query, [filename, path, supplier_id, sales_category, user_id]);
     const uploadId = result.rows[0].id;
     
-    // Inicializamos el progreso inmediatamente con valores base para que la UI no falle
     await db.query(`
       INSERT INTO import_progress (upload_id, user_id, status, current_operation, total_rows, processed_rows, error_messages) 
       VALUES ($1, $2, 'uploaded', 'Ready to process', 0, 0, $3::jsonb)`, 
@@ -43,13 +41,11 @@ const ImportModel = {
     return uploadId;
   },
 
-  // ✅ NUEVA FUNCIÓN: ENTRADA MANUAL (CIRUGÍA DE PRECISIÓN)
-  // Procesa un solo ítem con la misma lógica que el Excel pero de forma directa
   createManualEntry: async (data) => {
     const { 
       supplier_id, sales_category, user_id, 
       description, sku, manufacturer, quantity, price, expiry_date,
-      image_url, local_image_path // Puede venir uno u otro
+      image_url, local_image_path 
     } = data;
 
     const client = await db.pool.connect();
@@ -57,7 +53,6 @@ const ImportModel = {
     try {
       await client.query('BEGIN');
 
-      // 1. Registro en raw_uploads para que aparezca en el historial
       const uploadRes = await client.query(
         `INSERT INTO raw_uploads (filename, supplier_id, sales_category, uploaded_by, status, file_path) 
          VALUES ($1, $2, $3, $4, 'finished', 'manual_entry') RETURNING id`,
@@ -65,18 +60,15 @@ const ImportModel = {
       );
       const uploadId = uploadRes.rows[0].id;
 
-      // 2. Lógica de Negocio (Idéntica a processBatch)
       const currencyData = await ImportModel.getSupplierExchangeRate(supplier_id);
       const exchangeRateUsed = currencyData.exchange_rate || 1;
       const priceUSD = price / exchangeRateUsed;
 
-      // SKU Automático si no viene
       let finalSku = (sku && sku.trim() !== '') ? sku.trim() : 
         `MAN-${Buffer.from(description).toString('base64').substring(0, 6).toUpperCase()}-${Date.now().toString().slice(-4)}`;
 
       let manufacturerName = manufacturer || 'No especificado';
 
-      // A. Fabricante
       let makerId;
       const makerRes = await client.query('SELECT id FROM manufacturers WHERE name = $1', [manufacturerName]);
       if (makerRes.rows.length > 0) makerId = makerRes.rows[0].id;
@@ -85,7 +77,6 @@ const ImportModel = {
         makerId = newMaker.rows[0].id;
       }
 
-      // B. Producto
       let productId;
       const prodRes = await client.query('SELECT id FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [finalSku, makerId]);
       if (prodRes.rows.length > 0) productId = prodRes.rows[0].id;
@@ -94,7 +85,6 @@ const ImportModel = {
         productId = newProd.rows[0].id;
       }
 
-      // C. Imagen (Dual: Local o URL)
       if (local_image_path) {
           const fileName = path.basename(local_image_path);
           const webPath = `/uploads/images/${fileName}`;
@@ -103,14 +93,11 @@ const ImportModel = {
             [productId, webPath, fileName, user_id]
           );
       } else if (image_url && image_url.startsWith('http')) {
-          // Si es URL, usamos la función de descarga existente después del commit
-          // La agregamos a una cola simulada
           setTimeout(() => {
             ImportModel.downloadAndSaveImage({ productId, rawUrl: image_url, sku: finalSku, uploaderId: user_id });
           }, 1000);
       }
 
-      // D. Proveedor
       let psId;
       const psCheck = await client.query('SELECT id FROM product_suppliers WHERE supplier_id = $1 AND supplier_sku = $2', [supplier_id, finalSku]);
       if (psCheck.rows.length > 0) psId = psCheck.rows[0].id;
@@ -123,7 +110,6 @@ const ImportModel = {
         psId = psInsert.rows[0].id;
       }
 
-      // E. Lote
       let lotStatus = sales_category === 'regular' ? 'available' : sales_category;
       await client.query(
         `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at) 
@@ -131,7 +117,6 @@ const ImportModel = {
         [psId, `MAN-LOT-${Date.now()}`, quantity, priceUSD, lotStatus, expiry_date || null]
       );
 
-      // 3. Registrar progreso final para el historial
       const stats = { created_lots: 1, created_products: prodRes.rows.length > 0 ? 0 : 1, created_manufacturers: makerRes.rows.length > 0 ? 0 : 1 };
       await client.query(`
         INSERT INTO import_progress (upload_id, user_id, status, current_operation, total_rows, processed_rows, error_messages) 
@@ -167,8 +152,6 @@ const ImportModel = {
     const result = await db.query(query, [supplier_id, statusFilter]);
     return result.rowCount;
   },
-
-  // --- LÓGICA DE PROCESAMIENTO MASIVO (INALTERADA) ---
 
   executeImportProcess: async (upload_id, mappings) => {
     try {
@@ -403,22 +386,48 @@ const ImportModel = {
     return res.rows[0];
   },
 
-  getImportHistory: async () => {
-    const query = `
+  // ✅ MODIFICADO: Acepta supplier_id opcional para filtrar el historial
+  getImportHistory: async (supplier_id = null) => {
+    let query = `
       SELECT u.id, u.created_at, u.status, u.filename, s.name as supplier, u.sales_category,
              COALESCE(ip.processed_rows, 0) as processed_rows, COALESCE(ip.total_rows, 0) as total_rows, ip.error_messages
       FROM raw_uploads u
       LEFT JOIN suppliers s ON u.supplier_id = s.id
       LEFT JOIN import_progress ip ON u.id::text = ip.upload_id
-      ORDER BY u.created_at DESC LIMIT 50`;
-    const res = await db.query(query);
+    `;
+    
+    const params = [];
+    if (supplier_id) {
+      query += ` WHERE u.supplier_id = $1 `;
+      params.push(supplier_id);
+    }
+    
+    query += ` ORDER BY u.created_at DESC LIMIT 50`;
+    
+    const res = await db.query(query, params);
     return res.rows;
   },
 
-  getGlobalStats: async () => {
-    const today = await db.query("SELECT COUNT(*) FROM raw_uploads WHERE created_at::date = CURRENT_DATE");
-    const total = await db.query("SELECT COUNT(*) FROM raw_uploads");
-    const last = await db.query(`SELECT u.created_at, s.name as supplier, u.sales_category FROM raw_uploads u LEFT JOIN suppliers s ON u.supplier_id = s.id ORDER BY u.created_at DESC LIMIT 1`);
+  // ✅ MODIFICADO: Acepta supplier_id opcional para filtrar las estadísticas
+  getGlobalStats: async (supplier_id = null) => {
+    let todayQuery = "SELECT COUNT(*) FROM raw_uploads WHERE created_at::date = CURRENT_DATE";
+    let totalQuery = "SELECT COUNT(*) FROM raw_uploads";
+    let lastQuery = `SELECT u.created_at, s.name as supplier, u.sales_category FROM raw_uploads u LEFT JOIN suppliers s ON u.supplier_id = s.id`;
+    
+    const params = [];
+    if (supplier_id) {
+      todayQuery = "SELECT COUNT(*) FROM raw_uploads WHERE created_at::date = CURRENT_DATE AND supplier_id = $1";
+      totalQuery = "SELECT COUNT(*) FROM raw_uploads WHERE supplier_id = $1";
+      lastQuery += " WHERE u.supplier_id = $1";
+      params.push(supplier_id);
+    }
+    
+    lastQuery += " ORDER BY u.created_at DESC LIMIT 1";
+
+    const today = await db.query(todayQuery, params);
+    const total = await db.query(totalQuery, params);
+    const last = await db.query(lastQuery, params);
+
     return {
       imports_today: parseInt(today.rows[0]?.count || 0),
       total_imports: parseInt(total.rows[0]?.count || 0),

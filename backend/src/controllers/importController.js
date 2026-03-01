@@ -6,7 +6,7 @@ const fs = require('fs');
 
 const importController = {
 
-  // 1. Crear Proveedor Rápido
+  // 1. Crear Proveedor Rápido (Solo Admin)
   createQuickSupplier: async (req, res) => {
     try {
       const { name, country_code } = req.body;
@@ -25,7 +25,14 @@ const importController = {
     try {
       if (!req.file) return res.status(400).json({ error: 'No se envió archivo' });
       
-      const { supplier_id, sales_category } = req.body;
+      // ✅ SEGURIDAD B2B: Si es proveedor, forzamos SU id. Si es admin, usamos el del body.
+      const supplier_id = req.user.verification_level === 'supplier' ? req.user.supplier_id : req.body.supplier_id;
+      
+      if (!supplier_id) {
+        return res.status(403).json({ error: 'ID de proveedor no válido o perfil no enlazado.' });
+      }
+
+      const { sales_category } = req.body;
       
       const workbook = XLSX.readFile(req.file.path, { sheetRows: 10 });
       const sheetName = workbook.SheetNames[0];
@@ -54,16 +61,19 @@ const importController = {
     }
   },
 
-  // ✅ RESTAURADO: Previsualización (Faltaba en el paso anterior y causaba el crash)
+  // Previsualización 
   getPreview: async (req, res) => {
     res.json({ message: "Usar datos retornados en upload" });
   },
 
-  // ✅ NUEVO: PROCESAR ENTRADA MANUAL (CIRUGÍA DE PRECISIÓN)
+  // ✅ PROCESAR ENTRADA MANUAL (CIRUGÍA DE PRECISIÓN)
   processManualImport: async (req, res) => {
     try {
+      // ✅ SEGURIDAD B2B
+      const supplier_id = req.user.verification_level === 'supplier' ? req.user.supplier_id : req.body.supplier_id;
+
       const { 
-        supplier_id, sales_category, description, sku, 
+        sales_category, description, sku, 
         manufacturer, quantity, price, expiry_date, image_url 
       } = req.body;
 
@@ -102,7 +112,9 @@ const importController = {
   // 4. Plantillas de Mapeo
   getMappingTemplate: async (req, res) => {
     try {
-      const { supplier_id } = req.query;
+      // ✅ SEGURIDAD B2B
+      const supplier_id = req.user.verification_level === 'supplier' ? req.user.supplier_id : req.query.supplier_id;
+      
       const template = await ImportModel.getMappingTemplate(supplier_id);
       res.json({ success: true, template });
     } catch (error) {
@@ -112,7 +124,10 @@ const importController = {
 
   saveMappingTemplate: async (req, res) => {
     try {
-      const { supplier_id, mappings } = req.body;
+      // ✅ SEGURIDAD B2B
+      const supplier_id = req.user.verification_level === 'supplier' ? req.user.supplier_id : req.body.supplier_id;
+      
+      const { mappings } = req.body;
       await ImportModel.saveMappingTemplate(supplier_id, mappings);
       res.json({ success: true });
     } catch (error) {
@@ -123,7 +138,10 @@ const importController = {
   // 5. Limpieza de Inventario
   cleanCatalog: async (req, res) => {
     try {
-      const { supplier_id, sales_category } = req.body;
+      // ✅ SEGURIDAD B2B
+      const supplier_id = req.user.verification_level === 'supplier' ? req.user.supplier_id : req.body.supplier_id;
+      
+      const { sales_category } = req.body;
       const deletedCount = await ImportModel.cleanSupplierInventory(supplier_id, sales_category);
       res.json({ 
         success: true, 
@@ -169,7 +187,9 @@ const importController = {
 
   getHistory: async (req, res) => {
     try {
-      const history = await ImportModel.getImportHistory();
+      // ✅ SEGURIDAD B2B: Filtramos el historial
+      const filterSupplierId = req.user.verification_level === 'supplier' ? req.user.supplier_id : null;
+      const history = await ImportModel.getImportHistory(filterSupplierId);
       res.json(history);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -178,7 +198,9 @@ const importController = {
 
   getStats: async (req, res) => {
     try {
-      const stats = await ImportModel.getGlobalStats();
+      // ✅ SEGURIDAD B2B: Filtramos las estadísticas
+      const filterSupplierId = req.user.verification_level === 'supplier' ? req.user.supplier_id : null;
+      const stats = await ImportModel.getGlobalStats(filterSupplierId);
       res.json({ success: true, stats });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -188,7 +210,9 @@ const importController = {
   // 8. ESTADO ACTIVO GLOBAL
   getActiveStatus: async (req, res) => {
     try {
-      const history = await ImportModel.getImportHistory();
+      // ✅ SEGURIDAD B2B: Solo vemos el estado activo si es nuestro
+      const filterSupplierId = req.user.verification_level === 'supplier' ? req.user.supplier_id : null;
+      const history = await ImportModel.getImportHistory(filterSupplierId);
       const latestImport = history[0];
 
       if (latestImport) {

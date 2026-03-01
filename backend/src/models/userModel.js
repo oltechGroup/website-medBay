@@ -29,7 +29,7 @@ const User = {
     }
   },
 
-  // Buscar usuario por email (Sin cambios)
+  // Buscar usuario por email (Sin cambios, ya trae todo con el *)
   findByEmail: async (email) => {
     const query = 'SELECT * FROM users WHERE email = $1';
     try {
@@ -40,10 +40,10 @@ const User = {
     }
   },
 
-  // Buscar usuario por ID (Sin cambios)
+  // ✅ MODIFICADO: Se agregó supplier_id al SELECT
   findById: async (id) => {
     const query = `
-      SELECT id, email, full_name, company_name, verification_level, account_status, phone, created_at 
+      SELECT id, email, full_name, company_name, verification_level, account_status, phone, created_at, supplier_id 
       FROM users 
       WHERE id = $1
     `;
@@ -55,10 +55,10 @@ const User = {
     }
   },
 
-  // Obtener todos los usuarios (Sin cambios)
+  // ✅ MODIFICADO: Se agregó supplier_id al SELECT
   findAll: async () => {
     const query = `
-      SELECT id, email, full_name, company_name, verification_level, account_status, created_at 
+      SELECT id, email, full_name, company_name, verification_level, account_status, created_at, supplier_id 
       FROM users 
       ORDER BY created_at DESC
     `;
@@ -86,7 +86,7 @@ const User = {
     }
   },
 
-  // NUEVO: Eliminar usuario físicamente (Para rechazar)
+  // Eliminar usuario físicamente (Para rechazar)
   delete: async (id) => {
     // Nota: Si tienes ON DELETE CASCADE en tus llaves foráneas en Postgres,
     // esto borrará automáticamente sus documentos y notificaciones.

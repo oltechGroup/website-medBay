@@ -32,7 +32,8 @@ export const registerSchema = z.object({
   reference_point: z.string().optional().or(z.literal('')), // Opcional
 
   // Rol (se llena automático)
-  verification_level: z.enum(['medical_professional', 'business_verified']),
+  // ✅ MODIFICADO: Agregamos 'supplier' como un rol válido para que Zod permita el envío
+  verification_level: z.enum(['medical_professional', 'business_verified', 'supplier']),
 
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Las contraseñas no coinciden",

@@ -67,6 +67,17 @@ export default function DashboardSidebar({
   // In mobile, we always want to see the full menu and text
   const showFullMenu = isOpen || !isCollapsed;
 
+  // ✅ NUEVO: Identificamos si es proveedor para filtrar el menú
+  const isSupplier = user?.verification_level === 'supplier';
+
+  // ✅ NUEVO: Filtramos la navegación
+  const filteredNavigation = navigation.filter((item) => {
+    if (isSupplier) {
+      return item.href === '/dashboard/import'; // Solo ve "Import"
+    }
+    return true; // Admin y Ventas ven todo
+  });
+
   // Helper to render items
   const NavItem = ({ item }: { item: any }) => {
     const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
@@ -138,7 +149,10 @@ export default function DashboardSidebar({
             </div>
             <div className="flex flex-col text-white leading-none">
               <span className="font-black text-lg tracking-tight">MedBay</span>
-              <span className="text-[10px] font-medium opacity-80 uppercase tracking-wider">Admin Panel</span>
+              {/* ✅ MODIFICADO: Muestra "Supplier Portal" si es proveedor */}
+              <span className="text-[10px] font-medium opacity-80 uppercase tracking-wider">
+                {isSupplier ? 'Supplier Portal' : 'Admin Panel'}
+              </span>
             </div>
           </div>
 
@@ -177,7 +191,8 @@ export default function DashboardSidebar({
               </p>
             )}
             <nav className="space-y-0.5">
-              {navigation.map((item) => (
+              {/* ✅ MODIFICADO: Usamos el arreglo filtrado */}
+              {filteredNavigation.map((item) => (
                 <NavItem key={item.name} item={item} />
               ))}
             </nav>

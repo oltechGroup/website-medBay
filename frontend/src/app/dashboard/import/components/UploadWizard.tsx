@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { 
   Building, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, Trash2, 
   FileText, Lock, FileSpreadsheet, Keyboard, Link as LinkIcon, ImageIcon, 
-  Save, RefreshCw, ChevronDown, Database, DollarSign // ✅ AGREGADO
+  Save, RefreshCw, ChevronDown, Database, DollarSign 
 } from 'lucide-react';
 import { FileUploadZone } from '@/components/features/import/FileUploadZone';
 import { ColumnMapper } from '@/components/features/import/ColumnMapper';
@@ -32,6 +32,9 @@ export const UploadWizard = () => {
     getMappingTemplate, startProcessing, getActiveStatus, submitManualImport
   } = useImport();
 
+  const isAdmin = user?.verification_level === 'admin';
+  const isSupplier = user?.verification_level === 'supplier';
+
   // 1. Estados de Navegación
   const [step, setStep] = useState(1);
   const [importMethod, setImportMethod] = useState<'excel' | 'manual' | null>(null);
@@ -39,7 +42,8 @@ export const UploadWizard = () => {
   const [restoringSession, setRestoringSession] = useState(true);
 
   // 2. Estados de Datos
-  const [supplierId, setSupplierId] = useState('');
+  // ✅ MODIFICADO: Si es proveedor, pre-cargamos su ID directamente.
+  const [supplierId, setSupplierId] = useState(isSupplier && user?.supplier_id ? user.supplier_id : '');
   const [category, setCategory] = useState('regular');
   const [uploadId, setUploadId] = useState('');
   const [progress, setProgress] = useState<ImportProgress | null>(null);
@@ -73,12 +77,9 @@ export const UploadWizard = () => {
   const [preview, setPreview] = useState<any[]>([]);
   const [mappings, setMappings] = useState<any>({});
 
-  const isAdmin = user?.verification_level === 'admin';
-
-  // ✅ VARIABLE CRÍTICA PARA EL PASO 4 (CORREGIDA)
   const isFinished = progress && ['completed', 'completed_with_errors', 'finished', 'failed', 'error'].includes(progress.status);
 
-  // ✅ AUTO-RESTORATION
+  // AUTO-RESTORATION
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -97,9 +98,19 @@ export const UploadWizard = () => {
     checkSession();
   }, [getActiveStatus]);
 
+  // Si el usuario entra y el contexto carga después, nos aseguramos de setear su supplierId
+  useEffect(() => {
+    if (isSupplier && user?.supplier_id && !supplierId) {
+      setSupplierId(user.supplier_id);
+    }
+  }, [isSupplier, user, supplierId]);
+
   const activeSuppliers = [...(suppliers || []).filter((s: any) => s.is_active !== false && s.is_active !== 'f'), ...localSuppliers];
-  const selectedSupplierData = activeSuppliers.find((s:any) => s.id === supplierId);
-  const selectedCategoryLabel = CATEGORIES.find(c => c.id === category)?.label;
+  
+  // Buscar datos del proveedor actual
+  const selectedSupplierData = isSupplier 
+    ? { name: user?.company_name || user?.full_name } 
+    : activeSuppliers.find((s:any) => s.id === supplierId);
 
   // --- HANDLERS ---
 
@@ -211,19 +222,30 @@ export const UploadWizard = () => {
               )}
             </div>
             
+            {/* ✅ MODIFICADO: Vista condicional para Proveedor o Admin */}
             <div className="relative group">
-              <select 
-                className="w-full pl-12 pr-10 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-bold text-slate-900 appearance-none shadow-inner"
-                value={supplierId}
-                onChange={e => setSupplierId(e.target.value)}
-              >
-                <option value="">Select a supply partner...</option>
-                {activeSuppliers.map((s: any) => (
-                  <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
-                ))}
-              </select>
-              <Database className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              {isSupplier ? (
+                <div className="w-full pl-12 pr-10 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-bold text-slate-900 shadow-inner flex items-center">
+                   <Database className="absolute left-4 h-5 w-5 text-blue-500" />
+                   <span className="uppercase">{selectedSupplierData?.name || 'Loading your profile...'}</span>
+                   <Lock className="absolute right-4 h-4 w-4 text-slate-400" />
+                </div>
+              ) : (
+                <>
+                  <select 
+                    className="w-full pl-12 pr-10 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-bold text-slate-900 appearance-none shadow-inner"
+                    value={supplierId}
+                    onChange={e => setSupplierId(e.target.value)}
+                  >
+                    <option value="">Select a supply partner...</option>
+                    {activeSuppliers.map((s: any) => (
+                      <option key={s.id} value={s.id}>{s.name.toUpperCase()}</option>
+                    ))}
+                  </select>
+                  <Database className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                </>
+              )}
             </div>
 
             {supplierId && (

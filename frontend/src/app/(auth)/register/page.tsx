@@ -14,7 +14,7 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { 
   ShieldCheck, ArrowLeft, Building2, Stethoscope, UploadCloud, FileText, X, AlertCircle, MapPin, 
-  CheckCircle2, Clock, Mail
+  CheckCircle2, Clock, Mail, Truck // ✅ Agregado Truck para el icono de proveedor
 } from 'lucide-react';
 
 export default function RegisterPage() {
@@ -22,11 +22,12 @@ export default function RegisterPage() {
   const registerMutation = useRegister();
   const { data: countries = [], isLoading: isLoadingCountries } = useCountriesBasic();
 
-  const [selectedRole, setSelectedRole] = useState<'medical_professional' | 'business_verified' | null>(null);
+  // ✅ MODIFICADO: Agregamos 'supplier' a los roles permitidos en el estado
+  const [selectedRole, setSelectedRole] = useState<'medical_professional' | 'business_verified' | 'supplier' | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   
-  // ✅ NEW STATE: To handle general server errors without mixing with React Hook Form
+  // NEW STATE: To handle general server errors without mixing with React Hook Form
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -36,7 +37,7 @@ export default function RegisterPage() {
     setError,
     setValue,
     trigger,
-    watch // ✅ Extraemos watch para escuchar la contraseña en tiempo real
+    watch 
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -49,7 +50,7 @@ export default function RegisterPage() {
     },
   });
 
-  // ✅ LÓGICA DE FORTALEZA DE CONTRASEÑA
+  // LÓGICA DE FORTALEZA DE CONTRASEÑA
   const passwordValue = watch('password') || '';
   
   const getPasswordStrength = (pass: string) => {
@@ -79,7 +80,7 @@ export default function RegisterPage() {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
       setFiles((prev) => [...prev, ...newFiles]);
-      setServerError(null); // Clear error when something changes
+      setServerError(null); 
     }
   };
 
@@ -87,9 +88,9 @@ export default function RegisterPage() {
     setFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  // ✅ MAIN HANDLER
+  // MAIN HANDLER
   const onSubmit = async (data: RegisterFormData) => {
-    setServerError(null); // Reset previous errors
+    setServerError(null); 
     
     try {
       if (files.length === 0) {
@@ -105,7 +106,10 @@ export default function RegisterPage() {
       
       formData.append('tax_id', data.tax_id || '');
       formData.append('verification_level', selectedRole!);
-      formData.append('company_name', selectedRole === 'business_verified' ? (data.company_name || '') : '');
+      
+      // ✅ MODIFICADO: Tanto business_verified como supplier necesitan company_name
+      const isBusinessRole = selectedRole === 'business_verified' || selectedRole === 'supplier';
+      formData.append('company_name', isBusinessRole ? (data.company_name || '') : '');
 
       formData.append('country', data.country);
       formData.append('postal_code', data.postal_code);
@@ -129,14 +133,12 @@ export default function RegisterPage() {
     } catch (error: any) {
       console.error("Error submitting form:", error);
 
-      // 1. Detect conflict (409) - Duplicated email
       if (error.response && error.response.status === 409) {
         setError('email', { 
           type: 'manual',
           message: 'This email address is already registered or under review.'
         });
       } 
-      // 2. Server error (500) or bad request (400)
       else {
         const backendMsg = error.response?.data?.error || error.response?.data?.details || 'Internal error processing your registration. Please try again.';
         setServerError(backendMsg);
@@ -146,7 +148,6 @@ export default function RegisterPage() {
 
   const onInvalid = (errors: any) => {
     console.error("⛔ VALIDATION FAILED:", errors);
-    // Clear server error if there are field validation errors to avoid confusion
     setServerError(null); 
   };
 
@@ -154,7 +155,7 @@ export default function RegisterPage() {
   if (!selectedRole) {
     return (
       <div className="min-h-screen w-full flex bg-slate-50 font-sans items-center justify-center p-6">
-        <div className="max-w-4xl w-full animate-in fade-in zoom-in-95 duration-500">
+        <div className="max-w-6xl w-full animate-in fade-in zoom-in-95 duration-500">
            <Link href="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-blue-600 mb-8 font-bold transition-colors">
               <ArrowLeft size={20} /> Back to home
            </Link>
@@ -162,23 +163,38 @@ export default function RegisterPage() {
               <h1 className="text-4xl font-black text-slate-900 mb-4">How do you want to operate on MedBay?</h1>
               <p className="text-slate-500 text-lg">Select your profile to set up your account.</p>
            </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <button onClick={() => setSelectedRole('medical_professional')} className="group relative bg-white p-8 rounded-[2rem] border-2 border-slate-100 hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 transition-all text-left">
+           
+           {/* ✅ MODIFICADO: Grid a 3 columnas y tarjeta de Proveedor agregada */}
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              
+              <button onClick={() => setSelectedRole('medical_professional')} className="group relative bg-white p-8 rounded-[2rem] border-2 border-slate-100 hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 transition-all text-left flex flex-col h-full">
                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                    <Stethoscope size={32} />
                 </div>
                 <h3 className="text-2xl font-bold text-slate-800 mb-2">Health Professional</h3>
-                <p className="text-slate-500 leading-relaxed mb-6">Independent doctors. Individual Billing.</p>
-                <div className="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-center group-hover:bg-blue-600 group-hover:text-white transition-colors">Select</div>
+                <p className="text-slate-500 leading-relaxed mb-8 flex-grow">Independent doctors and specialists. Individual Billing.</p>
+                <div className="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-center group-hover:bg-blue-600 group-hover:text-white transition-colors mt-auto">Select</div>
               </button>
-              <button onClick={() => setSelectedRole('business_verified')} className="group relative bg-white p-8 rounded-[2rem] border-2 border-slate-100 hover:border-indigo-500 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all text-left">
+
+              <button onClick={() => setSelectedRole('business_verified')} className="group relative bg-white p-8 rounded-[2rem] border-2 border-slate-100 hover:border-indigo-500 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all text-left flex flex-col h-full">
                 <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                    <Building2 size={32} />
                 </div>
                 <h3 className="text-2xl font-bold text-slate-800 mb-2">Company / Clinic</h3>
-                <p className="text-slate-500 leading-relaxed mb-6">Hospitals and Pharmacies. Corporate Billing.</p>
-                <div className="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">Select</div>
+                <p className="text-slate-500 leading-relaxed mb-8 flex-grow">Hospitals, Clinics and Pharmacies. Corporate Billing.</p>
+                <div className="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-center group-hover:bg-indigo-600 group-hover:text-white transition-colors mt-auto">Select</div>
               </button>
+
+              {/* TERCERA TARJETA: PROVEEDOR */}
+              <button onClick={() => setSelectedRole('supplier')} className="group relative bg-white p-8 rounded-[2rem] border-2 border-slate-100 hover:border-emerald-500 hover:shadow-2xl hover:shadow-emerald-500/10 transition-all text-left flex flex-col h-full">
+                <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                   <Truck size={32} />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-800 mb-2">B2B Supplier</h3>
+                <p className="text-slate-500 leading-relaxed mb-8 flex-grow">Manufacturers and Wholesale Distributors. Sell your catalog through MedBay.</p>
+                <div className="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-center group-hover:bg-emerald-600 group-hover:text-white transition-colors mt-auto">Select</div>
+              </button>
+
            </div>
         </div>
       </div>
@@ -237,9 +253,14 @@ export default function RegisterPage() {
               <ArrowLeft size={20} /> Change Profile
            </button>
            <div>
+             {/* ✅ MODIFICADO: Títulos e iconos dinámicos según el rol seleccionado */}
              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur rounded-full text-sm font-bold mb-6 border border-white/20">
-               {selectedRole === 'medical_professional' ? <Stethoscope size={16}/> : <Building2 size={16}/>}
-               {selectedRole === 'medical_professional' ? 'Health Professional' : 'Business Account'}
+               {selectedRole === 'medical_professional' && <Stethoscope size={16}/>}
+               {selectedRole === 'business_verified' && <Building2 size={16}/>}
+               {selectedRole === 'supplier' && <Truck size={16}/>}
+               
+               {selectedRole === 'medical_professional' ? 'Health Professional' : 
+                selectedRole === 'business_verified' ? 'Business Account' : 'B2B Supplier'}
              </div>
              <h1 className="text-4xl font-black leading-tight mb-4">Tax and <br/><span className="text-blue-400">Legal Information.</span></h1>
              <p className="text-slate-400 text-sm leading-relaxed">
@@ -270,7 +291,6 @@ export default function RegisterPage() {
                   <Input label="Email Address" type="email" placeholder="contact@domain.com" error={errors.email?.message} {...register('email')} />
                   <Input label="Contact Phone" type="tel" placeholder="(55) 0000 0000" error={errors.phone?.message} {...register('phone')} />
                   
-                  {/* ✅ MODIFICACIÓN: Envolvemos el input y el medidor de fuerza */}
                   <div className="space-y-1">
                     <Input label="Password" type="password" placeholder="••••••••" error={errors.password?.message} {...register('password')} />
                     {passwordValue.length > 0 && (
@@ -304,7 +324,8 @@ export default function RegisterPage() {
                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex gap-2"><MapPin size={14}/> Tax Address and Legal Data</h3>
                
                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-5 border-b border-slate-100">
-                  {selectedRole === 'business_verified' && (
+                  {/* ✅ MODIFICADO: Mostrar campo de Empresa si es B2B o Proveedor */}
+                  {(selectedRole === 'business_verified' || selectedRole === 'supplier') && (
                     <div className="md:col-span-2">
                        <Input label="Business Name (Company Name)" placeholder="e.g. United Hospitals Inc." error={errors.company_name?.message} {...register('company_name')} />
                     </div>

@@ -32,7 +32,7 @@ const transporter = nodemailer.createTransport({
 
 const userController = {
   
-  // --- REGISTRO PÚBLICO (Clientes) ---
+  // --- REGISTRO PÚBLICO (Clientes y Proveedores) ---
   register: async (req, res) => {
     try {
       const { 
@@ -56,7 +56,8 @@ const userController = {
         return res.status(400).json({ error: 'Faltan datos obligatorios de la cuenta.' });
       }
 
-      const rolesRequireDoc = ['medical_professional', 'business_verified'];
+      // ✅ MODIFICADO: Agregamos 'supplier' a la lista de los que requieren documento
+      const rolesRequireDoc = ['medical_professional', 'business_verified', 'supplier'];
       if (rolesRequireDoc.includes(verification_level) && !documentFile) {
         return res.status(400).json({ error: 'Es obligatorio adjuntar el documento probatorio (Cédula/Acta).' });
       }
@@ -66,16 +67,18 @@ const userController = {
         return res.status(409).json({ error: 'Este correo electrónico ya está registrado.' });
       }
 
+      // ✅ MODIFICADO: Agregamos el nombre amigable para el Proveedor
       const roleFriendlyName = verification_level === 'medical_professional' 
         ? 'Profesional de Salud' 
         : verification_level === 'business_verified' 
           ? 'Cuenta Empresarial'
-          : 'Consumidor Básico';
+          : verification_level === 'supplier'
+            ? 'Proveedor B2B'
+            : 'Consumidor Básico';
 
       const password_hash = await bcrypt.hash(password, 12);
 
       // --- 1. PROCESO CRÍTICO: BASE DE DATOS ---
-      // Si algo falla aquí, el registro se detiene y avisa al usuario.
       
       const newUser = await User.create({
         email,
@@ -87,6 +90,20 @@ const userController = {
         verification_level: verification_level || 'consumer_basic',
         phone: cleanPhone
       });
+
+      // ✅ NUEVO: Si es proveedor, crear su registro en suppliers y vincularlo
+      if (verification_level === 'supplier') {
+        const supplierName = cleanCompany || full_name;
+        // Se crea inactivo por defecto, hasta que el Admin apruebe sus documentos
+        const supRes = await pool.query(
+          'INSERT INTO suppliers (name, country_code, is_active) VALUES ($1, $2, false) RETURNING id',
+          [supplierName, country]
+        );
+        const newSupplierId = supRes.rows[0].id;
+
+        // Actualizamos el usuario recién creado para vincularle el supplier_id
+        await pool.query('UPDATE users SET supplier_id = $1 WHERE id = $2', [newSupplierId, newUser.id]);
+      }
 
       await Address.create({
         user_id: newUser.id,
@@ -119,7 +136,6 @@ const userController = {
       }
 
       // --- 2. PROCESO SECUNDARIO: NOTIFICACIONES ---
-      // Lo envolvemos en su propio try-catch. Si falla, el usuario de todos modos queda registrado.
       try {
         const fullAddress = [
           `${street} #${street_number} ${cleanSuite ? 'Int. ' + cleanSuite : ''}`,
@@ -142,7 +158,6 @@ const userController = {
           }
         };
         
-        // Usamos source y source_id (que ya agregamos en SQL) para evitar el colapso
         await pool.query(
           'INSERT INTO notifications (type, sender_name, sender_email, subject, content, source, source_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
           [
@@ -151,8 +166,8 @@ const userController = {
             email, 
             `Validación: ${roleFriendlyName}`, 
             JSON.stringify(notifContent),
-            'notification', // source
-            newUser.id      // source_id
+            'notification', 
+            newUser.id      
           ]
         );
 
@@ -177,12 +192,10 @@ const userController = {
         });
 
       } catch (notificationError) {
-        // Silenciamos el error de cara al usuario, pero lo vemos en consola
         console.error('⚠️ Advertencia: Usuario creado, pero falló el envío de correo o notificación:', notificationError);
       }
 
       // --- 3. RESPUESTA AL FRONTEND ---
-      // Siempre llegará aquí si la BD guardó al usuario correctamente.
       res.status(201).json({
         success: true,
         message: 'Registro recibido exitosamente. En espera de validación.',
@@ -190,7 +203,6 @@ const userController = {
       });
 
     } catch (error) {
-      // Este catch solo atrapará errores graves (ej. BD caída, error en sintaxis SQL)
       console.error('🔥 Error crítico en registro:', error);
       res.status(500).json({ 
         error: 'Error interno del servidor al procesar el registro.',
@@ -206,8 +218,9 @@ const userController = {
       const { page = 1, limit = 10, search = '', role = 'all' } = req.query;
       const offset = (page - 1) * limit;
 
+      // ✅ MODIFICADO: Agregamos supplier_id a la consulta por si se necesita en el frontend
       let query = `
-        SELECT id, email, full_name, company_name, verification_level, account_status, phone, created_at, referral_code
+        SELECT id, email, full_name, company_name, verification_level, account_status, phone, created_at, referral_code, supplier_id
         FROM users
         WHERE 1=1
       `;
@@ -267,9 +280,10 @@ const userController = {
     } 
   },
 
+  // ✅ MODIFICADO: Ahora soporta la creación manual de Proveedores
   createStaff: async (req, res) => {
     try {
-      const { full_name, email, password, phone, role, referral_code } = req.body;
+      const { full_name, email, password, phone, role, referral_code, company_name, country } = req.body;
 
       if (req.user.verification_level !== 'admin') {
         return res.status(403).json({ error: 'No autorizado' });
@@ -280,23 +294,41 @@ const userController = {
 
       const password_hash = await bcrypt.hash(password, 10);
       
-      const finalReferralCode = referral_code || `REF-${Math.floor(Math.random() * 10000)}`;
+      // Solo generar referral code aleatorio si es agente de ventas y no envió uno
+      const finalReferralCode = (role === 'sales_agent' && !referral_code) 
+        ? `REF-${Math.floor(Math.random() * 10000)}` 
+        : (referral_code || null);
+
+      let newSupplierId = null;
+
+      // Si el rol que se está creando es un proveedor, creamos su perfil automáticamente
+      if (role === 'supplier') {
+        const supName = company_name || full_name;
+        const supCountry = country || 'MX'; // Por defecto MX si no se especifica
+        
+        // Lo creamos como ACTIVO de una vez, ya que lo está haciendo un Admin
+        const supRes = await pool.query(
+          'INSERT INTO suppliers (name, country_code, is_active) VALUES ($1, $2, true) RETURNING id',
+          [supName, supCountry]
+        );
+        newSupplierId = supRes.rows[0].id;
+      }
 
       const query = `
-        INSERT INTO users (email, password_hash, full_name, phone, verification_level, account_status, referral_code)
-        VALUES ($1, $2, $3, $4, $5, 'active', $6)
-        RETURNING id, email, full_name, verification_level, referral_code
+        INSERT INTO users (email, password_hash, full_name, phone, verification_level, account_status, referral_code, supplier_id)
+        VALUES ($1, $2, $3, $4, $5, 'active', $6, $7)
+        RETURNING id, email, full_name, verification_level, referral_code, supplier_id
       `;
       
-      const result = await pool.query(query, [email, password_hash, full_name, phone, role, finalReferralCode]);
+      const result = await pool.query(query, [email, password_hash, full_name, phone, role, finalReferralCode, newSupplierId]);
 
       res.status(201).json({
-        message: 'Usuario staff creado exitosamente',
+        message: 'Usuario creado exitosamente',
         user: result.rows[0]
       });
 
     } catch (error) {
-      console.error('Error creating staff:', error);
+      console.error('Error creating staff/supplier:', error);
       res.status(500).json({ error: 'Error interno' });
     }
   },
