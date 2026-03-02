@@ -36,8 +36,8 @@ export const ClientsTable = () => {
   // Fetch ALL licenses (admin) to cross-reference data with users
   const { documents, updateStatus: updateDocStatus, isUpdating: isDocUpdating } = useDocuments('license', 'admin');
 
-  // Filter out Staff from this table (only clients)
-  const clients = users.filter(u => !['admin', 'sales_agent'].includes(u.verification_level));
+  // ✅ MODIFICADO: Excluimos también a 'supplier' de esta tabla (solo se mostrarán clientes reales)
+  const clients = users.filter(u => !['admin', 'sales_agent', 'supplier'].includes(u.verification_level));
 
   // --- HANDLERS ---
 

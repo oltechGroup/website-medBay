@@ -5,7 +5,8 @@ import { api } from '@/lib/api';
 
 // --- TIPOS DE DATOS ---
 
-export type UserRole = 'admin' | 'sales_agent' | 'business_verified' | 'medical_professional' | 'guest' | 'consumer_basic';
+// ✅ MODIFICADO: Agregamos 'supplier' a los roles permitidos
+export type UserRole = 'admin' | 'sales_agent' | 'business_verified' | 'medical_professional' | 'guest' | 'consumer_basic' | 'supplier';
 export type AccountStatus = 'pending' | 'active' | 'rejected' | 'suspended';
 
 export interface User {
@@ -22,14 +23,17 @@ export interface User {
   avatar_url?: string;
 }
 
-// DTO para crear vendedores (Sales Agent)
+// DTO para crear vendedores y proveedores
 export interface CreateUserDTO {
   full_name: string;
   email: string;
   password: string;
   phone: string;
-  role: 'sales_agent' | 'admin'; 
-  referral_code?: string; // Opcional
+  // ✅ MODIFICADO: Agregamos supplier y los campos opcionales que enviamos desde el form
+  role: 'sales_agent' | 'admin' | 'supplier'; 
+  referral_code?: string; 
+  company_name?: string;
+  country?: string;
 }
 
 // Filtros para la tabla
@@ -68,7 +72,7 @@ export const useUsers = (filters: UseUsersFilters = {}) => {
     staleTime: 1000 * 60 * 5, // 5 minutos de caché fresco
   });
 
-  // 2. CREAR USUARIO STAFF (Mutation)
+  // 2. CREAR USUARIO STAFF/SUPPLIER (Mutation)
   const createUserMutation = useMutation({
     mutationFn: async (newUser: CreateUserDTO) => {
       const response = await api.post('/users/create-staff', newUser);
@@ -101,22 +105,25 @@ export const useUsers = (filters: UseUsersFilters = {}) => {
   });
 
   // Helpers de UI para etiquetas
-  const getRoleLabel = (role: UserRole) => {
+  // ✅ MODIFICADO: Textos en inglés y caso para 'supplier' agregado
+  const getRoleLabel = (role: UserRole | string) => {
     switch (role) {
-      case 'admin': return { label: 'Administrador', color: 'bg-purple-100 text-purple-700' };
-      case 'sales_agent': return { label: 'Vendedor', color: 'bg-indigo-100 text-indigo-700' };
-      case 'medical_professional': return { label: 'Médico', color: 'bg-blue-100 text-blue-700' };
-      case 'business_verified': return { label: 'Empresa', color: 'bg-emerald-100 text-emerald-700' };
-      default: return { label: 'Usuario', color: 'bg-gray-100 text-gray-600' };
+      case 'admin': return { label: 'Admin', color: 'bg-purple-100 text-purple-700' };
+      case 'sales_agent': return { label: 'Sales Agent', color: 'bg-indigo-100 text-indigo-700' };
+      case 'medical_professional': return { label: 'Doctor', color: 'bg-blue-100 text-blue-700' };
+      case 'business_verified': return { label: 'Business', color: 'bg-emerald-100 text-emerald-700' };
+      case 'supplier': return { label: 'Supplier', color: 'bg-teal-100 text-teal-700' };
+      default: return { label: 'User', color: 'bg-gray-100 text-gray-600' };
     }
   };
 
-  const getStatusLabel = (status: AccountStatus) => {
+  // ✅ MODIFICADO: Textos en inglés
+  const getStatusLabel = (status: AccountStatus | string) => {
     switch (status) {
-      case 'active': return { label: 'Activo', color: 'bg-green-100 text-green-700' };
-      case 'pending': return { label: 'Pendiente', color: 'bg-amber-100 text-amber-700' };
-      case 'rejected': return { label: 'Rechazado', color: 'bg-red-100 text-red-700' };
-      case 'suspended': return { label: 'Suspendido', color: 'bg-slate-100 text-slate-700' };
+      case 'active': return { label: 'Active', color: 'bg-green-100 text-green-700' };
+      case 'pending': return { label: 'Pending', color: 'bg-amber-100 text-amber-700' };
+      case 'rejected': return { label: 'Rejected', color: 'bg-red-100 text-red-700' };
+      case 'suspended': return { label: 'Suspended', color: 'bg-slate-100 text-slate-700' };
       default: return { label: status, color: 'bg-gray-100' };
     }
   };
