@@ -34,6 +34,8 @@ export const UploadWizard = () => {
 
   const isAdmin = user?.verification_level === 'admin';
   const isSupplier = user?.verification_level === 'supplier';
+  // ✅ NUEVA VARIABLE: Define quién puede limpiar el catálogo (Admin o Proveedor)
+  const canCleanCatalog = isAdmin || isSupplier;
 
   // 1. Estados de Navegación
   const [step, setStep] = useState(1);
@@ -42,7 +44,6 @@ export const UploadWizard = () => {
   const [restoringSession, setRestoringSession] = useState(true);
 
   // 2. Estados de Datos
-  // ✅ MODIFICADO: Si es proveedor, pre-cargamos su ID directamente.
   const [supplierId, setSupplierId] = useState(isSupplier && user?.supplier_id ? user.supplier_id : '');
   const [category, setCategory] = useState('regular');
   const [uploadId, setUploadId] = useState('');
@@ -222,7 +223,6 @@ export const UploadWizard = () => {
               )}
             </div>
             
-            {/* ✅ MODIFICADO: Vista condicional para Proveedor o Admin */}
             <div className="relative group">
               {isSupplier ? (
                 <div className="w-full pl-12 pr-10 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-bold text-slate-900 shadow-inner flex items-center">
@@ -268,7 +268,8 @@ export const UploadWizard = () => {
                   {cleaned ? (
                     <span className="flex items-center text-green-700 font-black text-[10px] uppercase tracking-widest bg-white px-4 py-2 rounded-xl border border-green-200 shadow-sm"><CheckCircle2 className="w-3 h-3 mr-2"/> Purged</span>
                   ) : (
-                    isAdmin ? (
+                    // ✅ MODIFICADO: Ahora 'canCleanCatalog' permite al Admin y Proveedor ver el botón
+                    canCleanCatalog ? (
                       <button onClick={() => setShowCleanModal(true)} className="flex items-center bg-white border border-orange-200 text-orange-700 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 hover:text-white hover:border-orange-600 transition-all shadow-sm active:scale-95"><Trash2 className="w-3 h-3 mr-2"/> Execute</button>
                     ) : (
                       <span className="text-[9px] font-black uppercase text-slate-400 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200"><Lock className="w-3 h-3 inline mr-1"/> Restricted</span>
