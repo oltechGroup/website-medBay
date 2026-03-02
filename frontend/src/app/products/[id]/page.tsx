@@ -176,11 +176,16 @@ export default function ProductPage() {
     );
   }
 
-  // Lógica de imágenes
-  const allImages = [
+  // ✅ LÓGICA DE IMÁGENES CORREGIDA: Filtramos nulos para evitar errores.
+  const rawImages = [
     { image_url: product.primary_image, id: 'primary' },
-    ...images.filter((img: any) => !img.is_primary)
-  ];
+    ...(images || []).filter((img: any) => !img.is_primary)
+  ].filter(img => img.image_url); // Solo dejamos las que realmente tienen URL
+
+  // Si no hay ninguna imagen válida, ponemos un placeholder por defecto.
+  const allImages = rawImages.length > 0 
+    ? rawImages 
+    : [{ image_url: null, id: 'placeholder' }];
 
   const handleNextImage = () => setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
   const handlePrevImage = () => setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
@@ -208,7 +213,9 @@ export default function ProductPage() {
   };
 
   const minPrice = product.min_price ? Number(product.min_price) : 0;
+  const maxPrice = product.max_price ? Number(product.max_price) : 0;
   const hasReferencePrice = minPrice > 0;
+  const hasActiveLots = product.active_lots && product.active_lots > 0;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pt-6 pb-20">
@@ -241,7 +248,7 @@ export default function ProductPage() {
                 src={getImageUrl(allImages[currentImageIndex]?.image_url)} 
                 alt={product.description} 
                 className="max-w-full max-h-full object-contain mix-blend-multiply"
-                // ✅ CORRECCIÓN DE IMAGEN PRINCIPAL
+                // ✅ CORRECCIÓN: Si falla, cancela el evento y pone un fondo sólido limpio.
                 onError={(e) => {
                   e.currentTarget.onerror = null; 
                   e.currentTarget.src = "https://placehold.co/800x800/f8fafc/94a3b8?text=No+Image";
@@ -273,7 +280,6 @@ export default function ProductPage() {
                     <img 
                       src={getImageUrl(img.image_url)} 
                       className="w-full h-full object-contain p-2 mix-blend-multiply" 
-                      // ✅ CORRECCIÓN DE MINIATURAS
                       onError={(e) => {
                         e.currentTarget.onerror = null; 
                         e.currentTarget.src = "https://placehold.co/100x100/f8fafc/94a3b8?text=N/A";
@@ -288,7 +294,7 @@ export default function ProductPage() {
           {/* === RIGHT COLUMN: INFO & LOTS === */}
           <div className="w-full lg:w-1/2 flex flex-col p-8 lg:p-12">
             
-            <div className="mb-8">
+            <div className="mb-6">
               <span className="inline-block px-4 py-1.5 bg-slate-100 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">
                 {product.manufacturer_name || "Generic Manufacturer"}
               </span>
@@ -297,25 +303,68 @@ export default function ProductPage() {
                 {product.description}
               </h1>
               
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3 mb-8">
                   <span className="bg-white border-2 border-slate-100 px-4 py-2 rounded-xl text-xs font-mono font-bold text-slate-600">
-                    SKU: {product.global_sku}
+                    SKU: {product.global_sku || 'N/A'}
                   </span>
-                  {isAuthenticated && categories.map((cat: any) => (
+                  {categories.map((cat: any) => (
                     <span key={cat.id} className="bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-blue-100">
                       {cat.name}
                     </span>
                   ))}
               </div>
+
+              {/* ✅ BLOQUE DE PRECIO Y COTIZACIÓN SUPERIOR (Estilo ClientProductCard) */}
+              <div className="flex items-center justify-between bg-slate-50 border border-slate-100 p-5 rounded-[2rem] mb-8">
+                <div>
+                   {hasActiveLots ? (
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mb-1">Unit Price</p>
+                   ) : (
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mb-1">Reference Price</p>
+                   )}
+                   
+                   {minPrice === maxPrice && minPrice > 0 ? (
+                       <p className="text-3xl font-black text-blue-600">{formatCurrency(minPrice)}</p>
+                   ) : minPrice > 0 ? (
+                       <div className="flex flex-col">
+                         <p className="text-3xl font-black text-blue-600">{formatCurrency(minPrice)}</p>
+                         <p className="text-xs text-slate-500 font-medium">Starting from</p>
+                       </div>
+                   ) : (
+                       <p className="text-lg font-bold text-slate-400 italic">Price on request</p>
+                   )}
+                </div>
+                
+                <div className="text-right flex flex-col items-end gap-3">
+                   {hasActiveLots ? (
+                     <span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold bg-emerald-100 border border-emerald-200 px-4 py-2 rounded-full text-[10px] uppercase tracking-widest">
+                       <Package size={14} /> {product.active_lots} Lots Available
+                     </span>
+                   ) : (
+                     <span className="inline-flex items-center gap-1.5 text-blue-700 font-bold bg-blue-100 border border-blue-200 px-4 py-2 rounded-full text-[10px] uppercase tracking-widest">
+                       <Info size={14} /> On Request
+                     </span>
+                   )}
+
+                   {!hasActiveLots && (
+                     <button 
+                       onClick={() => handleOpenQuote({ referencePrice: minPrice })}
+                       className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 shadow-xl shadow-slate-900/10 transition-all active:scale-95 flex items-center gap-2"
+                     >
+                       <FileText size={14}/> Request Quote
+                     </button>
+                   )}
+                </div>
+              </div>
             </div>
 
-            {/* ✅ NUEVO: MOSTRAR NOTAS COMPLETAS PARA EQUIPOS Y PRODUCTOS */}
-            {product.notes && (
-              <div className="mb-10 bg-slate-50 border border-slate-100 rounded-2xl p-6">
-                <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <FileText size={14} className="text-blue-500" /> Notes & Included Accessories
+            {/* ✅ BLOQUE DE NOTAS / INCLUYE (COMPLETO) */}
+            {product.notes && product.notes.trim() !== '' && (
+              <div className="mb-10 bg-blue-50/50 border border-blue-100 rounded-3xl p-6 md:p-8">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <FileText size={16} className="text-blue-600" /> Notes & Included Accessories
                 </h4>
-                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">
                   {product.notes}
                 </p>
               </div>
@@ -329,12 +378,14 @@ export default function ProductPage() {
                 <h3 className="font-black text-slate-900 flex items-center gap-2 text-xl uppercase tracking-tight">
                   <Package className="text-blue-600" size={24}/> Available Inventory
                 </h3>
-                <button 
-                  onClick={() => handleOpenQuote()}
-                  className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-lg"
-                >
-                  <FileText size={14}/> Custom Quote
-                </button>
+                {hasActiveLots && (
+                  <button 
+                    onClick={() => handleOpenQuote()}
+                    className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100"
+                  >
+                    <FileText size={14}/> Custom Quote
+                  </button>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -351,44 +402,21 @@ export default function ProductPage() {
                         })}
                       />
                     ))
-                ) : hasReferencePrice ? (
-                    // PRODUCTO SIN STOCK PERO CON PRECIO
-                    <div className="text-center py-12 bg-slate-50 rounded-[2rem] border border-slate-200">
-                      <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-blue-600">
-                        <Info size={32} />
-                      </div>
-                      <h4 className="text-slate-900 font-black mb-2 text-xl uppercase tracking-tight">Available on Request</h4>
-                      <p className="text-slate-500 text-sm mb-6 max-w-sm mx-auto font-medium">
-                        This product is imported upon request.
-                      </p>
-                      <div className="mb-8 p-4 bg-white rounded-2xl inline-block shadow-sm border border-slate-100">
-                          <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Reference Price</p>
-                          <p className="text-3xl font-black text-blue-600">{formatCurrency(product.min_price)}</p>
-                      </div>
-                      <div className="block">
-                          <button 
-                            onClick={() => handleOpenQuote({ referencePrice: minPrice })}
-                            className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 shadow-xl shadow-slate-900/10 transition-all active:scale-95"
-                          >
-                            Start Order / Quote
-                          </button>
-                      </div>
-                    </div>
                 ) : (
-                    // PRODUCTO AGOTADO Y SIN PRECIO
+                    // PRODUCTO SIN STOCK - MENSAJE LIMPIO
                     <div className="text-center py-16 bg-slate-50 rounded-[2rem] border border-dashed border-slate-300">
                       <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
                         <AlertCircle className="text-amber-400" size={32} />
                       </div>
-                      <h4 className="text-slate-900 font-black mb-2 text-xl uppercase tracking-tight">Product out of stock</h4>
+                      <h4 className="text-slate-900 font-black mb-2 text-xl uppercase tracking-tight">Temporarily out of stock</h4>
                       <p className="text-slate-500 text-sm mb-8 max-w-sm mx-auto font-medium">
-                        We currently do not have stock or a reference price for this item.
+                        We currently do not have any active lots for this item.
                       </p>
                       <button 
                         onClick={() => handleOpenQuote()}
-                        className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-600/20 transition-all active:scale-95"
+                        className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center gap-2 mx-auto"
                       >
-                        Request Search
+                        <FileText size={16}/> Request Custom Search
                       </button>
                     </div>
                 )}
