@@ -10,7 +10,7 @@ import {
   Settings, Menu, X, Bell, Stethoscope, 
   Building2, ShieldCheck, Store, Briefcase, 
   MessageSquareQuote, Trash2, ChevronRight,
-  ArrowRight
+  ArrowRight, Truck // ✅ AGREGADO: Icono para el badge de proveedor
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
@@ -38,7 +38,10 @@ export default function Header({
   
   const isAdmin = user?.verification_level === 'admin';
   const isSalesAgent = user?.verification_level === 'sales_agent';
-  const isStaff = isAdmin || isSalesAgent;
+  // ✅ NUEVO: Identificamos si es proveedor
+  const isSupplier = user?.verification_level === 'supplier';
+  // ✅ MODIFICADO: El proveedor ahora cuenta como Staff para mostrarle el botón de Dashboard
+  const isStaff = isAdmin || isSalesAgent || isSupplier;
 
   // Notifications
   const { 
@@ -126,6 +129,8 @@ export default function Header({
       case 'sales_agent': return <span className="flex items-center gap-1 bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-indigo-200 tracking-wider"><Briefcase size={10} /> SALES AGENT</span>;
       case 'medical_professional': return <span className="flex items-center gap-1 bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-blue-200 tracking-wider"><Stethoscope size={10} /> DOCTOR</span>;
       case 'business_verified': return <span className="flex items-center gap-1 bg-green-100 text-green-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-green-200 tracking-wider"><Building2 size={10} /> COMPANY</span>;
+      // ✅ NUEVO: Badge específico para el proveedor
+      case 'supplier': return <span className="flex items-center gap-1 bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-200 tracking-wider"><Truck size={10} /> SUPPLIER</span>;
       default: return <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-200 tracking-wider">USER</span>;
     }
   };
@@ -137,6 +142,7 @@ export default function Header({
     if (pathname.includes('/inventory')) return 'Inventory';
     if (pathname.includes('/customers')) return 'Customers';
     if (pathname.includes('/settings')) return 'Settings';
+    if (pathname.includes('/import')) return 'Importation';
     return 'Dashboard';
   };
 
@@ -294,7 +300,16 @@ export default function Header({
                       <div className="p-2 space-y-1">
                         {isStaff ? (
                           <>
-                            {variant !== 'dashboard' ? <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-blue-600 transition-colors shadow-sm"><LayoutDashboard size={16} /> Admin Panel</Link> : <Link href="/" className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"><Store size={16} /> Go to Store</Link>}
+                            {/* ✅ MODIFICADO: Textos dinámicos en el botón de Dashboard */}
+                            {variant !== 'dashboard' ? (
+                              <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-blue-600 transition-colors shadow-sm">
+                                <LayoutDashboard size={16} /> {isSupplier ? 'Supplier Portal' : 'Admin Panel'}
+                              </Link>
+                            ) : (
+                              <Link href="/" className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors">
+                                <Store size={16} /> Go to Store
+                              </Link>
+                            )}
                           </>
                         ) : (
                           <>
@@ -369,7 +384,10 @@ export default function Header({
                   </div>
                   <div className="grid grid-cols-2 gap-3 mb-4 relative z-10">
                     {isStaff ? (
-                      <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="col-span-2 bg-blue-600 py-3.5 rounded-xl text-center font-bold hover:bg-blue-50 transition-colors shadow-lg shadow-blue-900/20">Go to Dashboard</Link>
+                      <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="col-span-2 bg-blue-600 py-3.5 rounded-xl text-center font-bold text-white hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/20">
+                        {/* ✅ MODIFICADO: Textos dinámicos en el botón móvil */}
+                        {isSupplier ? 'Supplier Portal' : 'Go to Dashboard'}
+                      </Link>
                     ) : (
                       <>
                         <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)} className="bg-white/10 border border-white/5 py-3 rounded-xl text-center font-medium hover:bg-white/20 transition-colors">My Profile</Link>
