@@ -34,7 +34,6 @@ export const UploadWizard = () => {
 
   const isAdmin = user?.verification_level === 'admin';
   const isSupplier = user?.verification_level === 'supplier';
-  // ✅ NUEVA VARIABLE: Define quién puede limpiar el catálogo (Admin o Proveedor)
   const canCleanCatalog = isAdmin || isSupplier;
 
   // 1. Estados de Navegación
@@ -105,6 +104,11 @@ export const UploadWizard = () => {
       setSupplierId(user.supplier_id);
     }
   }, [isSupplier, user, supplierId]);
+
+  // ✅ NUEVO: Escuchar cambios de categoría o proveedor para reiniciar el estado 'cleaned'
+  useEffect(() => {
+    setCleaned(false);
+  }, [category, supplierId]);
 
   const activeSuppliers = [...(suppliers || []).filter((s: any) => s.is_active !== false && s.is_active !== 'f'), ...localSuppliers];
   
@@ -268,7 +272,6 @@ export const UploadWizard = () => {
                   {cleaned ? (
                     <span className="flex items-center text-green-700 font-black text-[10px] uppercase tracking-widest bg-white px-4 py-2 rounded-xl border border-green-200 shadow-sm"><CheckCircle2 className="w-3 h-3 mr-2"/> Purged</span>
                   ) : (
-                    // ✅ MODIFICADO: Ahora 'canCleanCatalog' permite al Admin y Proveedor ver el botón
                     canCleanCatalog ? (
                       <button onClick={() => setShowCleanModal(true)} className="flex items-center bg-white border border-orange-200 text-orange-700 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 hover:text-white hover:border-orange-600 transition-all shadow-sm active:scale-95"><Trash2 className="w-3 h-3 mr-2"/> Execute</button>
                     ) : (
