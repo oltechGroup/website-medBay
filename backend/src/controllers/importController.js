@@ -72,9 +72,10 @@ const importController = {
       // ✅ SEGURIDAD B2B
       const supplier_id = req.user.verification_level === 'supplier' ? req.user.supplier_id : req.body.supplier_id;
 
+      // ✅ Añadimos "notes" para capturar "lo que incluye" el equipo médico
       const { 
         sales_category, description, sku, 
-        manufacturer, quantity, price, expiry_date, image_url 
+        manufacturer, quantity, price, expiry_date, image_url, notes
       } = req.body;
 
       if (!description || !supplier_id) {
@@ -94,7 +95,8 @@ const importController = {
         price: parseFloat(price) || 0,
         expiry_date,
         image_url, 
-        local_image_path 
+        local_image_path,
+        notes // ✅ Se pasa al modelo
       });
 
       res.json({

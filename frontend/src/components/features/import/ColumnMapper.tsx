@@ -27,6 +27,7 @@ const REQUIRED_FIELDS = [
 
 const OPTIONAL_FIELDS = [
   { key: 'imagen_url', label: 'Image (URL)', description: 'Product image URL' },
+  { key: 'notas', label: 'Notes / Includes', description: 'Additional info or included accessories' }, // ✅ NUEVO CAMPO AGREGADO
 ];
 
 export const ColumnMapper: React.FC<ColumnMapperProps> = ({

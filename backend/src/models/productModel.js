@@ -121,16 +121,16 @@ const Product = {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     // --- ORDENAMIENTO (CORREGIDO CON TIE-BREAKER) ---
-    // ✅ IMPORTANTE: Añadimos p.id ASC al final de cada orden para que Postgres sea determinista.
     let orderByClause = 'ORDER BY p.created_at DESC, p.id ASC'; 
 
+    // ✅ ACTUALIZADO: Añadido 'equipment' a los IN statements
     const priceSortColumn = `(
       SELECT MIN(pl.price) 
       FROM product_lots pl 
       JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
       WHERE ps.product_id = p.id 
       AND pl.quantity >= 0
-      ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
+      ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')"}
     )`;
 
     switch (sortBy) {
@@ -158,6 +158,7 @@ const Product = {
     params.push(limit);
     params.push(offset);
 
+    // ✅ ACTUALIZADO: Añadido 'equipment' a los campos calculados de la consulta principal
     const dataQuery = `
       SELECT 
         p.id,
@@ -175,7 +176,7 @@ const Product = {
          WHERE pi.product_id = p.id 
          ORDER BY pi.is_primary DESC, pi.created_at DESC 
          LIMIT 1) as primary_image,
-          
+         
         (SELECT array_agg(category_id) FROM product_categories WHERE product_id = p.id) as category_ids,
         (SELECT array_agg(c.name) FROM product_categories pc 
           JOIN categories c ON pc.category_id = c.id 
@@ -184,19 +185,19 @@ const Product = {
         (SELECT MIN(pl.price)::float FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
           WHERE ps.product_id = p.id AND pl.quantity >= 0
-          ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
+          ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')"}
         ) as min_price,
           
         (SELECT MAX(pl.price)::float FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
           WHERE ps.product_id = p.id AND pl.quantity >= 0
-          ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
+          ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')"}
         ) as max_price,
           
         (SELECT COUNT(pl.id)::integer FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
           WHERE ps.product_id = p.id AND pl.quantity > 0
-          ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired')"}
+          ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')"}
         ) as active_lots
 
       FROM products p

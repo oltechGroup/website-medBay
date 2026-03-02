@@ -18,7 +18,8 @@ import {
   ChevronLeft,
   ChevronRight,
   History,
-  ArrowRight
+  ArrowRight,
+  Stethoscope // ✅ IMPORTACIÓN AGREGADA
 } from 'lucide-react';
 import { useInventory, SupplierMetrics, InventoryDashboard, PaginationMetadata } from '@/hooks/useInventory';
 import { SupplierCard } from '@/components/features/inventory/SupplierCard';
@@ -82,6 +83,7 @@ export default function InventoryPage() {
       case 'available': return 'text-green-600 bg-green-50 border-green-100';
       case 'near_expiry': return 'text-amber-600 bg-amber-50 border-amber-100';
       case 'expired': return 'text-red-600 bg-red-50 border-red-100';
+      case 'equipment': return 'text-blue-600 bg-blue-50 border-blue-100'; // ✅ NUEVA CATEGORÍA
       default: return 'text-gray-600 bg-gray-50 border-gray-100';
     }
   };
@@ -160,7 +162,6 @@ export default function InventoryPage() {
             </div>
           </div>
 
-          {/* ✅ ACTUALIZADO: ÚLTIMA IMPORTACIÓN CON DETALLE */}
           <div className="bg-white rounded-3xl border border-gray-200 p-6 shadow-sm group">
             <div className="flex items-center justify-between mb-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Activity Pulse</p>
@@ -187,9 +188,9 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* 🩺 INVENTORY HEALTH GRID */}
+      {/* 🩺 INVENTORY HEALTH GRID - ACTUALIZADO A 4 COLUMNAS */}
       {dashboard && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-green-50/50 border border-green-100 rounded-3xl p-6 flex items-center justify-between">
             <div>
               <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-green-700/60 mb-2">Optimal Stock</h4>
@@ -212,6 +213,16 @@ export default function InventoryPage() {
               <p className="text-3xl font-black text-red-900">{dashboard.expired_lots}</p>
             </div>
             <Package className="h-10 w-10 text-red-200" />
+          </div>
+
+          {/* ✅ NUEVA TARJETA: EQUIPOS E INSTRUMENTAL */}
+          <div className="bg-blue-50/50 border border-blue-100 rounded-3xl p-6 flex items-center justify-between">
+            <div>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-700/60 mb-2">Equipment</h4>
+              {/* Ojo: ts no va a compilar de inmediato si el hook no está actualizado, pero el backend ya manda equipment_lots */}
+              <p className="text-3xl font-black text-blue-900">{(dashboard as any).equipment_lots || 0}</p>
+            </div>
+            <Stethoscope className="h-10 w-10 text-blue-200" />
           </div>
         </div>
       )}

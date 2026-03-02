@@ -171,7 +171,7 @@ const ProductLot = {
   },
 
   // ✅ MÉTRICAS DASHBOARD MEJORADAS
-  // Ahora identifica proveedor y tipo de la última importación
+  // Ahora identifica proveedor, tipo de la última importación y cuenta equipos
   getDashboardMetrics: async () => {
     const query = `
       WITH last_import_info AS (
@@ -193,6 +193,7 @@ const ProductLot = {
         COUNT(CASE WHEN pl.status = 'available' THEN 1 END) as available_lots,
         COUNT(CASE WHEN pl.status = 'near_expiry' THEN 1 END) as near_expiry_lots,
         COUNT(CASE WHEN pl.status = 'expired' THEN 1 END) as expired_lots,
+        COUNT(CASE WHEN pl.status = 'equipment' THEN 1 END) as equipment_lots,
         COALESCE(SUM(pl.quantity), 0) as total_units,
         (SELECT supplier_name FROM last_import_info) as last_import_supplier,
         (SELECT lot_status FROM last_import_info) as last_import_type,
@@ -206,7 +207,7 @@ const ProductLot = {
   },
 
   // ✅ MÉTRICAS PROVEEDORES PAGINADAS
-  // Para la página principal de tarjetas de proveedores
+  // Para la página principal de tarjetas de proveedores, ahora cuenta equipos
   findPaginatedSuppliers: async ({ page = 1, limit = 6, search = '' }) => {
     const offset = (page - 1) * limit;
     let whereClause = 'WHERE s.is_active = true';
@@ -235,6 +236,7 @@ const ProductLot = {
         COUNT(CASE WHEN pl.status = 'available' THEN 1 END) as available_lots,
         COUNT(CASE WHEN pl.status = 'near_expiry' THEN 1 END) as near_expiry_lots,
         COUNT(CASE WHEN pl.status = 'expired' THEN 1 END) as expired_lots,
+        COUNT(CASE WHEN pl.status = 'equipment' THEN 1 END) as equipment_lots,
         COUNT(DISTINCT pl.id) as total_lots,
         MAX(pl.created_at) as last_import
       FROM suppliers s

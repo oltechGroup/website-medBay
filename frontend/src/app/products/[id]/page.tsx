@@ -1,10 +1,11 @@
+//frontend/src/app/products/[id]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { 
   ChevronLeft, ChevronRight, Package, Calendar, ShoppingCart, 
-  FileText, AlertCircle, Info, Heart, ArrowLeft
+  FileText, AlertCircle, Info, Heart, ArrowLeft, CheckCircle
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth"; 
 import { getImageUrl, formatCurrency, formatDate, getLotStatusConfig } from "@/lib/formatters";
@@ -30,6 +31,7 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
   
   const hasPrice = price && parseFloat(price) > 0;
   const hasStock = lot.quantity > 0;
+  const isEquipment = lot.status === 'equipment'; // ✅ VERIFICACIÓN DE EQUIPO
 
   return (
     <div className="border-2 border-slate-100 rounded-2xl p-5 hover:border-blue-300 hover:shadow-xl transition-all bg-white group">
@@ -52,9 +54,15 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
         </div>
       </div>
 
+      {/* ✅ FECHA DE CADUCIDAD O CONDICIÓN DEL EQUIPO */}
       <div className="flex items-center gap-2 text-xs text-slate-500 mb-5 bg-slate-50 p-3 rounded-xl border border-slate-100">
-        <Calendar size={16} className="text-blue-500"/> 
-        <span className="font-medium">Expires: <strong className="text-slate-800 ml-1">{formatDate(lot.expiry_date)}</strong></span>
+        {isEquipment ? <CheckCircle size={16} className="text-blue-500" /> : <Calendar size={16} className="text-blue-500"/>}
+        <span className="font-medium">
+          {isEquipment ? 'Condition:' : 'Expires:'} 
+          <strong className="text-slate-800 ml-1">
+            {isEquipment ? 'New / Durable' : (lot.expiry_date ? formatDate(lot.expiry_date) : 'N/A')}
+          </strong>
+        </span>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -233,7 +241,11 @@ export default function ProductPage() {
                 src={getImageUrl(allImages[currentImageIndex]?.image_url)} 
                 alt={product.description} 
                 className="max-w-full max-h-full object-contain mix-blend-multiply"
-                onError={(e) => e.currentTarget.src = getImageUrl(null)}
+                // ✅ CORRECCIÓN DE IMAGEN PRINCIPAL
+                onError={(e) => {
+                  e.currentTarget.onerror = null; 
+                  e.currentTarget.src = "https://placehold.co/800x800/f8fafc/94a3b8?text=No+Image";
+                }}
               />
               
               {allImages.length > 1 && (
@@ -258,7 +270,15 @@ export default function ProductPage() {
                     className={`w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 transition-all border-2 bg-white
                       ${currentImageIndex === idx ? 'border-blue-600 scale-105 shadow-md' : 'border-transparent opacity-60 hover:opacity-100'}`}
                   >
-                    <img src={getImageUrl(img.image_url)} className="w-full h-full object-contain p-2 mix-blend-multiply" />
+                    <img 
+                      src={getImageUrl(img.image_url)} 
+                      className="w-full h-full object-contain p-2 mix-blend-multiply" 
+                      // ✅ CORRECCIÓN DE MINIATURAS
+                      onError={(e) => {
+                        e.currentTarget.onerror = null; 
+                        e.currentTarget.src = "https://placehold.co/100x100/f8fafc/94a3b8?text=N/A";
+                      }}
+                    />
                   </button>
                 ))}
               </div>
@@ -288,6 +308,18 @@ export default function ProductPage() {
                   ))}
               </div>
             </div>
+
+            {/* ✅ NUEVO: MOSTRAR NOTAS COMPLETAS PARA EQUIPOS Y PRODUCTOS */}
+            {product.notes && (
+              <div className="mb-10 bg-slate-50 border border-slate-100 rounded-2xl p-6">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <FileText size={14} className="text-blue-500" /> Notes & Included Accessories
+                </h4>
+                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                  {product.notes}
+                </p>
+              </div>
+            )}
 
             <div className="h-px bg-slate-100 w-full mb-10"></div>
 

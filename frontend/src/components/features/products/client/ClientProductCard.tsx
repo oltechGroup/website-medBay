@@ -1,4 +1,4 @@
-// frontend/src/app/components/features/products/client/ClientProductCard.tsx
+// frontend/src/components/features/products/client/ClientProductCard.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,13 +7,12 @@ import { Product } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   ChevronDown, ChevronUp, ShoppingCart, Package, Calendar, 
-  AlertTriangle, Heart, FileText, Info
+  AlertTriangle, Heart, FileText, Info, CheckCircle
 } from "lucide-react";
 import { formatCurrency, formatDate, getImageUrl, getLotStatusConfig } from "@/lib/formatters";
 import { useProductDetails } from "@/hooks/useProductDetails";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
-// ✅ SE ELIMINÓ LA IMPORTACIÓN DE ProductQuickView
 import QuoteModal, { QuoteContext } from "./QuoteModal"; 
 import { QuantitySelector } from "@/components/ui/QuantitySelector";
 
@@ -32,6 +31,7 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
   
   const hasPrice = price && parseFloat(price) > 0;
   const hasStock = lot.quantity > 0;
+  const isEquipment = lot.status === 'equipment'; // ✅ VERIFICACIÓN DE EQUIPO
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 grid md:grid-cols-12 gap-4 items-center hover:border-blue-300 transition-all shadow-sm group">
@@ -46,14 +46,18 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
         </p>
       </div>
 
-      {/* 2. Expiration */}
+      {/* 2. Expiration or Condition (ADAPTADO PARA EQUIPOS) */}
       <div className="col-span-6 md:col-span-3 flex items-center gap-3 text-sm text-gray-600">
         <div className="p-2 bg-gray-50 rounded-lg text-gray-400">
-          <Calendar size={18}/>
+          {isEquipment ? <CheckCircle size={18} /> : <Calendar size={18}/>}
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">Expiration</span>
-          <span className="font-bold text-slate-700">{formatDate(lot.expiry_date)}</span>
+          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide">
+            {isEquipment ? 'Condition' : 'Expiration'}
+          </span>
+          <span className="font-bold text-slate-700">
+            {isEquipment ? 'New / Durable' : (lot.expiry_date ? formatDate(lot.expiry_date) : 'N/A')}
+          </span>
         </div>
       </div>
 
@@ -150,7 +154,6 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
     setIsQuoteOpen(true);
   };
 
-  // ✅ NUEVO: Navegar a la página detallada
   const handleNavigateToProduct = () => {
     router.push(`/products/${product.id}`);
   };
@@ -204,7 +207,6 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
           
           {/* IMAGE + WISHLIST BUTTON */}
           <div className="relative w-full md:w-32 h-32 flex-shrink-0 bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
-             {/* ✅ LLAMADA AL ROUTER EN LA IMAGEN */}
              <div 
                onClick={handleNavigateToProduct} 
                className="w-full h-full p-2 cursor-pointer bg-white"
@@ -213,7 +215,11 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                   src={getImageUrl(product.primary_image)} 
                   alt={product.description}
                   className="w-full h-full object-contain mix-blend-multiply transition-transform group-hover/card:scale-105"
-                  onError={(e) => e.currentTarget.src = getImageUrl(null)}
+                  // ✅ CORRECCIÓN DE IMAGEN: Se evita el loop y se pone un placeholder sólido
+                  onError={(e) => {
+                    e.currentTarget.onerror = null; 
+                    e.currentTarget.src = "https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image";
+                  }}
                 />
              </div>
 
@@ -232,17 +238,28 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
           </div>
 
           {/* INFO */}
-          {/* ✅ LLAMADA AL ROUTER EN LA INFORMACIÓN */}
-          <div className="flex-1 w-full text-center md:text-left space-y-2 cursor-pointer" onClick={handleNavigateToProduct}>
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center justify-center md:justify-start gap-2">
+          <div className="flex-1 w-full text-center md:text-left cursor-pointer" onClick={handleNavigateToProduct}>
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center justify-center md:justify-start gap-2 mb-1.5">
               {product.manufacturer_name || "Generic Manufacturer"}
             </div>
 
             <h3 className="text-lg font-bold text-gray-800 leading-tight hover:text-blue-600 transition-colors line-clamp-2">
               {product.description}
             </h3>
+
+            {/* ✅ NUEVO: MOSTRAR NOTAS / INCLUYE (TRUNCADO) */}
+            {product.notes && (
+              <div className="mt-2 mb-3 bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-left">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+                  <FileText size={10} /> Includes / Notes
+                </p>
+                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                  {product.notes}
+                </p>
+              </div>
+            )}
             
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-sm text-gray-500">
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-sm text-gray-500 mt-2">
                <span className="bg-slate-100 px-2 py-1 rounded text-[10px] font-mono font-bold text-slate-500 border border-slate-200">
                  SKU: {product.global_sku || 'N/A'}
                </span>
@@ -300,10 +317,10 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
               onClick={handleMainAction}
               className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all text-xs uppercase tracking-wide
               ${isExpanded 
-                  ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' 
-                  : hasActiveLots 
-                    ? 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg shadow-slate-900/10' 
-                    : 'bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50' 
+                 ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' 
+                 : hasActiveLots 
+                   ? 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg shadow-slate-900/10' 
+                   : 'bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50' 
                }`}
             >
               {isExpanded ? (
@@ -375,10 +392,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
           </div>
         )}
       </div>
-
-      {/* ✅ SE ELIMINÓ EL MODAL QUICKVIEW */}
       
-      {/* Quote Modal separated from Main Portal */}
       <QuoteModal 
         isOpen={isQuoteOpen}
         onClose={() => {

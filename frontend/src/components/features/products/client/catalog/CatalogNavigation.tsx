@@ -2,7 +2,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle, AlertTriangle, XCircle, ArrowLeft, ChevronRight } from "lucide-react";
+import { CheckCircle, AlertTriangle, XCircle, ArrowLeft, ChevronRight, Stethoscope } from "lucide-react"; // ✅ IMPORTADO STETHOSCOPE
 
 export const CatalogNavigation = () => {
   const router = useRouter();
@@ -41,11 +41,20 @@ export const CatalogNavigation = () => {
       color: 'bg-red-600', 
       lightColor: 'bg-red-50 text-red-700' 
     },
+    { 
+      id: 'equipment', // ✅ NUEVA SECCIÓN
+      label: 'Equipment', 
+      desc: 'Durable devices',
+      icon: Stethoscope, 
+      color: 'bg-blue-600', 
+      lightColor: 'bg-blue-50 text-blue-700' 
+    },
   ];
 
   if (currentStatus === 'all') {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      // ✅ AJUSTADO A 4 COLUMNAS (lg:grid-cols-4)
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {sections.map((section) => (
           <button
             key={section.id}

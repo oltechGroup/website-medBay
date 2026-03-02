@@ -26,11 +26,11 @@ import { ProductCard } from '@/components/features/inventory/ProductCard';
 
 interface CatalogViewProps {
   supplierId: string;
-  status: 'available' | 'near_expiry' | 'expired';
+  status: 'available' | 'near_expiry' | 'expired' | 'equipment'; // ✅ AÑADIDO 'equipment'
   title: string;
   description: string;
   colorScheme: {
-    primary: 'green' | 'amber' | 'red';
+    primary: 'green' | 'amber' | 'red' | 'blue'; // ✅ AÑADIDO 'blue'
     icon: React.ComponentType<any>;
     defaultSort: string;
   };
@@ -113,7 +113,8 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
     const theme = {
       green: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-100', btn: 'bg-green-600 hover:bg-green-700' },
       amber: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100', btn: 'bg-amber-600 hover:bg-amber-700' },
-      red: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-100', btn: 'bg-red-600 hover:bg-red-700' }
+      red: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-100', btn: 'bg-red-600 hover:bg-red-700' },
+      blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100', btn: 'bg-blue-600 hover:bg-blue-700' } // ✅ AÑADIDO 'blue'
     }[colorScheme.primary];
     return theme[type];
   };

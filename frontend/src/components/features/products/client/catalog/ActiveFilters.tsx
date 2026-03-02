@@ -19,13 +19,15 @@ export const ActiveFilters = () => {
 
   const catId = searchParams.get("categoryId");
   if (catId) {
-    const catName = categories.find(c => c.id === catId)?.name || "Category";
+    // ✅ TIPADO AÑADIDO: (c: any)
+    const catName = categories.find((c: any) => c.id === catId)?.name || "Category";
     filters.push({ key: "categoryId", label: catName });
   }
 
   const mfgId = searchParams.get("manufacturerId");
   if (mfgId) {
-    const mfgName = manufacturers.find(m => m.id === mfgId)?.name || "Brand";
+    // ✅ TIPADO AÑADIDO: (m: any)
+    const mfgName = manufacturers.find((m: any) => m.id === mfgId)?.name || "Brand";
     filters.push({ key: "manufacturerId", label: mfgName });
   }
 

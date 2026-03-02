@@ -51,11 +51,13 @@ export const ProductFilters = () => {
   };
 
   // Local filtering
-  const filteredManufacturers = manufacturers.filter(m => 
+  // ✅ TIPADO AÑADIDO: (m: any)
+  const filteredManufacturers = manufacturers.filter((m: any) => 
     m.name.toLowerCase().includes(mfgSearch.toLowerCase())
   );
 
-  const filteredCategories = categories.filter(c => 
+  // ✅ TIPADO AÑADIDO: (c: any)
+  const filteredCategories = categories.filter((c: any) => 
     c.name.toLowerCase().includes(catSearch.toLowerCase())
   );
 
@@ -146,7 +148,8 @@ export const ProductFilters = () => {
 
         <div className="space-y-1 max-h-[200px] md:max-h-[240px] overflow-y-auto custom-scrollbar pr-2">
           {filteredCategories.length > 0 ? (
-            filteredCategories.map((cat) => {
+            // ✅ TIPADO AÑADIDO: (cat: any)
+            filteredCategories.map((cat: any) => {
               const isSelected = currentCategory === cat.id;
               return (
                 <label 
@@ -200,7 +203,8 @@ export const ProductFilters = () => {
 
         <div className="space-y-1 max-h-[200px] md:max-h-[240px] overflow-y-auto custom-scrollbar pr-2">
           {filteredManufacturers.length > 0 ? (
-            filteredManufacturers.map((mfg) => {
+            // ✅ TIPADO AÑADIDO: (mfg: any)
+            filteredManufacturers.map((mfg: any) => {
               const isSelected = currentManufacturer === mfg.id;
               return (
                 <label 

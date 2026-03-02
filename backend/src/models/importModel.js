@@ -45,7 +45,7 @@ const ImportModel = {
     const { 
       supplier_id, sales_category, user_id, 
       description, sku, manufacturer, quantity, price, expiry_date,
-      image_url, local_image_path 
+      image_url, local_image_path, notes // ✅ Capturamos notes
     } = data;
 
     const client = await db.pool.connect();
@@ -79,9 +79,18 @@ const ImportModel = {
 
       let productId;
       const prodRes = await client.query('SELECT id FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [finalSku, makerId]);
-      if (prodRes.rows.length > 0) productId = prodRes.rows[0].id;
-      else {
-        const newProd = await client.query('INSERT INTO products (description, global_sku, manufacturer_id) VALUES ($1, $2, $3) RETURNING id', [description, finalSku, makerId]);
+      if (prodRes.rows.length > 0) {
+          productId = prodRes.rows[0].id;
+          // Si ya existe pero traemos notas, se las actualizamos (o concatenamos si lo prefieres)
+          if(notes) {
+              await client.query('UPDATE products SET notes = $1 WHERE id = $2', [notes, productId]);
+          }
+      } else {
+        // ✅ Insertamos las notes al crear el producto
+        const newProd = await client.query(
+            'INSERT INTO products (description, global_sku, manufacturer_id, notes) VALUES ($1, $2, $3, $4) RETURNING id', 
+            [description, finalSku, makerId, notes || null]
+        );
         productId = newProd.rows[0].id;
       }
 
@@ -110,7 +119,10 @@ const ImportModel = {
         psId = psInsert.rows[0].id;
       }
 
-      let lotStatus = sales_category === 'regular' ? 'available' : sales_category;
+      // ✅ Soporte para la categoría equipment
+      let lotStatus = sales_category;
+      if (sales_category === 'regular') lotStatus = 'available';
+
       await client.query(
         `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at) 
          VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
@@ -147,6 +159,7 @@ const ImportModel = {
   },
 
   cleanSupplierInventory: async (supplier_id, sales_category) => {
+    // ✅ Soporte para la categoría equipment
     let statusFilter = sales_category === 'regular' ? 'available' : sales_category;
     const query = `DELETE FROM product_lots WHERE product_supplier_id IN (SELECT id FROM product_suppliers WHERE supplier_id = $1) AND status = $2`;
     const result = await db.query(query, [supplier_id, statusFilter]);
@@ -242,6 +255,12 @@ const ImportModel = {
           const description = mappings.descripcion === 'not_applicable' ? null : item[mappings.descripcion];
           if (!description) throw new Error(`Row ${rowIndex}: Description is required.`);
 
+          // ✅ Extraer Notas / Incluye (Opcional)
+          let notes = null;
+          if (mappings.notas && mappings.notas !== 'not_applicable') {
+            notes = item[mappings.notas];
+          }
+
           let sku = mappings.codigo === 'not_applicable' ? null : String(item[mappings.codigo] || '').trim();
           if (!sku || mappings.codigo === 'not_applicable') {
             sku = `GEN-${Buffer.from(description).toString('base64').substring(0, 6).toUpperCase()}-${Date.now().toString().slice(-6)}`;
@@ -269,9 +288,18 @@ const ImportModel = {
 
           let productId;
           const prodRes = await client.query('SELECT id FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [sku, makerId]);
-          if (prodRes.rows.length > 0) productId = prodRes.rows[0].id;
-          else {
-            const newProd = await client.query('INSERT INTO products (description, global_sku, manufacturer_id) VALUES ($1, $2, $3) RETURNING id', [description, sku, makerId]);
+          if (prodRes.rows.length > 0) {
+              productId = prodRes.rows[0].id;
+               // Si ya existe pero traemos notas nuevas, se las actualizamos 
+               if(notes && (!prodRes.rows[0].notes || prodRes.rows[0].notes.trim() === '')) {
+                  await client.query('UPDATE products SET notes = $1 WHERE id = $2', [notes, productId]);
+               }
+          } else {
+            // ✅ Guardamos las notas al crear el producto
+            const newProd = await client.query(
+                'INSERT INTO products (description, global_sku, manufacturer_id, notes) VALUES ($1, $2, $3, $4) RETURNING id', 
+                [description, sku, makerId, notes]
+            );
             productId = newProd.rows[0].id;
             stats.created_products++;
           }
@@ -296,6 +324,7 @@ const ImportModel = {
             psId = psInsert.rows[0].id;
           }
 
+          // ✅ Soporte para la categoría equipment
           let lotStatus = upload.sales_category === 'regular' ? 'available' : upload.sales_category;
           let expiryDate = null;
           if (mappings.fecha_caducidad !== 'not_applicable' && item[mappings.fecha_caducidad]) {
@@ -386,7 +415,6 @@ const ImportModel = {
     return res.rows[0];
   },
 
-  // ✅ MODIFICADO: Acepta supplier_id opcional para filtrar el historial
   getImportHistory: async (supplier_id = null) => {
     let query = `
       SELECT u.id, u.created_at, u.status, u.filename, s.name as supplier, u.sales_category,
@@ -408,7 +436,6 @@ const ImportModel = {
     return res.rows;
   },
 
-  // ✅ MODIFICADO: Acepta supplier_id opcional para filtrar las estadísticas
   getGlobalStats: async (supplier_id = null) => {
     let todayQuery = "SELECT COUNT(*) FROM raw_uploads WHERE created_at::date = CURRENT_DATE";
     let totalQuery = "SELECT COUNT(*) FROM raw_uploads";

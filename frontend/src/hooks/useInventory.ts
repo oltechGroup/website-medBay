@@ -20,7 +20,7 @@ export interface ProductLot {
   expiry_date: string;
   quantity: number;
   price: number;
-  status: 'available' | 'near_expiry' | 'expired';
+  status: 'available' | 'near_expiry' | 'expired' | 'equipment'; // ✅ AÑADIDO
   received_at: string;
   created_at: string;
   updated_at: string;
@@ -39,6 +39,7 @@ export interface SupplierMetrics {
   available_lots: number;
   near_expiry_lots: number;
   expired_lots: number;
+  equipment_lots?: number; // ✅ AÑADIDO
   total_lots: number;
   last_import: string;
   country_code?: string;
@@ -53,9 +54,10 @@ export interface InventoryDashboard {
   available_lots: number;
   near_expiry_lots: number;
   expired_lots: number;
+  equipment_lots?: number; // ✅ AÑADIDO
   total_units: number;
   last_import: string;
-  // ✅ NUEVOS CAMPOS: Detalle de última importación
+  // NUEVOS CAMPOS: Detalle de última importación
   last_import_supplier?: string;
   last_import_type?: string;
 }
@@ -91,7 +93,7 @@ export interface CreateLotData {
   expiry_date: string;
   quantity: number;
   price: number;
-  status: 'available' | 'near_expiry' | 'expired';
+  status: 'available' | 'near_expiry' | 'expired' | 'equipment'; // ✅ AÑADIDO
   received_at?: string;
 }
 
@@ -101,7 +103,7 @@ export const useInventory = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ DASHBOARD - MEJORADO
+  // DASHBOARD - MEJORADO
   const getDashboard = useCallback(async (): Promise<InventoryDashboard> => {
     try {
       setLoading(true);
@@ -117,7 +119,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // ✅ MÉTRICAS POR PROVEEDOR - PAGINADAS
+  // MÉTRICAS POR PROVEEDOR - PAGINADAS
   const getSuppliersMetrics = useCallback(async (params: { page?: number; limit?: number; search?: string } = {}): Promise<PaginatedSuppliers> => {
     try {
       setLoading(true);
@@ -133,7 +135,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // ✅ OBTENER LOTES - PAGINACIÓN REAL
+  // OBTENER LOTES - PAGINACIÓN REAL
   const getLots = useCallback(async (filters: LotFilters = {}): Promise<PaginatedLots> => {
     try {
       setLoading(true);
@@ -149,7 +151,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // ✅ OBTENER LOTE POR ID
+  // OBTENER LOTE POR ID
   const getLotById = useCallback(async (id: string): Promise<ProductLot> => {
     try {
       setLoading(true);
@@ -164,7 +166,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // ✅ CREAR LOTE
+  // CREAR LOTE
   const createLot = useCallback(async (lotData: CreateLotData): Promise<ProductLot> => {
     try {
       setLoading(true);
@@ -178,7 +180,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // ✅ ACTUALIZAR LOTE
+  // ACTUALIZAR LOTE
   const updateLot = useCallback(async (id: string, lotData: Partial<ProductLot>): Promise<ProductLot> => {
     try {
       setLoading(true);
@@ -192,7 +194,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // ✅ ELIMINAR LOTE
+  // ELIMINAR LOTE
   const deleteLot = useCallback(async (id: string): Promise<void> => {
     try {
       setLoading(true);
@@ -204,7 +206,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // ✅ CATÁLOGO POR PROVEEDOR Y ESTADO - PAGINADO
+  // CATÁLOGO POR PROVEEDOR Y ESTADO - PAGINADO
   const getCatalogBySupplier = useCallback(async (
     supplierId: string, 
     status: string, 
@@ -223,7 +225,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // ✅ NUEVO: OBTENER DATOS PARA FORMULARIO CON BÚSQUEDA DINÁMICA
+  // OBTENER DATOS PARA FORMULARIO CON BÚSQUEDA DINÁMICA
   const getFormData = useCallback(async (search: string = '') => {
     try {
       const response = await api.get('/inventory/form-data', { params: { search } });
@@ -234,7 +236,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // ✅ CREAR LOTE PARA PRODUCTO EXISTENTE
+  // CREAR LOTE PARA PRODUCTO EXISTENTE
   const createLotForProduct = useCallback(async (productData: {
     product_id: string;
     supplier_id?: string;
@@ -242,7 +244,7 @@ export const useInventory = () => {
     expiry_date: string;
     quantity: number;
     price: number;
-    status: 'available' | 'near_expiry' | 'expired';
+    status: 'available' | 'near_expiry' | 'expired' | 'equipment'; // ✅ AÑADIDO
   }): Promise<ProductLot> => {
     try {
       setLoading(true);
@@ -287,6 +289,6 @@ export const useInventory = () => {
     deleteLot,
     createLotForProduct,
     getCatalogBySupplier,
-    getFormData, // ✅ Exportado para el selector inteligente
+    getFormData, 
   };
 };

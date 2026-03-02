@@ -70,6 +70,13 @@ function ProductsContent() {
           gradient: "from-emerald-900 via-emerald-800 to-teal-800",
           tag: "FACTORY WARRANTY"
         };
+      case 'equipment': // ✅ NUEVA CATEGORÍA
+        return {
+          title: "Equipment & Instruments",
+          description: "Durable medical devices, capital equipment, and precision instruments.",
+          gradient: "from-blue-900 via-blue-800 to-indigo-900",
+          tag: "DURABLE MEDICAL EQUIPMENT"
+        };
       default:
         return {
           title: "General Catalog",

@@ -19,7 +19,8 @@ import { ImportProgress as ImportProgressComponent } from '@/components/features
 const CATEGORIES = [
   { id: 'regular', label: 'In Date', color: 'bg-green-100 text-green-700 border-green-200 ring-green-500' },
   { id: 'near_expiry', label: 'Short-Dated', color: 'bg-yellow-100 text-yellow-700 border-yellow-200 ring-yellow-500' },
-  { id: 'expired', label: 'Expired', color: 'bg-red-100 text-red-700 border-red-200 ring-red-500' }
+  { id: 'expired', label: 'Expired', color: 'bg-red-100 text-red-700 border-red-200 ring-red-500' },
+  { id: 'equipment', label: 'Equipment & Instruments', color: 'bg-blue-100 text-blue-700 border-blue-200 ring-blue-500' } // ✅ NUEVA CATEGORÍA
 ];
 
 export const UploadWizard = () => {
@@ -56,7 +57,8 @@ export const UploadWizard = () => {
     quantity: 0,
     price: 0,
     expiry_date: '',
-    imageUrl: ''
+    imageUrl: '',
+    notes: '' // ✅ NUEVO CAMPO DE NOTAS
   });
   const [manualImageFile, setManualImageFile] = useState<File | null>(null);
   const [imageMode, setImageMode] = useState<'url' | 'file'>('url');
@@ -105,7 +107,7 @@ export const UploadWizard = () => {
     }
   }, [isSupplier, user, supplierId]);
 
-  // ✅ NUEVO: Escuchar cambios de categoría o proveedor para reiniciar el estado 'cleaned'
+  // ✅ Escuchar cambios de categoría o proveedor para reiniciar el estado 'cleaned'
   useEffect(() => {
     setCleaned(false);
   }, [category, supplierId]);
@@ -184,7 +186,7 @@ export const UploadWizard = () => {
     setFile(null);
     setUploadId('');
     setProgress(null);
-    setManualData({ description: '', sku: '', manufacturer: '', quantity: 0, price: 0, expiry_date: '', imageUrl: '' });
+    setManualData({ description: '', sku: '', manufacturer: '', quantity: 0, price: 0, expiry_date: '', imageUrl: '', notes: '' });
   };
 
   if (restoringSession) {
@@ -256,7 +258,9 @@ export const UploadWizard = () => {
               <div className="space-y-6 animate-in fade-in duration-500">
                 <div className="h-px bg-slate-100 w-full"></div>
                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-600">Inventory Tier</h3>
-                <div className="grid grid-cols-3 gap-4">
+                
+                {/* ✅ GRILLA ACTUALIZADA PARA 4 COLUMNAS */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {CATEGORIES.map(cat => (
                     <button key={cat.id} onClick={() => setCategory(cat.id)} className={`p-4 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${category === cat.id ? 'bg-slate-900 border-slate-900 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}>
                       {cat.label}
@@ -355,6 +359,13 @@ export const UploadWizard = () => {
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Asset Description *</label>
                   <textarea required className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-bold text-slate-900 text-sm shadow-inner min-h-[120px]" value={manualData.description} onChange={e => setManualData({...manualData, description: e.target.value})} placeholder="Main product name and specs..." />
                 </div>
+                
+                {/* ✅ NUEVO CAMPO: NOTAS / INCLUYE */}
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Notes / Includes (Optional)</label>
+                  <textarea className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-bold text-slate-900 text-sm shadow-inner min-h-[100px]" value={manualData.notes} onChange={e => setManualData({...manualData, notes: e.target.value})} placeholder="List of included accessories, warranty details, etc..." />
+                </div>
+
                 <div className="grid grid-cols-2 gap-6">
                    <div>
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Internal SKU</label>

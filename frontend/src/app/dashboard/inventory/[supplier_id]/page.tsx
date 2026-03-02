@@ -9,7 +9,7 @@ import {
   Package, 
   Calendar, 
   ArrowLeft,
-  ArrowRight, // ✅ AGREGADO
+  ArrowRight,
   Tag,
   BarChart3,
   Upload,
@@ -18,7 +18,8 @@ import {
   Box,
   ShoppingCart,
   RefreshCw,
-  Clock // ✅ AGREGADO
+  Clock,
+  Stethoscope // ✅ IMPORTADO PARA EQUIPMENT
 } from 'lucide-react';
 import { useInventory, SupplierMetrics } from '@/hooks/useInventory';
 import Link from 'next/link';
@@ -30,10 +31,8 @@ export default function SupplierDetailPage() {
   
   const [supplier, setSupplier] = useState<SupplierMetrics | null>(null);
 
-  // ✅ LOGICA CORREGIDA: getSuppliersMetrics ahora devuelve un objeto, entramos a .suppliers
   const loadSupplierData = useCallback(async () => {
     try {
-      // Cargamos un rango amplio para encontrar al proveedor específico en la lista
       const response = await getSuppliersMetrics({ limit: 100 }); 
       const foundSupplier = response.suppliers.find((s: SupplierMetrics) => s.id === params.supplier_id);
       setSupplier(foundSupplier || null);
@@ -168,34 +167,40 @@ export default function SupplierDetailPage() {
         </div>
       </div>
 
-      {/* 🩺 INVENTORY HEALTH & NAVIGATION */}
+      {/* 🩺 INVENTORY HEALTH & NAVIGATION - ✅ AHORA 4 COLUMNAS */}
       <div className="space-y-6">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-blue-600" />
           <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">Health Distribution</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             { title: 'Optimal', val: supplier.available_lots, desc: 'Ready for market', col: 'green', link: 'available', icon: Package },
             { title: 'Warning', val: supplier.near_expiry_lots, desc: 'Short-dated risk', col: 'amber', link: 'near-expiry', icon: Clock },
-            { title: 'Alert', val: supplier.expired_lots, desc: 'Expired units', col: 'red', link: 'expired', icon: Tag }
+            { title: 'Alert', val: supplier.expired_lots, desc: 'Expired units', col: 'red', link: 'expired', icon: Tag },
+            { title: 'Equip', val: supplier.equipment_lots || 0, desc: 'Instruments & Tech', col: 'blue', link: 'equipment', icon: Stethoscope } // ✅ NUEVO
           ].map((status) => (
             <Link key={status.title} href={`/dashboard/inventory/${supplier.id}/${status.link}`} className="group">
-              <div className={`bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-sm hover:shadow-xl transition-all relative overflow-hidden`}>
+              <div className={`bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-sm hover:shadow-xl transition-all relative overflow-hidden h-full flex flex-col justify-between`}>
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">{status.title}</h3>
                     <p className="text-sm font-bold text-slate-600 italic mt-1">{status.desc}</p>
                   </div>
-                  <div className={`p-3 rounded-2xl ${status.col === 'green' ? 'bg-green-50 text-green-600 border-green-100' : status.col === 'amber' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-red-50 text-red-600 border-red-100'} border`}>
+                  <div className={`p-3 rounded-2xl ${
+                    status.col === 'green' ? 'bg-green-50 text-green-600 border-green-100' : 
+                    status.col === 'amber' ? 'bg-amber-50 text-amber-600 border-amber-100' : 
+                    status.col === 'blue' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                    'bg-red-50 text-red-600 border-red-100'
+                  } border`}>
                     <status.icon className="h-5 w-5 stroke-[3]" />
                   </div>
                 </div>
-                <div className="flex items-end justify-between">
+                <div className="flex items-end justify-between mt-auto">
                   <span className={`text-5xl font-black text-slate-900 tracking-tighter transition-colors`}>{status.val}</span>
                   <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 group-hover:translate-x-2 transition-transform">
-                    View Catalog
+                    View
                     <ArrowRight className="h-3 w-3 stroke-[4]" />
                   </div>
                 </div>
@@ -219,13 +224,15 @@ export default function SupplierDetailPage() {
             </div>
           </div>
 
+          {/* ✅ BARRA DE PROGRESO ACTUALIZADA (Añadido Equipo) */}
           <div className="flex w-full bg-white/10 rounded-full h-4 overflow-hidden mb-6 border border-white/5">
             <div className="bg-green-500 h-full transition-all duration-1000" style={{ width: `${(supplier.available_lots/totalLots)*100}%` }} />
             <div className="bg-amber-500 h-full transition-all duration-1000" style={{ width: `${(supplier.near_expiry_lots/totalLots)*100}%` }} />
             <div className="bg-red-500 h-full transition-all duration-1000" style={{ width: `${(supplier.expired_lots/totalLots)*100}%` }} />
+            <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${((supplier.equipment_lots || 0)/totalLots)*100}%` }} />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="flex items-center gap-3">
                <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
                <span className="text-[10px] font-black text-white uppercase tracking-widest">Optimal: {Math.round((supplier.available_lots/totalLots)*100)}%</span>
@@ -237,6 +244,11 @@ export default function SupplierDetailPage() {
             <div className="flex items-center gap-3">
                <div className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
                <span className="text-[10px] font-black text-white uppercase tracking-widest">Alert: {Math.round((supplier.expired_lots/totalLots)*100)}%</span>
+            </div>
+            {/* ✅ LEYENDA PARA EQUIPO */}
+            <div className="flex items-center gap-3">
+               <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
+               <span className="text-[10px] font-black text-white uppercase tracking-widest">Equip: {Math.round(((supplier.equipment_lots || 0)/totalLots)*100)}%</span>
             </div>
           </div>
         </div>

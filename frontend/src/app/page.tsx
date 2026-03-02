@@ -64,15 +64,16 @@ export default function Home() {
 
       {/* ======= FLOATING CATEGORY CARDS ======= */}
       <section className="relative z-20 -mt-16 w-[90%] max-w-[1200px] mx-auto px-4 md:px-0 pointer-events-none">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pointer-events-auto">
+        {/* ✅ AHORA SON 4 COLUMNAS PARA INCLUIR EQUIPO */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pointer-events-auto">
           
           <Link href="/products?status=available" className="group">
-            <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-white hover:border-emerald-200 transition-all duration-500 hover:-translate-y-2">
+            <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-white hover:border-emerald-200 transition-all duration-500 hover:-translate-y-2 h-full flex flex-col">
               <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-500 mb-6 shadow-sm">
                 <CheckCircle size={28} />
               </div>
               <h3 className="font-black text-xl text-slate-800 mb-2">Current Lots</h3>
-              <p className="text-slate-500 font-medium">Full factory warranty and optimal expiration dates.</p>
+              <p className="text-slate-500 font-medium flex-grow">Full factory warranty and optimal expiration dates.</p>
               <div className="mt-6 flex items-center gap-2 text-emerald-600 font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                 Explore <ChevronRight size={16} />
               </div>
@@ -80,12 +81,12 @@ export default function Home() {
           </Link>
 
           <Link href="/products?status=near_expiry" className="group">
-            <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-white hover:border-amber-200 transition-all duration-500 hover:-translate-y-2">
+            <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-white hover:border-amber-200 transition-all duration-500 hover:-translate-y-2 h-full flex flex-col">
               <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-all duration-500 mb-6 shadow-sm">
                 <AlertTriangle size={28} />
               </div>
               <h3 className="font-black text-xl text-slate-800 mb-2">Near Expiry</h3>
-              <p className="text-slate-500 font-medium">Unique opportunities with expiration-based discounts.</p>
+              <p className="text-slate-500 font-medium flex-grow">Unique opportunities with expiration-based discounts.</p>
               <div className="mt-6 flex items-center gap-2 text-amber-600 font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                 View Offers <ChevronRight size={16} />
               </div>
@@ -93,14 +94,28 @@ export default function Home() {
           </Link>
 
            <Link href="/products?status=expired" className="group">
-            <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-white hover:border-red-200 transition-all duration-500 hover:-translate-y-2">
+            <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-white hover:border-red-200 transition-all duration-500 hover:-translate-y-2 h-full flex flex-col">
               <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 group-hover:bg-red-500 group-hover:text-white transition-all duration-500 mb-6 shadow-sm">
                 <XCircle size={28} />
               </div>
               <h3 className="font-black text-xl text-slate-800 mb-2">Outlet / Expired</h3>
-              <p className="text-slate-500 font-medium">Supplies for practice, education, or controlled shrinkage.</p>
+              <p className="text-slate-500 font-medium flex-grow">Supplies for practice, education, or controlled shrinkage.</p>
               <div className="mt-6 flex items-center gap-2 text-red-600 font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                 View Inventory <ChevronRight size={16} />
+              </div>
+            </div>
+          </Link>
+
+          {/* ✅ NUEVA TARJETA: EQUIPMENT */}
+          <Link href="/products?status=equipment" className="group">
+            <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-white hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 h-full flex flex-col">
+              <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 group-hover:bg-blue-500 group-hover:text-white transition-all duration-500 mb-6 shadow-sm">
+                <Stethoscope size={28} />
+              </div>
+              <h3 className="font-black text-xl text-slate-800 mb-2">Equipment</h3>
+              <p className="text-slate-500 font-medium flex-grow">Durable medical devices and precision instruments.</p>
+              <div className="mt-6 flex items-center gap-2 text-blue-600 font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                Discover <ChevronRight size={16} />
               </div>
             </div>
           </Link>
