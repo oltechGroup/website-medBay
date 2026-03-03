@@ -14,12 +14,13 @@ import {
   Loader2, 
   CheckCircle2, 
   AlertCircle,
-  Facebook,    // Añadido
-  Instagram    // Añadido
+  Facebook,
+  Instagram,
+  MessageCircle // Usaremos este para WhatsApp
 } from "lucide-react";
 
 export default function Contact() {
-  // --- STATES (Sin cambios) ---
+  // --- STATES (Intactos) ---
   const [formData, setFormData] = useState({
     nombre: "",
     email: "",
@@ -30,7 +31,7 @@ export default function Contact() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
-  // --- HANDLERS (Sin cambios) ---
+  // --- HANDLERS (Intactos) ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
       ...formData,
@@ -56,7 +57,7 @@ export default function Contact() {
 
       if (response.ok) {
         setStatus("success");
-        setFormData({ nombre: "", email: "", asunto: "", mensaje: "" }); 
+        setFormData({ nombre: "", email: "", asunto: "" , mensaje: "" }); 
         setTimeout(() => setStatus("idle"), 5000);
       } else {
         throw new Error(data.error || "Error sending the message");
@@ -95,17 +96,16 @@ export default function Contact() {
         </div>
       </section>
 
-      {/* ======= CONTACT CONTENT (Split Layout) ======= */}
+      {/* ======= CONTACT CONTENT ======= */}
       <section className="relative z-20 -mt-12 pb-32 w-[90%] max-w-[1200px] mx-auto px-0 md:px-4">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* LEFT SIDE: CONTACT INFO & SOCIALS */}
+          {/* LEFT SIDE */}
           <div className="lg:col-span-5 space-y-6 order-2 lg:order-1">
             
-            {/* Card 1: Info */}
+            {/* Card 1: Contact Info */}
             <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-white">
               <h2 className="text-2xl font-black mb-8 text-slate-800">Contact Information</h2>
-              
               <div className="space-y-8">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -140,40 +140,57 @@ export default function Contact() {
 
               <div className="mt-12 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4">
                 <Clock className="text-blue-500 flex-shrink-0" size={24} />
-                <p className="text-sm text-slate-600 font-medium">
-                  Support: Mon - Fri, 9:00 AM to 6:00 PM
-                </p>
+                <p className="text-sm text-slate-600 font-medium">Support: Mon - Fri, 9:00 AM to 6:00 PM</p>
               </div>
             </div>
 
-            {/* Card 2: Social Media (NUEVA) */}
+            {/* Card 2: Social Media & WhatsApp */}
             <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-white">
-              <h2 className="text-2xl font-black mb-6 text-slate-800">Follow our community</h2>
-              <div className="grid grid-cols-2 gap-4">
+              <h2 className="text-2xl font-black mb-6 text-slate-800">Quick Connect</h2>
+              <div className="grid grid-cols-1 gap-4">
+                {/* WHATSAPP - Botón Principal */}
                 <a 
-                  href="https://www.facebook.com/profile.php?id=61586918317156" 
+                  href="https://wa.me/17874662212" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="flex flex-col items-center justify-center p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-blue-50 hover:border-blue-200 transition-all group"
+                  className="flex items-center gap-4 p-5 rounded-3xl bg-green-50 border border-green-100 hover:bg-green-500 hover:text-white transition-all group"
                 >
-                  <Facebook className="text-slate-400 group-hover:text-blue-600 mb-2 transition-colors" size={28} />
-                  <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-700 uppercase tracking-[0.2em]">Facebook</span>
+                  <div className="w-12 h-12 bg-white text-green-600 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                    <MessageCircle size={28} />
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold text-green-700 group-hover:text-green-50 uppercase tracking-[0.2em]">Live Chat</span>
+                    <span className="text-lg font-black">WhatsApp Business</span>
+                  </div>
                 </a>
-                
-                <a 
-                  href="https://www.instagram.com/medbay_supply/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex flex-col items-center justify-center p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-pink-50 hover:border-pink-200 transition-all group"
-                >
-                  <Instagram className="text-slate-400 group-hover:text-pink-600 mb-2 transition-colors" size={28} />
-                  <span className="text-[10px] font-bold text-slate-500 group-hover:text-pink-700 uppercase tracking-[0.2em]">Instagram</span>
-                </a>
+
+                {/* FB e IG en Fila */}
+                <div className="grid grid-cols-2 gap-4">
+                    <a 
+                    href="https://www.facebook.com/profile.php?id=61586918317156" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center justify-center p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-blue-50 hover:border-blue-200 transition-all group"
+                    >
+                    <Facebook className="text-slate-400 group-hover:text-blue-600 mb-2 transition-colors" size={24} />
+                    <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-700 uppercase tracking-[0.2em]">Facebook</span>
+                    </a>
+                    
+                    <a 
+                    href="https://www.instagram.com/medbay_supply/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center justify-center p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-pink-50 hover:border-pink-200 transition-all group"
+                    >
+                    <Instagram className="text-slate-400 group-hover:text-pink-600 mb-2 transition-colors" size={24} />
+                    <span className="text-[10px] font-bold text-slate-500 group-hover:text-pink-700 uppercase tracking-[0.2em]">Instagram</span>
+                    </a>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* RIGHT SIDE: PREMIUM FORM */}
+          {/* RIGHT SIDE: FORM (Intacto) */}
           <div className="lg:col-span-7 order-1 lg:order-2">
             <div className="bg-white p-6 md:p-12 rounded-[2.5rem] shadow-2xl shadow-slate-200/60 border border-white relative overflow-hidden">
               <div className="relative z-10">
@@ -181,32 +198,23 @@ export default function Contact() {
                 <p className="text-slate-500 mb-8 md:mb-10 font-medium text-sm md:text-base">You will receive a response in less than 24 business hours.</p>
                 
                 <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-                  {/* ... Resto del formulario igual ... */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-slate-700 ml-1">Name</label>
                       <input 
-                        type="text" 
-                        name="nombre"
-                        value={formData.nombre}
-                        onChange={handleChange}
+                        type="text" name="nombre" value={formData.nombre} onChange={handleChange}
                         placeholder="Your full name" 
                         className="w-full bg-slate-50 border-slate-200 rounded-2xl p-4 text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium" 
-                        required 
-                        disabled={status === 'loading'}
+                        required disabled={status === 'loading'}
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-slate-700 ml-1">Email Address</label>
                       <input 
-                        type="email" 
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
+                        type="email" name="email" value={formData.email} onChange={handleChange}
                         placeholder="example@medbay.com" 
                         className="w-full bg-slate-50 border-slate-200 rounded-2xl p-4 text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium" 
-                        required 
-                        disabled={status === 'loading'}
+                        required disabled={status === 'loading'}
                       />
                     </div>
                   </div>
@@ -214,32 +222,23 @@ export default function Contact() {
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-700 ml-1">Subject</label>
                     <input 
-                      type="text" 
-                      name="asunto"
-                      value={formData.asunto}
-                      onChange={handleChange}
+                      type="text" name="asunto" value={formData.asunto} onChange={handleChange}
                       placeholder="e.g. Inquiry about bulk lots" 
                       className="w-full bg-slate-50 border-slate-200 rounded-2xl p-4 text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium" 
-                      required 
-                      disabled={status === 'loading'}
+                      required disabled={status === 'loading'}
                     />
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-700 ml-1">Message</label>
                     <textarea 
-                      name="mensaje"
-                      value={formData.mensaje}
-                      onChange={handleChange}
-                      placeholder="Tell us how we can help you..." 
-                      rows={5}
+                      name="mensaje" value={formData.mensaje} onChange={handleChange}
+                      placeholder="Tell us how we can help you..." rows={5}
                       className="w-full bg-slate-50 border-slate-200 rounded-2xl p-4 text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium resize-none" 
-                      required 
-                      disabled={status === 'loading'}
+                      required disabled={status === 'loading'}
                     ></textarea>
                   </div>
 
-                  {/* Feedback Messages */}
                   {status === 'success' && (
                     <div className="bg-green-50 text-green-700 px-4 py-3 rounded-xl flex items-center gap-3 border border-green-200 animate-in fade-in slide-in-from-top-2">
                       <CheckCircle2 size={20} />
@@ -263,23 +262,15 @@ export default function Contact() {
                     `}
                   >
                     {status === 'loading' ? (
-                      <>
-                        <Loader2 size={24} className="animate-spin" />
-                        Sending...
-                      </>
+                      <><Loader2 size={24} className="animate-spin" /> Sending...</>
                     ) : status === 'success' ? (
                       <>Sent Successfully</>
                     ) : (
-                      <>
-                        Send Message
-                        <Send size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                      </>
+                      <>Send Message <Send size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
                     )}
                   </button>
                 </form>
               </div>
-
-              {/* Subtle watermark */}
               <div className="absolute right-[-20px] bottom-[-20px] opacity-[0.03] pointer-events-none">
                 <img src="/icons/logomed.png" alt="" className="w-48 md:w-64" />
               </div>
@@ -288,7 +279,7 @@ export default function Contact() {
         </div>
       </section>
 
-      {/* ======= FINAL SECTION: TRUST ======= */}
+      {/* ======= TRUST SECTION ======= */}
       <section className="py-12 md:py-20 bg-slate-100">
         <div className="w-[90%] max-w-[1200px] mx-auto flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 opacity-50 grayscale">
             <div className="flex items-center gap-2 font-bold text-slate-400 text-sm md:text-base">
@@ -298,7 +289,7 @@ export default function Contact() {
             <div className="h-px w-20 bg-slate-300 hidden md:block"></div>
             <img src="/icons/logomednegro.png" alt="MedBay" className="h-6 md:h-8" />
             <div className="h-px w-20 bg-slate-300 hidden md:block"></div>
-            <span className="font-bold text-slate-400 text-sm md:text-base">LEVEL 3 SUPPORT</span>
+            <span className="font-bold text-slate-400 text-sm md:text-base">MEDBAY SECURITY</span>
         </div>
       </section>
     </div>
