@@ -1,7 +1,7 @@
 // frontend/src/components/layout/Footer.tsx
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Facebook, Instagram } from "lucide-react"; // Añadimos los iconos
 
 export default function Footer() {
   return (
@@ -9,7 +9,7 @@ export default function Footer() {
       <div className="w-[90%] max-w-[1400px] mx-auto px-4 md:px-0">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16 text-center md:text-left">
           
-          {/* COLUMN 1: BRANDING */}
+          {/* COLUMN 1: BRANDING & SOCIALS */}
           <div className="space-y-6">
             <img 
               src="/icons/logocompletoblanco.png" 
@@ -19,6 +19,28 @@ export default function Footer() {
             <p className="text-sm leading-relaxed max-w-xs mx-auto md:mx-0 font-medium italic">
               Leading strategic partner in the distribution and smart management of B2B medical devices.
             </p>
+            
+            {/* SOCIAL MEDIA ICONS */}
+            <div className="flex justify-center md:justify-start gap-5 pt-2">
+              <a 
+                href="https://www.facebook.com/profile.php?id=61586918317156" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="hover:text-blue-500 transition-colors"
+                aria-label="Facebook"
+              >
+                <Facebook size={20} />
+              </a>
+              <a 
+                href="https://www.instagram.com/medbay_supply/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="hover:text-pink-500 transition-colors"
+                aria-label="Instagram"
+              >
+                <Instagram size={20} />
+              </a>
+            </div>
           </div>
 
           {/* COLUMN 2: PLATFORM */}
