@@ -123,7 +123,7 @@ export default function Contact() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Sales Line</p>
-                    <p className="text-lg font-bold text-slate-700">+52 (55) 8800-MEDS</p>
+                    <p className="text-lg font-bold text-slate-700">+1 (787) 466-2212</p>
                   </div>
                 </div>
 
@@ -133,7 +133,7 @@ export default function Contact() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Headquarters</p>
-                    <p className="text-lg font-bold text-slate-700 leading-snug">CDMX, Mexico - Tech District</p>
+                    <p className="text-lg font-bold text-slate-700 leading-snug">EDOMEX, Mexico</p>
                   </div>
                 </div>
               </div>
@@ -141,7 +141,7 @@ export default function Contact() {
               <div className="mt-12 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4">
                 <Clock className="text-blue-500 flex-shrink-0" size={24} />
                 <p className="text-sm text-slate-600 font-medium">
-                  B2B Support: Mon - Fri, 9:00 AM to 6:00 PM
+                  Support: Mon - Fri, 9:00 AM to 6:00 PM
                 </p>
               </div>
             </div>
