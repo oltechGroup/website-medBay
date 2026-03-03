@@ -13,11 +13,13 @@ import {
   ShieldCheck,
   Loader2, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Facebook,    // Añadido
+  Instagram    // Añadido
 } from "lucide-react";
 
 export default function Contact() {
-  // --- STATES ---
+  // --- STATES (Sin cambios) ---
   const [formData, setFormData] = useState({
     nombre: "",
     email: "",
@@ -28,7 +30,7 @@ export default function Contact() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
-  // --- HANDLERS ---
+  // --- HANDLERS (Sin cambios) ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
       ...formData,
@@ -97,13 +99,14 @@ export default function Contact() {
       <section className="relative z-20 -mt-12 pb-32 w-[90%] max-w-[1200px] mx-auto px-0 md:px-4">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* LEFT SIDE: CONTACT INFO */}
+          {/* LEFT SIDE: CONTACT INFO & SOCIALS */}
           <div className="lg:col-span-5 space-y-6 order-2 lg:order-1">
+            
+            {/* Card 1: Info */}
             <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-white">
               <h2 className="text-2xl font-black mb-8 text-slate-800">Contact Information</h2>
               
               <div className="space-y-8">
-                
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Mail size={24} />
@@ -142,6 +145,32 @@ export default function Contact() {
                 </p>
               </div>
             </div>
+
+            {/* Card 2: Social Media (NUEVA) */}
+            <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-white">
+              <h2 className="text-2xl font-black mb-6 text-slate-800">Follow our community</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <a 
+                  href="https://www.facebook.com/profile.php?id=61586918317156" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center justify-center p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-blue-50 hover:border-blue-200 transition-all group"
+                >
+                  <Facebook className="text-slate-400 group-hover:text-blue-600 mb-2 transition-colors" size={28} />
+                  <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-700 uppercase tracking-[0.2em]">Facebook</span>
+                </a>
+                
+                <a 
+                  href="https://www.instagram.com/medbay_supply/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center justify-center p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-pink-50 hover:border-pink-200 transition-all group"
+                >
+                  <Instagram className="text-slate-400 group-hover:text-pink-600 mb-2 transition-colors" size={28} />
+                  <span className="text-[10px] font-bold text-slate-500 group-hover:text-pink-700 uppercase tracking-[0.2em]">Instagram</span>
+                </a>
+              </div>
+            </div>
           </div>
 
           {/* RIGHT SIDE: PREMIUM FORM */}
@@ -152,6 +181,7 @@ export default function Contact() {
                 <p className="text-slate-500 mb-8 md:mb-10 font-medium text-sm md:text-base">You will receive a response in less than 24 business hours.</p>
                 
                 <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+                  {/* ... Resto del formulario igual ... */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-slate-700 ml-1">Name</label>
