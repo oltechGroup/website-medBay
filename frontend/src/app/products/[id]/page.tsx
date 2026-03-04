@@ -357,61 +357,61 @@ export default function ProductPage() {
                   ))}
               </div>
 
-              {/* ✅ BLOQUE DE PRECIO Y COTIZACIÓN SUPERIOR */}
-              <div className="flex items-center justify-between bg-slate-50 border border-slate-100 p-5 rounded-[2rem] mb-8">
+              {/* ✅ BLOQUE DE NOTAS / INCLUYE MOVIDO HACIA ARRIBA */}
+              {product.notes && product.notes.trim() !== '' && (
+                <div className="mb-8 bg-blue-50/50 border border-blue-100 rounded-3xl p-6 md:p-8 shadow-sm">
+                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <FileText size={16} className="text-blue-600" /> Notes & Included Items
+                  </h4>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">
+                    {product.notes}
+                  </p>
+                </div>
+              )}
+
+              {/* ✅ NUEVO BLOQUE DE PRECIO HEROE */}
+              <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-6 shadow-sm mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div>
-                   {hasActiveLots ? (
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mb-1">Unit Price</p>
-                   ) : (
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mb-1">Reference Price</p>
-                   )}
-                   
-                   {minPrice === maxPrice && minPrice > 0 ? (
-                       <p className="text-3xl font-black text-blue-600">{formatCurrency(minPrice)}</p>
-                   ) : minPrice > 0 ? (
-                       <div className="flex flex-col">
-                         <p className="text-3xl font-black text-blue-600">{formatCurrency(minPrice)}</p>
-                         <p className="text-xs text-slate-500 font-medium">Starting from</p>
-                       </div>
-                   ) : (
-                       <p className="text-lg font-bold text-slate-400 italic">Price on request</p>
-                   )}
+                  {hasReferencePrice ? (
+                    <>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        {minPrice !== maxPrice ? 'Starting Price' : 'Unit Price'}
+                      </p>
+                      <div className="flex items-end gap-2">
+                         <span className="text-4xl font-black text-slate-900 tracking-tighter">
+                           {formatCurrency(minPrice)}
+                         </span>
+                         {minPrice !== maxPrice && (
+                           <span className="text-sm font-bold text-slate-500 mb-1.5">
+                             / up to {formatCurrency(maxPrice)}
+                           </span>
+                         )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                         Reference Price
+                      </p>
+                      <span className="text-2xl font-black text-slate-600 italic">
+                         Price on request
+                      </span>
+                    </>
+                  )}
                 </div>
-                
-                <div className="text-right flex flex-col items-end gap-3">
-                   {hasActiveLots ? (
-                     <span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold bg-emerald-100 border border-emerald-200 px-4 py-2 rounded-full text-[10px] uppercase tracking-widest">
-                       <Package size={14} /> {product.active_lots} Lots Available
-                     </span>
-                   ) : (
-                     <span className="inline-flex items-center gap-1.5 text-blue-700 font-bold bg-blue-100 border border-blue-200 px-4 py-2 rounded-full text-[10px] uppercase tracking-widest">
-                       <Info size={14} /> On Request
-                     </span>
-                   )}
 
-                   {!hasActiveLots && (
-                     <button 
-                       onClick={() => handleOpenQuote({ referencePrice: minPrice })}
-                       className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 shadow-xl shadow-slate-900/10 transition-all active:scale-95 flex items-center gap-2"
-                     >
-                       <FileText size={14}/> Request Quote
-                     </button>
-                   )}
-                </div>
+                {/* Si no hay precio de referencia o no hay lotes activos, mostramos el botón grande aquí */}
+                {(!hasReferencePrice || !hasActiveLots) && (
+                  <button 
+                    onClick={() => handleOpenQuote({ referencePrice: minPrice })}
+                    className="w-full sm:w-auto bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <FileText size={16}/> Request Quote
+                  </button>
+                )}
               </div>
+
             </div>
-
-            {/* ✅ BLOQUE DE NOTAS / INCLUYE (COMPLETO) */}
-            {product.notes && product.notes.trim() !== '' && (
-              <div className="mb-10 bg-blue-50/50 border border-blue-100 rounded-3xl p-6 md:p-8">
-                <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <FileText size={16} className="text-blue-600" /> Notes & Included Accessories
-                </h4>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">
-                  {product.notes}
-                </p>
-              </div>
-            )}
 
             <div className="h-px bg-slate-100 w-full mb-10"></div>
 

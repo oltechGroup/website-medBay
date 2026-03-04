@@ -226,9 +226,43 @@ const Product = {
     return result.rows;
   },
   
+  // ✅ CORRECCIÓN APLICADA: Ahora findById calcula imágenes y precios igual que el catálogo general
   findById: async (id) => {
     const query = `
-      SELECT p.*, m.name as manufacturer_name
+      SELECT 
+        p.*, 
+        m.name as manufacturer_name,
+        
+        (SELECT COUNT(*)::integer FROM product_images pi WHERE pi.product_id = p.id) as image_count,
+        
+        (SELECT image_url FROM product_images pi 
+         WHERE pi.product_id = p.id 
+         ORDER BY pi.is_primary DESC, pi.created_at DESC 
+         LIMIT 1) as primary_image,
+         
+        (SELECT array_agg(category_id) FROM product_categories WHERE product_id = p.id) as category_ids,
+        (SELECT array_agg(c.name) FROM product_categories pc 
+          JOIN categories c ON pc.category_id = c.id 
+          WHERE pc.product_id = p.id) as category_names,
+          
+        (SELECT MIN(pl.price)::float FROM product_lots pl 
+          JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+          WHERE ps.product_id = p.id AND pl.quantity >= 0
+          AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')
+        ) as min_price,
+          
+        (SELECT MAX(pl.price)::float FROM product_lots pl 
+          JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+          WHERE ps.product_id = p.id AND pl.quantity >= 0
+          AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')
+        ) as max_price,
+          
+        (SELECT COUNT(pl.id)::integer FROM product_lots pl 
+          JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+          WHERE ps.product_id = p.id AND pl.quantity >= 0
+          AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')
+        ) as active_lots
+
       FROM products p
       LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
       WHERE p.id = $1
