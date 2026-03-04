@@ -230,7 +230,7 @@ export const ProductForm = ({
                   className={inputClasses}
                 >
                   <option value="">Select a manufacturer...</option>
-                  {manufacturers.map(m => (
+                  {manufacturers.map((m: any) => (
                     <option key={m.id} value={m.id} className="text-gray-900">
                       {m.name}
                     </option>
@@ -276,7 +276,7 @@ export const ProductForm = ({
             </h3>
             <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                    {categories.filter(c => formData.category_ids.includes(c.id)).map(cat => (
+                    {categories.filter((c: any) => formData.category_ids.includes(c.id)).map((cat: any) => (
                         <span key={cat.id} className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs px-3 py-1.5 rounded-full flex items-center gap-2 font-bold uppercase tracking-wider">
                             {cat.name}
                             <button type="button" onClick={() => handleInputChange('category_ids', formData.category_ids.filter(id => id !== cat.id))} className="hover:text-emerald-900 transition-colors">
@@ -295,7 +295,7 @@ export const ProductForm = ({
                       className={`${inputClasses} pr-10`}
                   >
                       <option value="">+ Add category to product...</option>
-                      {categories.filter(c => !formData.category_ids.includes(c.id)).map(c => (
+                      {categories.filter((c: any) => !formData.category_ids.includes(c.id)).map((c: any) => (
                           <option key={c.id} value={c.id} className="text-gray-900">{c.name}</option>
                       ))}
                   </select>
@@ -310,6 +310,7 @@ export const ProductForm = ({
           </div>
         )}
 
+        {/* FOOTER ACTIONS */}
         <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
           <button
             type="button"

@@ -155,32 +155,18 @@ const excelParser = {
     return mappings;
   },
 
-  // Validar datos parseados
+  // Validar datos parseados (Relajado para "Motor Inteligente")
   validateParsedData: (parsedData) => {
     const errors = [];
     
+    // La descripción es el ÚNICO dato estrictamente obligatorio para crear algo en la BD
     if (!parsedData.product_name) {
-      errors.push('Nombre del producto es requerido');
+      errors.push('Nombre del producto / Descripción es requerido');
     }
     
-    if (!parsedData.lot_number) {
-      errors.push('Número de lote es requerido');
-    }
-    
-    if (!parsedData.expiry_date) {
-      errors.push('Fecha de expiración es requerida');
-    } else if (new Date(parsedData.expiry_date) < new Date()) {
-      errors.push('Producto ya expirado');
-    }
-    
-    if (!parsedData.quantity || parsedData.quantity <= 0) {
-      errors.push('Cantidad debe ser mayor a 0');
-    }
-    
-    if (!parsedData.price || parsedData.price <= 0) {
-      errors.push('Precio debe ser mayor a 0');
-    }
-    
+    // Eliminamos las validaciones estrictas de lote, fecha, cantidad y precio.
+    // El ImportModel se encargará de evaluar estos datos y decidir si crea o no un lote.
+
     return errors;
   }
 };

@@ -74,7 +74,7 @@ const inventoryController = {
     }
   },
 
-  // ✅ CREAR NUEVO LOTE
+  // ✅ CREAR NUEVO LOTE (Validación Relajada para Inteligencia de Lotes)
   createLot: async (req, res) => {
     try {
       const {
@@ -87,20 +87,21 @@ const inventoryController = {
         received_at
       } = req.body;
 
-      if (!product_supplier_id || !lot_number || !expiry_date || !quantity || !price || !status) {
+      // 🚨 Solo exigimos la relación, el número de lote y el estado. Lo demás es opcional.
+      if (!product_supplier_id || !lot_number || !status) {
         return res.status(400).json({ 
-          error: 'Faltan campos requeridos: product_supplier_id, lot_number, expiry_date, quantity, price, status' 
+          error: 'Faltan campos requeridos fundamentales: product_supplier_id, lot_number o status' 
         });
       }
 
       const newLot = await ProductLot.create({
         product_supplier_id,
         lot_number,
-        expiry_date,
-        quantity,
-        price,
+        expiry_date: expiry_date || null,
+        quantity: quantity || 0,
+        price: price || 0,
         status,
-        received_at
+        received_at: received_at || new Date()
       });
 
       res.status(201).json({
@@ -116,7 +117,7 @@ const inventoryController = {
     }
   },
 
-  // ✅ ACTUALIZAR LOTE
+  // ✅ ACTUALIZAR LOTE (Validación Relajada)
   updateLot: async (req, res) => {
     try {
       const { id } = req.params;
@@ -133,9 +134,9 @@ const inventoryController = {
       const updatedLot = await ProductLot.update(id, {
         product_supplier_id,
         lot_number,
-        expiry_date,
-        quantity,
-        price,
+        expiry_date: expiry_date || null,
+        quantity: quantity || 0,
+        price: price || 0,
         status,
         received_at
       });
@@ -181,7 +182,8 @@ const inventoryController = {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 20;
 
-      const validStatuses = ['available', 'near_expiry', 'expired'];
+      // 🚨 Añadido 'equipment' a los estados válidos
+      const validStatuses = ['available', 'near_expiry', 'expired', 'equipment'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ error: 'Estado no válido' });
       }

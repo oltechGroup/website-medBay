@@ -45,7 +45,7 @@ const ImportModel = {
     const { 
       supplier_id, sales_category, user_id, 
       description, sku, manufacturer, quantity, price, expiry_date,
-      image_url, local_image_path, notes // ✅ Capturamos notes
+      image_url, local_image_path, notes 
     } = data;
 
     const client = await db.pool.connect();
@@ -62,31 +62,35 @@ const ImportModel = {
 
       const currencyData = await ImportModel.getSupplierExchangeRate(supplier_id);
       const exchangeRateUsed = currencyData.exchange_rate || 1;
-      const priceUSD = price / exchangeRateUsed;
+      
+      const hasPriceData = price !== undefined && price !== null && String(price).trim() !== '';
+      const hasQtyData = quantity !== undefined && quantity !== null && String(quantity).trim() !== '';
+      const hasDateData = expiry_date !== undefined && expiry_date !== null && String(expiry_date).trim() !== '';
+      
+      const priceUSD = hasPriceData ? (parseFloat(price) / exchangeRateUsed) : 0;
+      const finalQty = hasQtyData ? parseInt(quantity) : 0;
 
       let finalSku = (sku && sku.trim() !== '') ? sku.trim() : 
         `MAN-${Buffer.from(description).toString('base64').substring(0, 6).toUpperCase()}-${Date.now().toString().slice(-4)}`;
 
-      let manufacturerName = manufacturer || 'No especificado';
-
+      let manufacturerName = (manufacturer && manufacturer.trim() !== '') ? manufacturer.trim() : 'No especificado';
       let makerId;
-      const makerRes = await client.query('SELECT id FROM manufacturers WHERE name = $1', [manufacturerName]);
-      if (makerRes.rows.length > 0) makerId = makerRes.rows[0].id;
-      else {
+      const makerRes = await client.query('SELECT id FROM manufacturers WHERE name ILIKE $1', [manufacturerName]);
+      if (makerRes.rows.length > 0) {
+          makerId = makerRes.rows[0].id;
+      } else {
         const newMaker = await client.query('INSERT INTO manufacturers (name) VALUES ($1) RETURNING id', [manufacturerName]);
         makerId = newMaker.rows[0].id;
       }
 
       let productId;
-      const prodRes = await client.query('SELECT id FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [finalSku, makerId]);
+      const prodRes = await client.query('SELECT id, notes FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [finalSku, makerId]);
       if (prodRes.rows.length > 0) {
           productId = prodRes.rows[0].id;
-          // Si ya existe pero traemos notas, se las actualizamos (o concatenamos si lo prefieres)
-          if(notes) {
+          if(notes && (!prodRes.rows[0].notes || prodRes.rows[0].notes.trim() === '')) {
               await client.query('UPDATE products SET notes = $1 WHERE id = $2', [notes, productId]);
           }
       } else {
-        // ✅ Insertamos las notes al crear el producto
         const newProd = await client.query(
             'INSERT INTO products (description, global_sku, manufacturer_id, notes) VALUES ($1, $2, $3, $4) RETURNING id', 
             [description, finalSku, makerId, notes || null]
@@ -109,8 +113,9 @@ const ImportModel = {
 
       let psId;
       const psCheck = await client.query('SELECT id FROM product_suppliers WHERE supplier_id = $1 AND supplier_sku = $2', [supplier_id, finalSku]);
-      if (psCheck.rows.length > 0) psId = psCheck.rows[0].id;
-      else {
+      if (psCheck.rows.length > 0) {
+          psId = psCheck.rows[0].id;
+      } else {
         const supNameRes = await client.query('SELECT name FROM suppliers WHERE id=$1', [supplier_id]);
         const psInsert = await client.query(
           `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name) VALUES ($1, $2, $3, $4) RETURNING id`,
@@ -119,17 +124,48 @@ const ImportModel = {
         psId = psInsert.rows[0].id;
       }
 
-      // ✅ Soporte para la categoría equipment
-      let lotStatus = sales_category;
-      if (sales_category === 'regular') lotStatus = 'available';
+      // ✅ Creación o SUMA de Lote Inteligente
+      let createdLotsCount = 0;
+      const shouldCreateLot = hasPriceData || hasQtyData || hasDateData;
 
-      await client.query(
-        `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at) 
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-        [psId, `MAN-LOT-${Date.now()}`, quantity, priceUSD, lotStatus, expiry_date || null]
-      );
+      if (shouldCreateLot) {
+          let lotStatus = sales_category === 'regular' ? 'available' : sales_category;
+          
+          let existingLotQuery = `SELECT id, quantity FROM product_lots WHERE product_supplier_id = $1 AND price = $2 AND status = $3`;
+          let queryParams = [psId, priceUSD, lotStatus];
+          
+          if (expiry_date) {
+              existingLotQuery += ` AND expiry_date = $4`;
+              queryParams.push(expiry_date);
+          } else {
+              existingLotQuery += ` AND expiry_date IS NULL`;
+          }
+          
+          const existingLotRes = await client.query(existingLotQuery, queryParams);
 
-      const stats = { created_lots: 1, created_products: prodRes.rows.length > 0 ? 0 : 1, created_manufacturers: makerRes.rows.length > 0 ? 0 : 1 };
+          if (existingLotRes.rows.length > 0) {
+              // Ya existe un lote con los mismos datos -> SUMAMOS LA CANTIDAD
+              await client.query(
+                  `UPDATE product_lots SET quantity = quantity + $1, updated_at = NOW() WHERE id = $2`,
+                  [finalQty, existingLotRes.rows[0].id]
+              );
+          } else {
+              // No existe -> CREAMOS NUEVO LOTE
+              await client.query(
+                `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at) 
+                 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+                [psId, `MAN-LOT-${Date.now()}`, finalQty, priceUSD, lotStatus, hasDateData ? expiry_date : null]
+              );
+              createdLotsCount = 1;
+          }
+      }
+
+      const stats = { 
+          created_lots: createdLotsCount, 
+          created_products: prodRes.rows.length > 0 ? 0 : 1, 
+          created_manufacturers: makerRes.rows.length > 0 ? 0 : 1 
+      };
+
       await client.query(`
         INSERT INTO import_progress (upload_id, user_id, status, current_operation, total_rows, processed_rows, error_messages) 
         VALUES ($1, $2, 'completed', 'Manual entry created', 1, 1, $3::jsonb)`, 
@@ -159,7 +195,6 @@ const ImportModel = {
   },
 
   cleanSupplierInventory: async (supplier_id, sales_category) => {
-    // ✅ Soporte para la categoría equipment
     let statusFilter = sales_category === 'regular' ? 'available' : sales_category;
     const query = `DELETE FROM product_lots WHERE product_supplier_id IN (SELECT id FROM product_suppliers WHERE supplier_id = $1) AND status = $2`;
     const result = await db.query(query, [supplier_id, statusFilter]);
@@ -227,7 +262,7 @@ const ImportModel = {
 
       await db.query("DELETE FROM raw_rows WHERE raw_upload_id = $1", [upload_id]);
       const progressStatus = allErrors.length > 0 ? 'completed_with_errors' : 'completed';
-      const uploadStatus = (allErrors.length > 0 && globalStats.created_lots === 0) ? 'failed' : 'finished';
+      const uploadStatus = (allErrors.length > 0 && globalStats.created_lots === 0 && globalStats.created_products === 0) ? 'failed' : 'finished';
       const finalPayload = { errors: allErrors.slice(0, 200), stats: globalStats };
 
       await db.query(`UPDATE import_progress SET status = $1, current_operation = 'Completed', processed_rows = $2, error_messages = $3::jsonb, updated_at = NOW() WHERE upload_id = $4`, [progressStatus, totalExcelRows, JSON.stringify(finalPayload), upload_id]);
@@ -253,9 +288,8 @@ const ImportModel = {
         try {
           await client.query('SAVEPOINT row_processing');
           const description = mappings.descripcion === 'not_applicable' ? null : item[mappings.descripcion];
-          if (!description) throw new Error(`Row ${rowIndex}: Description is required.`);
+          if (!description) throw new Error(`Row ${rowIndex}: Description is required to create a product.`);
 
-          // ✅ Extraer Notas / Incluye (Opcional)
           let notes = null;
           if (mappings.notas && mappings.notas !== 'not_applicable') {
             notes = item[mappings.notas];
@@ -266,39 +300,58 @@ const ImportModel = {
             sku = `GEN-${Buffer.from(description).toString('base64').substring(0, 6).toUpperCase()}-${Date.now().toString().slice(-6)}`;
           }
 
-          let manufacturerName = mappings.fabricante === 'not_applicable' ? 'No especificado' : String(item[mappings.fabricante] || 'No especificado').trim();
           let rawPrice = 0;
-          if (mappings.precio !== 'not_applicable') {
-            const priceStr = String(item[mappings.precio] || '0').replace(/[^0-9.]/g, '');
+          let hasPriceData = false;
+          if (mappings.precio !== 'not_applicable' && item[mappings.precio] !== undefined && String(item[mappings.precio]).trim() !== '') {
+            const priceStr = String(item[mappings.precio]).replace(/[^0-9.]/g, '');
             rawPrice = parseFloat(priceStr) || 0;
+            hasPriceData = true;
           }
           
           const exchangeRateUsed = currencyData.exchange_rate || 1;
           const priceUSD = rawPrice / exchangeRateUsed;
-          const quantity = mappings.cantidad === 'not_applicable' ? 0 : parseInt(item[mappings.cantidad]) || 0;
+
+          let quantity = 0;
+          let hasQtyData = false;
+          if (mappings.cantidad !== 'not_applicable' && item[mappings.cantidad] !== undefined && String(item[mappings.cantidad]).trim() !== '') {
+            quantity = parseInt(item[mappings.cantidad]) || 0;
+            hasQtyData = true;
+          }
+
+          let expiryDate = null;
+          let hasDateData = false;
+          if (mappings.fecha_caducidad !== 'not_applicable' && item[mappings.fecha_caducidad] !== undefined && String(item[mappings.fecha_caducidad]).trim() !== '') {
+            const d = new Date(item[mappings.fecha_caducidad]);
+            if (!isNaN(d.getTime())) {
+                expiryDate = d;
+                hasDateData = true;
+            }
+          }
+
+          let manufacturerName = mappings.fabricante === 'not_applicable' || !item[mappings.fabricante] || String(item[mappings.fabricante]).trim() === ''
+              ? 'No especificado' : String(item[mappings.fabricante]).trim();
 
           let makerId;
-          const makerRes = await client.query('SELECT id FROM manufacturers WHERE name = $1', [manufacturerName]);
-          if (makerRes.rows.length > 0) makerId = makerRes.rows[0].id;
-          else {
+          const makerRes = await client.query('SELECT id FROM manufacturers WHERE name ILIKE $1', [manufacturerName]);
+          if (makerRes.rows.length > 0) {
+              makerId = makerRes.rows[0].id;
+          } else {
             const newMaker = await client.query('INSERT INTO manufacturers (name) VALUES ($1) RETURNING id', [manufacturerName]);
             makerId = newMaker.rows[0].id;
             stats.created_manufacturers++;
           }
 
           let productId;
-          const prodRes = await client.query('SELECT id FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [sku, makerId]);
+          const prodRes = await client.query('SELECT id, notes FROM products WHERE global_sku = $1 AND manufacturer_id = $2', [sku, makerId]);
           if (prodRes.rows.length > 0) {
               productId = prodRes.rows[0].id;
-               // Si ya existe pero traemos notas nuevas, se las actualizamos 
-               if(notes && (!prodRes.rows[0].notes || prodRes.rows[0].notes.trim() === '')) {
-                  await client.query('UPDATE products SET notes = $1 WHERE id = $2', [notes, productId]);
-               }
+              if(notes && (!prodRes.rows[0].notes || prodRes.rows[0].notes.trim() === '')) {
+                 await client.query('UPDATE products SET notes = $1 WHERE id = $2', [notes, productId]);
+              }
           } else {
-            // ✅ Guardamos las notas al crear el producto
             const newProd = await client.query(
                 'INSERT INTO products (description, global_sku, manufacturer_id, notes) VALUES ($1, $2, $3, $4) RETURNING id', 
-                [description, sku, makerId, notes]
+                [description, sku, makerId, notes || null]
             );
             productId = newProd.rows[0].id;
             stats.created_products++;
@@ -314,8 +367,9 @@ const ImportModel = {
 
           let psId;
           const psCheck = await client.query('SELECT id FROM product_suppliers WHERE supplier_id = $1 AND supplier_sku = $2', [upload.supplier_id, sku]);
-          if (psCheck.rows.length > 0) psId = psCheck.rows[0].id;
-          else {
+          if (psCheck.rows.length > 0) {
+              psId = psCheck.rows[0].id;
+          } else {
             const supNameRes = await client.query('SELECT name FROM suppliers WHERE id=$1', [upload.supplier_id]);
             const psInsert = await client.query(
               `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name) VALUES ($1, $2, $3, $4) RETURNING id`,
@@ -324,21 +378,41 @@ const ImportModel = {
             psId = psInsert.rows[0].id;
           }
 
-          // ✅ Soporte para la categoría equipment
-          let lotStatus = upload.sales_category === 'regular' ? 'available' : upload.sales_category;
-          let expiryDate = null;
-          if (mappings.fecha_caducidad !== 'not_applicable' && item[mappings.fecha_caducidad]) {
-            const d = new Date(item[mappings.fecha_caducidad]);
-            if (!isNaN(d.getTime())) expiryDate = d;
+          // ✅ Lógica de Creación o SUMA de Lote
+          const shouldCreateLot = hasPriceData || hasQtyData || hasDateData;
+
+          if (shouldCreateLot) {
+              let lotStatus = upload.sales_category === 'regular' ? 'available' : upload.sales_category;
+              
+              let existingLotQuery = `SELECT id, quantity FROM product_lots WHERE product_supplier_id = $1 AND price = $2 AND status = $3`;
+              let queryParams = [psId, priceUSD, lotStatus];
+              
+              if (expiryDate) {
+                  existingLotQuery += ` AND expiry_date = $4`;
+                  queryParams.push(expiryDate);
+              } else {
+                  existingLotQuery += ` AND expiry_date IS NULL`;
+              }
+
+              const existingLotRes = await client.query(existingLotQuery, queryParams);
+
+              if (existingLotRes.rows.length > 0) {
+                  // Ya existe -> SUMAMOS
+                  await client.query(
+                      `UPDATE product_lots SET quantity = quantity + $1, updated_at = NOW() WHERE id = $2`,
+                      [quantity, existingLotRes.rows[0].id]
+                  );
+              } else {
+                  // No existe -> INSERTAMOS
+                  await client.query(
+                    `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at) 
+                     VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+                    [psId, `LOT-${Date.now()}-${Math.floor(Math.random()*10000)}`, quantity, priceUSD, lotStatus, expiryDate]
+                  );
+                  stats.created_lots++;
+              }
           }
 
-          await client.query(
-            `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at) 
-             VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-            [psId, `LOT-${Date.now()}-${Math.floor(Math.random()*10000)}`, quantity, priceUSD, lotStatus, expiryDate]
-          );
-
-          stats.created_lots++;
           await client.query('RELEASE SAVEPOINT row_processing');
         } catch (rowError) {
           await client.query('ROLLBACK TO SAVEPOINT row_processing');

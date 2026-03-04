@@ -31,7 +31,81 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
   
   const hasPrice = price && parseFloat(price) > 0;
   const hasStock = lot.quantity > 0;
-  const isEquipment = lot.status === 'equipment'; // ✅ VERIFICACIÓN DE EQUIPO
+  const isEquipment = lot.status === 'equipment';
+
+  // Lógica Inteligente para visualización de Lotes
+  const renderLotActions = () => {
+    // Si tiene Precio y Cantidad -> COMPRA DIRECTA (Aplica tanto para Insumos como para Equipo)
+    if (hasPrice && hasStock) {
+      return (
+        <>
+          <div className="flex justify-end w-full">
+            <QuantitySelector 
+              quantity={quantity}
+              max={lot.quantity}
+              onIncrease={() => setQuantity(q => q + 1)}
+              onDecrease={() => setQuantity(q => q - 1)}
+              disabled={isAdding}
+              size="sm"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => onAddToCart(lot.id, quantity, false)}
+              disabled={isAdding}
+              className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 text-xs font-bold"
+              title="Add to cart"
+            >
+              <ShoppingCart size={14} />
+            </button>
+            <button 
+              onClick={() => onAddToCart(lot.id, quantity, true)} 
+              disabled={isAdding}
+              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-colors text-xs font-bold"
+            >
+              Buy Now
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    // SI FALTA PRECIO O CANTIDAD -> FLUJOS DE COTIZACIÓN
+    
+    // CASO 1: TIENE PRECIO, PERO NO CANTIDAD (Bajo en Stock / Solicitar Disponibilidad)
+    if (hasPrice && !hasStock) {
+      return (
+        <button
+          onClick={() => onQuote(lot)}
+          className="w-full bg-amber-50 border-2 border-amber-200 text-amber-700 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-bold hover:bg-amber-100"
+        >
+          <AlertTriangle size={14} /> Check Availability
+        </button>
+      );
+    }
+
+    // CASO 2: TIENE CANTIDAD, PERO NO PRECIO (Solicitar Cotización)
+    if (!hasPrice && hasStock) {
+       return (
+        <button
+          onClick={() => onQuote(lot)}
+          className="w-full bg-white border-2 border-blue-200 text-blue-600 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-bold hover:bg-blue-50"
+        >
+          <FileText size={14} /> Request Quote
+        </button>
+      );
+    }
+
+    // CASO 3: NO TIENE NI PRECIO NI CANTIDAD (Solo Fecha o Nada) -> Solicitar Disponibilidad General / Cotizar Equipo
+    return (
+      <button
+        onClick={() => onQuote(lot)}
+        className="w-full bg-white border-2 border-slate-200 text-slate-600 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-bold hover:bg-slate-50"
+      >
+        <Info size={14} /> {isEquipment ? 'Quote Equipment' : 'Inquire Status'}
+      </button>
+    );
+  };
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 grid md:grid-cols-12 gap-4 items-center hover:border-blue-300 transition-all shadow-sm group">
@@ -41,12 +115,14 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase ${config.color}`}>
           {config.label}
         </span>
-        <p className="text-[11px] text-gray-400 mt-1.5 font-mono flex items-center gap-1">
-          <Package size={10} /> Lot: <span className="text-slate-600 font-bold">{lot.lot_number}</span>
-        </p>
+        {lot.lot_number && (
+          <p className="text-[11px] text-gray-400 mt-1.5 font-mono flex items-center gap-1">
+            <Package size={10} /> Lot: <span className="text-slate-600 font-bold">{lot.lot_number}</span>
+          </p>
+        )}
       </div>
 
-      {/* 2. Expiration or Condition (ADAPTADO PARA EQUIPOS) */}
+      {/* 2. Expiration or Condition (EQUIPO vs INSUMO) */}
       <div className="col-span-6 md:col-span-3 flex items-center gap-3 text-sm text-gray-600">
         <div className="p-2 bg-gray-50 rounded-lg text-gray-400">
           {isEquipment ? <CheckCircle size={18} /> : <Calendar size={18}/>}
@@ -65,55 +141,16 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
       <div className="col-span-6 md:col-span-3 text-right md:text-left flex flex-col">
         <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide mb-0.5">Unit Price</span>
         <span className="font-black text-blue-700 text-lg">
-            {hasPrice ? formatCurrency(price) : <span className="text-slate-400 italic text-sm font-bold">Get Quote</span>}
+            {hasPrice ? formatCurrency(price) : <span className="text-slate-400 italic text-sm font-bold">Quote Req.</span>}
         </span>
-        <span className={`text-[10px] mt-0.5 font-bold ${hasStock ? 'text-green-600' : 'text-blue-600'}`}>
-            {hasStock ? `Stock: ${lot.quantity} pcs` : 'Available on request'}
+        <span className={`text-[10px] mt-0.5 font-bold ${hasStock ? 'text-green-600' : (hasPrice ? 'text-amber-500' : 'text-blue-600')}`}>
+            {hasStock ? `Stock: ${lot.quantity} pcs` : (hasPrice ? 'Low Stock' : 'Check availability')}
         </span>
       </div>
 
       {/* 4. Action Controls (SMART) */}
       <div className="col-span-12 md:col-span-3 flex flex-col gap-2">
-        {hasPrice && hasStock ? (
-          <>
-            <div className="flex justify-end w-full">
-              <QuantitySelector 
-                quantity={quantity}
-                max={lot.quantity}
-                onIncrease={() => setQuantity(q => q + 1)}
-                onDecrease={() => setQuantity(q => q - 1)}
-                disabled={isAdding}
-                size="sm"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => onAddToCart(lot.id, quantity, false)}
-                disabled={isAdding}
-                className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 text-xs font-bold"
-                title="Add to cart"
-              >
-                <ShoppingCart size={14} />
-              </button>
-              <button 
-                onClick={() => onAddToCart(lot.id, quantity, true)} 
-                disabled={isAdding}
-                className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-colors text-xs font-bold"
-              >
-                Buy Now
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="w-full flex items-center h-full">
-             <button
-               onClick={() => onQuote(lot)}
-               className="w-full group-hover:bg-blue-600 group-hover:text-white bg-white border-2 border-blue-100 text-blue-600 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-bold shadow-sm"
-             >
-               <FileText size={14} /> Request Quote
-             </button>
-          </div>
-        )}
+        {renderLotActions()}
       </div>
     </div>
   );
@@ -146,7 +183,10 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
   }, []);
 
   const hasActiveLots = product.active_lots && product.active_lots > 0;
+  
+  // ✅ VARIABLES SEGURAS DE PRECIO (Para evitar errores TypeScript de undefined)
   const minPrice = product.min_price ? Number(product.min_price) : 0;
+  const maxPrice = product.max_price ? Number(product.max_price) : 0;
   const hasReferencePrice = minPrice > 0;
   
   const handleOpenQuote = (context?: QuoteContext) => {
@@ -165,7 +205,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
     } else {
         if (hasReferencePrice) {
             handleOpenQuote({
-                referencePrice: product.min_price ? Number(product.min_price) : 0,
+                referencePrice: minPrice,
             });
         } else {
             handleOpenQuote();
@@ -215,7 +255,6 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                   src={getImageUrl(product.primary_image)} 
                   alt={product.description}
                   className="w-full h-full object-contain mix-blend-multiply transition-transform group-hover/card:scale-105"
-                  // ✅ CORRECCIÓN DE IMAGEN: Se evita el loop y se pone un placeholder sólido
                   onError={(e) => {
                     e.currentTarget.onerror = null; 
                     e.currentTarget.src = "https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image";
@@ -247,7 +286,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
               {product.description}
             </h3>
 
-            {/* ✅ NUEVO: MOSTRAR NOTAS / INCLUYE (TRUNCADO) */}
+            {/* ✅ MOSTRAR NOTAS / INCLUYE (TRUNCADO) */}
             {product.notes && (
               <div className="mt-2 mb-3 bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-left">
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1">
@@ -286,13 +325,15 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                    {hasActiveLots ? (
                      <>
                         <p className="text-[10px] text-gray-400 mb-0.5 uppercase tracking-wide font-bold">Unit Price</p>
-                        {product.min_price === product.max_price ? (
-                           <p className="text-xl font-black text-blue-600">{formatCurrency(product.min_price)}</p>
-                        ) : (
+                        {minPrice === maxPrice && minPrice > 0 ? (
+                           <p className="text-xl font-black text-blue-600">{formatCurrency(minPrice)}</p>
+                        ) : minPrice > 0 ? (
                           <div className="flex flex-col items-end">
                             <p className="text-[10px] text-gray-500 font-medium">From</p>
-                            <p className="text-lg font-black text-blue-600">{formatCurrency(product.min_price)}</p>
+                            <p className="text-lg font-black text-blue-600">{formatCurrency(minPrice)}</p>
                           </div>
+                        ) : (
+                            <p className="text-xs font-bold text-gray-400 italic">Get Quote</p>
                         )}
                      </>
                    ) : (
@@ -300,7 +341,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                         {hasReferencePrice ? (
                             <div className="flex flex-col items-end">
                                 <p className="text-[10px] text-gray-400 uppercase tracking-wide font-bold mb-0.5">Reference Price</p>
-                                <p className="text-lg font-bold text-gray-500">{formatCurrency(product.min_price)}</p>
+                                <p className="text-lg font-bold text-gray-500">{formatCurrency(minPrice)}</p>
                             </div>
                         ) : (
                             <p className="text-sm font-bold text-gray-400 italic bg-gray-50 px-2 py-1 rounded">

@@ -66,7 +66,7 @@ const importController = {
     res.json({ message: "Usar datos retornados en upload" });
   },
 
-  // ✅ PROCESAR ENTRADA MANUAL (CIRUGÍA DE PRECISIÓN)
+  // ✅ PROCESAR ENTRADA MANUAL (CIRUGÍA DE PRECISIÓN - Lógica Inteligente)
   processManualImport: async (req, res) => {
     try {
       // ✅ SEGURIDAD B2B
@@ -84,6 +84,11 @@ const importController = {
 
       const local_image_path = req.file?.path || null;
 
+      // ✅ Dejamos pasar los valores en crudo (o null si vienen vacíos) para que el modelo decida
+      const parsedQuantity = (quantity !== undefined && quantity !== null && String(quantity).trim() !== '') ? parseInt(quantity) : null;
+      const parsedPrice = (price !== undefined && price !== null && String(price).trim() !== '') ? parseFloat(price) : null;
+      const parsedExpiry = (expiry_date !== undefined && expiry_date !== null && String(expiry_date).trim() !== '') ? expiry_date : null;
+
       const result = await ImportModel.createManualEntry({
         supplier_id,
         sales_category,
@@ -91,9 +96,9 @@ const importController = {
         description,
         sku,
         manufacturer,
-        quantity: parseInt(quantity) || 0,
-        price: parseFloat(price) || 0,
-        expiry_date,
+        quantity: parsedQuantity, // Se pasa nulo si está vacío
+        price: parsedPrice,       // Se pasa nulo si está vacío
+        expiry_date: parsedExpiry,
         image_url, 
         local_image_path,
         notes // ✅ Se pasa al modelo

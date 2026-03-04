@@ -1,11 +1,11 @@
-//frontend/src/app/products/[id]/page.tsx
+// frontend/src/app/products/[id]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { 
   ChevronLeft, ChevronRight, Package, Calendar, ShoppingCart, 
-  FileText, AlertCircle, Info, Heart, ArrowLeft, CheckCircle
+  FileText, AlertCircle, AlertTriangle, Info, Heart, ArrowLeft, CheckCircle
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth"; 
 import { getImageUrl, formatCurrency, formatDate, getLotStatusConfig } from "@/lib/formatters";
@@ -33,6 +33,80 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
   const hasStock = lot.quantity > 0;
   const isEquipment = lot.status === 'equipment'; // ✅ VERIFICACIÓN DE EQUIPO
 
+  // Lógica Inteligente para visualización de Lotes
+  const renderLotActions = () => {
+    // Si tiene Precio y Cantidad -> COMPRA DIRECTA (Aplica tanto para Insumos como para Equipo)
+    if (hasPrice && hasStock) {
+      return (
+        <>
+          <div className="flex items-center justify-between mb-1">
+             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity</span>
+             <QuantitySelector 
+               quantity={quantity}
+               max={lot.quantity}
+               onIncrease={() => setQuantity(q => q + 1)}
+               onDecrease={() => setQuantity(q => q - 1)}
+               disabled={isAdding}
+               size="sm"
+             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              onClick={() => onAddToCart(lot.id, quantity, false)}
+              disabled={isAdding}
+              className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-3 rounded-xl font-black uppercase tracking-wide hover:bg-slate-200 hover:text-blue-600 transition-colors text-[10px] active:scale-95"
+            >
+              <ShoppingCart size={16}/> Add to Cart
+            </button>
+            <button 
+              onClick={() => onAddToCart(lot.id, quantity, true)}
+              disabled={isAdding}
+              className="bg-blue-600 text-white py-3 rounded-xl font-black uppercase tracking-wide hover:bg-blue-700 transition-colors text-[10px] shadow-lg shadow-blue-600/20 active:scale-95"
+            >
+              Buy Now
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    // SI FALTA PRECIO O CANTIDAD -> FLUJOS DE COTIZACIÓN
+    
+    // CASO 1: TIENE PRECIO, PERO NO CANTIDAD (Bajo en Stock / Solicitar Disponibilidad)
+    if (hasPrice && !hasStock) {
+      return (
+        <button
+          onClick={() => onQuote(lot)}
+          className="w-full bg-amber-50 border-2 border-amber-200 text-amber-700 py-3 rounded-xl font-black uppercase tracking-wide hover:bg-amber-100 transition-colors text-[10px] flex items-center justify-center gap-2 shadow-sm active:scale-95"
+        >
+          <AlertTriangle size={16} /> Check Availability
+        </button>
+      );
+    }
+
+    // CASO 2: TIENE CANTIDAD, PERO NO PRECIO (Solicitar Cotización)
+    if (!hasPrice && hasStock) {
+       return (
+        <button
+          onClick={() => onQuote(lot)}
+          className="w-full bg-white border-2 border-blue-100 text-blue-600 py-3 rounded-xl font-black uppercase tracking-wide hover:bg-blue-50 transition-colors text-[10px] flex items-center justify-center gap-2 shadow-sm active:scale-95"
+        >
+          <FileText size={16} /> Request Quote
+        </button>
+      );
+    }
+
+    // CASO 3: NO TIENE NI PRECIO NI CANTIDAD (Solo Fecha o Nada) -> Solicitar Disponibilidad General / Cotizar Equipo
+    return (
+      <button
+        onClick={() => onQuote(lot)}
+        className="w-full bg-white border-2 border-slate-200 text-slate-600 py-3 rounded-xl font-black uppercase tracking-wide hover:bg-slate-50 transition-colors text-[10px] flex items-center justify-center gap-2 shadow-sm active:scale-95"
+      >
+        <Info size={16} /> {isEquipment ? 'Quote Equipment' : 'Inquire Status'}
+      </button>
+    );
+  };
+
   return (
     <div className="border-2 border-slate-100 rounded-2xl p-5 hover:border-blue-300 hover:shadow-xl transition-all bg-white group">
       <div className="flex justify-between items-start mb-4">
@@ -40,16 +114,18 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${config.color}`}>
               {config.label}
           </span>
-          <p className="text-xs text-slate-400 mt-3 font-mono flex items-center gap-1.5">
-            <Package size={14}/> Lot: <span className="text-slate-700 font-bold">{lot.lot_number}</span>
-          </p>
+          {lot.lot_number && (
+            <p className="text-xs text-slate-400 mt-3 font-mono flex items-center gap-1.5">
+              <Package size={14}/> Lot: <span className="text-slate-700 font-bold">{lot.lot_number}</span>
+            </p>
+          )}
         </div>
         <div className="text-right">
            <p className="text-2xl font-black text-blue-600">
-             {hasPrice ? formatCurrency(price) : <span className="text-slate-400 text-sm italic">Get Quote</span>}
+             {hasPrice ? formatCurrency(price) : <span className="text-slate-400 text-sm italic">Quote Req.</span>}
            </p>
-           <p className={`text-[10px] uppercase font-bold tracking-wide mt-1 ${hasStock ? 'text-slate-400' : 'text-blue-600'}`}>
-             {hasStock ? `Available: ${lot.quantity}` : 'On Request'}
+           <p className={`text-[10px] uppercase font-bold tracking-wide mt-1 ${hasStock ? 'text-slate-400' : (hasPrice ? 'text-amber-500' : 'text-blue-600')}`}>
+             {hasStock ? `Available: ${lot.quantity}` : (hasPrice ? 'Low Stock' : 'On Request')}
            </p>
         </div>
       </div>
@@ -66,44 +142,7 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
       </div>
 
       <div className="flex flex-col gap-3">
-        {hasPrice && hasStock ? (
-          <>
-            <div className="flex items-center justify-between mb-1">
-               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity</span>
-               <QuantitySelector 
-                 quantity={quantity}
-                 max={lot.quantity}
-                 onIncrease={() => setQuantity(q => q + 1)}
-                 onDecrease={() => setQuantity(q => q - 1)}
-                 disabled={isAdding}
-                 size="sm"
-               />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                onClick={() => onAddToCart(lot.id, quantity, false)}
-                disabled={isAdding}
-                className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-3 rounded-xl font-black uppercase tracking-wide hover:bg-slate-200 hover:text-blue-600 transition-colors text-[10px] active:scale-95"
-              >
-                <ShoppingCart size={16}/> Add to Cart
-              </button>
-              <button 
-                onClick={() => onAddToCart(lot.id, quantity, true)}
-                disabled={isAdding}
-                className="bg-blue-600 text-white py-3 rounded-xl font-black uppercase tracking-wide hover:bg-blue-700 transition-colors text-[10px] shadow-lg shadow-blue-600/20 active:scale-95"
-              >
-                Buy Now
-              </button>
-            </div>
-          </>
-        ) : (
-          <button 
-            onClick={() => onQuote(lot)}
-            className="w-full bg-white border-2 border-blue-100 text-blue-600 py-3 rounded-xl font-black uppercase tracking-wide hover:bg-blue-50 transition-colors text-[10px] flex items-center justify-center gap-2 shadow-sm active:scale-95"
-          >
-            <FileText size={16}/> Request Quote
-          </button>
-        )}
+        {renderLotActions()}
       </div>
     </div>
   );
@@ -176,15 +215,20 @@ export default function ProductPage() {
     );
   }
 
-  // ✅ LÓGICA DE IMÁGENES CORREGIDA: Filtramos nulos para evitar errores.
-  const rawImages = [
-    { image_url: product.primary_image, id: 'primary' },
-    ...(images || []).filter((img: any) => !img.is_primary)
-  ].filter(img => img.image_url); // Solo dejamos las que realmente tienen URL
+  // ✅ LÓGICA DE IMÁGENES CORREGIDA
+  let validImages: any[] = [];
+  
+  if (product.primary_image) {
+    validImages.push({ image_url: product.primary_image, id: 'primary' });
+  }
 
-  // Si no hay ninguna imagen válida, ponemos un placeholder por defecto.
-  const allImages = rawImages.length > 0 
-    ? rawImages 
+  if (images && Array.isArray(images)) {
+     const extraImages = images.filter((img: any) => !img.is_primary && img.image_url);
+     validImages = [...validImages, ...extraImages];
+  }
+
+  const allImages = validImages.length > 0 
+    ? validImages 
     : [{ image_url: null, id: 'placeholder' }];
 
   const handleNextImage = () => setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
@@ -248,7 +292,6 @@ export default function ProductPage() {
                 src={getImageUrl(allImages[currentImageIndex]?.image_url)} 
                 alt={product.description} 
                 className="max-w-full max-h-full object-contain mix-blend-multiply"
-                // ✅ CORRECCIÓN: Si falla, cancela el evento y pone un fondo sólido limpio.
                 onError={(e) => {
                   e.currentTarget.onerror = null; 
                   e.currentTarget.src = "https://placehold.co/800x800/f8fafc/94a3b8?text=No+Image";
@@ -314,7 +357,7 @@ export default function ProductPage() {
                   ))}
               </div>
 
-              {/* ✅ BLOQUE DE PRECIO Y COTIZACIÓN SUPERIOR (Estilo ClientProductCard) */}
+              {/* ✅ BLOQUE DE PRECIO Y COTIZACIÓN SUPERIOR */}
               <div className="flex items-center justify-between bg-slate-50 border border-slate-100 p-5 rounded-[2rem] mb-8">
                 <div>
                    {hasActiveLots ? (
@@ -380,7 +423,7 @@ export default function ProductPage() {
                 </h3>
                 {hasActiveLots && (
                   <button 
-                    onClick={() => handleOpenQuote()}
+                    onClick={() => handleOpenQuote({ referencePrice: minPrice })}
                     className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100"
                   >
                     <FileText size={14}/> Custom Quote
@@ -413,7 +456,7 @@ export default function ProductPage() {
                         We currently do not have any active lots for this item.
                       </p>
                       <button 
-                        onClick={() => handleOpenQuote()}
+                        onClick={() => handleOpenQuote({ referencePrice: minPrice })}
                         className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center gap-2 mx-auto"
                       >
                         <FileText size={16}/> Request Custom Search

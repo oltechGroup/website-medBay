@@ -17,7 +17,8 @@ import {
   Building2,
   ChevronDown,
   Layers,
-  Tag // ✅ IMPORTACIÓN AGREGADA
+  Tag,
+  Stethoscope // ✅ IMPORTACIÓN AGREGADA
 } from 'lucide-react';
 import { ProductLot, CreateLotData, useInventory } from '@/hooks/useInventory';
 
@@ -35,7 +36,7 @@ interface FormData {
   expiry_date: string;
   quantity: number;
   price: number;
-  status: 'available' | 'near_expiry' | 'expired';
+  status: 'available' | 'near_expiry' | 'expired' | 'equipment'; // ✅ Añadido 'equipment'
   received_at: string;
 }
 
@@ -142,8 +143,15 @@ export const LotForm: React.FC<LotFormProps> = ({
     if (!formData.product_id) newErrors.product_id = 'Product selection required';
     if (!formData.supplier_id) newErrors.supplier_id = 'Supplier required';
     if (!formData.lot_number.trim()) newErrors.lot_number = 'Lot SKU required';
-    if (!formData.expiry_date) newErrors.expiry_date = 'Required';
-    if (formData.quantity <= 0) newErrors.quantity = 'Invalid qty';
+    
+    // Si es equipo médico, la caducidad NO es obligatoria
+    if (formData.status !== 'equipment' && !formData.expiry_date) {
+        newErrors.expiry_date = 'Required';
+    }
+    
+    // Ya no exigimos cantidad mayor a 0 si solo estamos registrando precio/fechas
+    if (formData.quantity < 0) newErrors.quantity = 'Invalid qty'; 
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -161,10 +169,11 @@ export const LotForm: React.FC<LotFormProps> = ({
   const statusConfig = {
     available: { icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50', label: 'OPTIMAL' },
     near_expiry: { icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', label: 'WARNING' },
-    expired: { icon: Ban, color: 'text-red-600', bg: 'bg-red-50', label: 'EXPIRED' }
+    expired: { icon: Ban, color: 'text-red-600', bg: 'bg-red-50', label: 'EXPIRED' },
+    equipment: { icon: Stethoscope, color: 'text-blue-600', bg: 'bg-blue-50', label: 'EQUIPMENT' } // ✅ Añadido 'equipment'
   }[formData.status];
 
-  // Estilo común para inputs - CERO TRANSPARENCIAS
+  // Estilo común para inputs
   const inputBaseClass = "w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-900 placeholder-slate-400 shadow-sm";
 
   if (initialLoading) {
@@ -292,18 +301,27 @@ export const LotForm: React.FC<LotFormProps> = ({
                 <input type="date" name="received_at" value={formData.received_at} onChange={handleChange} className={inputBaseClass} />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Expiration *</label>
-                <input type="date" name="expiry_date" value={formData.expiry_date} onChange={handleChange} className={`${inputBaseClass} ${errors.expiry_date ? 'border-red-200' : ''}`} />
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">
+                  Expiration {formData.status !== 'equipment' && '*'}
+                </label>
+                <input 
+                  type="date" 
+                  name="expiry_date" 
+                  value={formData.expiry_date} 
+                  onChange={handleChange} 
+                  className={`${inputBaseClass} ${errors.expiry_date ? 'border-red-200 bg-red-50' : ''}`} 
+                  disabled={formData.status === 'equipment'}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-5">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Units *</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Units (Optional)</label>
                 <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} className={inputBaseClass} />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Unit Cost *</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Unit Cost (Optional)</label>
                 <div className="relative">
                   <input type="number" name="price" step="0.01" value={formData.price} onChange={handleChange} className={`${inputBaseClass} pl-10`} />
                   <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -323,6 +341,7 @@ export const LotForm: React.FC<LotFormProps> = ({
                   <option value="available">🟢 Optimal - In Date</option>
                   <option value="near_expiry">🟡 Warning - Short Date</option>
                   <option value="expired">🔴 Alert - Expired</option>
+                  <option value="equipment">🩺 Info - Equipment</option>
                 </select>
                 <statusConfig.icon className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5" />
                 <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none opacity-40" />
@@ -341,7 +360,7 @@ export const LotForm: React.FC<LotFormProps> = ({
             <div>
               <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Projected Asset Value</p>
               <p className="text-4xl font-black text-white tracking-tighter mt-1">
-                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(formData.quantity * formData.price)}
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((formData.quantity || 0) * (formData.price || 0))}
               </p>
             </div>
           </div>

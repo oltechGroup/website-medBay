@@ -127,6 +127,38 @@ const ProductLot = {
     return result.rows[0];
   },
 
+  // ✅ NUEVO: OBTENER LOTES POR ID DE PRODUCTO (Faltaba esta función para el Frontend del cliente)
+  findByProductId: async (productId, statusFilter = 'all') => {
+    let query = `
+      SELECT 
+        pl.*,
+        s.name as supplier_name,
+        p.description as product_name,
+        p.global_sku as product_code
+      FROM product_lots pl
+      JOIN product_suppliers ps ON pl.product_supplier_id = ps.id
+      JOIN suppliers s ON ps.supplier_id = s.id
+      JOIN products p ON ps.product_id = p.id
+      WHERE ps.product_id = $1 AND pl.quantity >= 0
+    `;
+    
+    const params = [productId];
+    
+    // Permitir filtrar por estado (incluyendo equipment)
+    if (statusFilter && statusFilter !== 'all') {
+      query += ` AND pl.status = $2`;
+      params.push(statusFilter);
+    } else {
+      query += ` AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')`;
+    }
+    
+    // Ordenar por fecha de caducidad y luego por precio
+    query += ` ORDER BY pl.expiry_date ASC NULLS LAST, pl.price ASC`;
+    
+    const result = await db.query(query, params);
+    return result.rows;
+  },
+
   // ✅ ACTUALIZAR LOTE
   update: async (id, lotData) => {
     const {
@@ -261,9 +293,7 @@ const ProductLot = {
     };
   },
 
-  // Mantengo findAll para compatibilidad interna de reportes rápidos
   findAll: async (filters = {}) => {
-    // ... (Se mantiene lógica simplificada o se puede redirigir a findPaginated con limit alto)
     const result = await ProductLot.findPaginated({ ...filters, limit: 1000, page: 1 });
     return result.lots;
   }

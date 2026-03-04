@@ -219,8 +219,7 @@ export default function InventoryPage() {
           <div className="bg-blue-50/50 border border-blue-100 rounded-3xl p-6 flex items-center justify-between">
             <div>
               <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-700/60 mb-2">Equipment</h4>
-              {/* Ojo: ts no va a compilar de inmediato si el hook no está actualizado, pero el backend ya manda equipment_lots */}
-              <p className="text-3xl font-black text-blue-900">{(dashboard as any).equipment_lots || 0}</p>
+              <p className="text-3xl font-black text-blue-900">{dashboard.equipment_lots || 0}</p>
             </div>
             <Stethoscope className="h-10 w-10 text-blue-200" />
           </div>

@@ -3,7 +3,7 @@
 'use client';
 
 import React from 'react';
-import { Package, Calendar, DollarSign, Tag } from 'lucide-react';
+import { Package, Calendar, DollarSign, Tag, Stethoscope, CheckCircle } from 'lucide-react';
 import { ProductLot } from '@/hooks/useInventory';
 
 interface ProductCardProps {
@@ -34,6 +34,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           text: 'text-red-700',
           badge: 'bg-red-100 text-red-800 border-red-200'
         };
+      case 'equipment': // ✅ AÑADIDO PARA EQUIPMENT
+        return {
+          bg: 'bg-blue-50',
+          border: 'border-blue-200',
+          text: 'text-blue-700',
+          badge: 'bg-blue-100 text-blue-800 border-blue-200'
+        };
       default: 
         return {
           bg: 'bg-gray-50',
@@ -63,11 +70,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       case 'available': return '🟢 Current';
       case 'near_expiry': return '🟡 Short-Date';
       case 'expired': return '🔴 Expired';
+      case 'equipment': return '🩺 Equip'; // ✅ AÑADIDO
       default: return status;
     }
   };
 
   const colors = getStatusColor(product.status);
+  
+  // ✅ LOGICA INTELIGENTE PARA MOSTRAR VALORES
+  const isEquipment = product.status === 'equipment';
+  const hasPrice = product.price && product.price > 0;
+  const hasStock = product.quantity && product.quantity > 0;
 
   return (
     <div className={`border-2 rounded-xl p-4 ${colors.bg} ${colors.border} hover:shadow-md transition-all duration-200`}>
@@ -118,17 +131,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
           <div>
             <p className="text-xs text-gray-600">Stock</p>
-            <p className="text-sm font-bold text-gray-900">{product.quantity} units</p>
+            <p className={`text-sm font-bold ${hasStock ? 'text-gray-900' : 'text-amber-600'}`}>
+              {hasStock ? `${product.quantity} units` : 'On Request'}
+            </p>
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
           <div className="p-1.5 bg-white rounded-lg border border-gray-200">
-            <Calendar className="h-3 w-3 text-purple-600" />
+            {isEquipment ? <CheckCircle className="h-3 w-3 text-blue-600" /> : <Calendar className="h-3 w-3 text-purple-600" />}
           </div>
           <div>
-            <p className="text-xs text-gray-600">Expires</p>
-            <p className="text-sm font-bold text-gray-900">{formatDate(product.expiry_date)}</p>
+            <p className="text-xs text-gray-600">{isEquipment ? 'Condition' : 'Expires'}</p>
+            <p className="text-sm font-bold text-gray-900">
+              {isEquipment ? 'New / Durable' : (product.expiry_date ? formatDate(product.expiry_date) : 'N/A')}
+            </p>
           </div>
         </div>
       </div>
@@ -140,16 +157,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             <p className="text-xs text-gray-600 mb-1">Unit price</p>
             <div className="flex items-center space-x-1">
               <DollarSign className="h-4 w-4 text-gray-500" />
-              <span className="text-lg font-bold text-gray-900">
-                {formatCurrency(product.price)}
+              <span className={`text-lg font-bold ${hasPrice ? 'text-gray-900' : 'text-gray-400 italic text-sm'}`}>
+                {hasPrice ? formatCurrency(product.price) : 'Quote Req.'}
               </span>
             </div>
           </div>
           
           <div className="text-right">
             <p className="text-xs text-gray-600 mb-1">Total value</p>
-            <p className="text-base font-bold text-blue-600">
-              {formatCurrency(product.quantity * product.price)}
+            <p className={`text-base font-bold ${hasPrice && hasStock ? 'text-blue-600' : 'text-gray-400'}`}>
+              {hasPrice && hasStock ? formatCurrency(product.quantity * product.price) : '-'}
             </p>
           </div>
         </div>

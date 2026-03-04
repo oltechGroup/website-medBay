@@ -123,7 +123,7 @@ export const ProductFilters = ({
               className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm"
             >
               <option value="">All manufacturers</option>
-              {manufacturers.map(manufacturer => (
+              {manufacturers.map((manufacturer: any) => (
                 <option key={manufacturer.id} value={manufacturer.id}>
                   {manufacturer.name}
                 </option>
@@ -143,7 +143,7 @@ export const ProductFilters = ({
               className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm"
             >
               <option value="">All categories</option>
-              {categories.map(category => (
+              {categories.map((category: any) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
@@ -212,7 +212,7 @@ export const ProductFilters = ({
           )}
           {filters.manufacturerId && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-              Manufacturer: {manufacturers.find(m => m.id === filters.manufacturerId)?.name}
+              Manufacturer: {manufacturers.find((m: any) => m.id === filters.manufacturerId)?.name}
               <button
                 onClick={() => handleFilterChange('manufacturerId', '')}
                 className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-purple-200 focus:outline-none"
@@ -225,7 +225,7 @@ export const ProductFilters = ({
           )}
           {filters.categoryId && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-              Category: {categories.find(c => c.id === filters.categoryId)?.name}
+              Category: {categories.find((c: any) => c.id === filters.categoryId)?.name}
               <button
                 onClick={() => handleFilterChange('categoryId', '')}
                 className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-indigo-200 focus:outline-none"

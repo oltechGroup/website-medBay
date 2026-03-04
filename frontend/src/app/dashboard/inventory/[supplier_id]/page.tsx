@@ -78,7 +78,9 @@ export default function SupplierDetailPage() {
     );
   }
 
-  const totalLots = supplier.total_lots || 1;
+  // ✅ Protección contra división por cero
+  const totalLots = supplier.total_lots || 0;
+  const safeTotalLots = totalLots > 0 ? totalLots : 1;
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500 pb-12">
@@ -224,31 +226,31 @@ export default function SupplierDetailPage() {
             </div>
           </div>
 
-          {/* ✅ BARRA DE PROGRESO ACTUALIZADA (Añadido Equipo) */}
+          {/* ✅ BARRA DE PROGRESO ACTUALIZADA (Añadido Equipo y protección divisiones cero) */}
           <div className="flex w-full bg-white/10 rounded-full h-4 overflow-hidden mb-6 border border-white/5">
-            <div className="bg-green-500 h-full transition-all duration-1000" style={{ width: `${(supplier.available_lots/totalLots)*100}%` }} />
-            <div className="bg-amber-500 h-full transition-all duration-1000" style={{ width: `${(supplier.near_expiry_lots/totalLots)*100}%` }} />
-            <div className="bg-red-500 h-full transition-all duration-1000" style={{ width: `${(supplier.expired_lots/totalLots)*100}%` }} />
-            <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${((supplier.equipment_lots || 0)/totalLots)*100}%` }} />
+            <div className="bg-green-500 h-full transition-all duration-1000" style={{ width: `${(supplier.available_lots/safeTotalLots)*100}%` }} />
+            <div className="bg-amber-500 h-full transition-all duration-1000" style={{ width: `${(supplier.near_expiry_lots/safeTotalLots)*100}%` }} />
+            <div className="bg-red-500 h-full transition-all duration-1000" style={{ width: `${(supplier.expired_lots/safeTotalLots)*100}%` }} />
+            <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${((supplier.equipment_lots || 0)/safeTotalLots)*100}%` }} />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="flex items-center gap-3">
                <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-               <span className="text-[10px] font-black text-white uppercase tracking-widest">Optimal: {Math.round((supplier.available_lots/totalLots)*100)}%</span>
+               <span className="text-[10px] font-black text-white uppercase tracking-widest">Optimal: {totalLots > 0 ? Math.round((supplier.available_lots/totalLots)*100) : 0}%</span>
             </div>
             <div className="flex items-center gap-3">
                <div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]"></div>
-               <span className="text-[10px] font-black text-white uppercase tracking-widest">Risk: {Math.round((supplier.near_expiry_lots/totalLots)*100)}%</span>
+               <span className="text-[10px] font-black text-white uppercase tracking-widest">Risk: {totalLots > 0 ? Math.round((supplier.near_expiry_lots/totalLots)*100) : 0}%</span>
             </div>
             <div className="flex items-center gap-3">
                <div className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
-               <span className="text-[10px] font-black text-white uppercase tracking-widest">Alert: {Math.round((supplier.expired_lots/totalLots)*100)}%</span>
+               <span className="text-[10px] font-black text-white uppercase tracking-widest">Alert: {totalLots > 0 ? Math.round((supplier.expired_lots/totalLots)*100) : 0}%</span>
             </div>
             {/* ✅ LEYENDA PARA EQUIPO */}
             <div className="flex items-center gap-3">
                <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
-               <span className="text-[10px] font-black text-white uppercase tracking-widest">Equip: {Math.round(((supplier.equipment_lots || 0)/totalLots)*100)}%</span>
+               <span className="text-[10px] font-black text-white uppercase tracking-widest">Equip: {totalLots > 0 ? Math.round(((supplier.equipment_lots || 0)/totalLots)*100) : 0}%</span>
             </div>
           </div>
         </div>

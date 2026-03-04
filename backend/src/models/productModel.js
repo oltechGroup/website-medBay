@@ -158,7 +158,7 @@ const Product = {
     params.push(limit);
     params.push(offset);
 
-    // ✅ ACTUALIZADO: Añadido 'equipment' a los campos calculados de la consulta principal
+    // ✅ ACTUALIZADO: Cambiado quantity > 0 a quantity >= 0 para incluir lotes que solo tengan precio o fecha
     const dataQuery = `
       SELECT 
         p.id,
@@ -196,7 +196,7 @@ const Product = {
           
         (SELECT COUNT(pl.id)::integer FROM product_lots pl 
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
-          WHERE ps.product_id = p.id AND pl.quantity > 0
+          WHERE ps.product_id = p.id AND pl.quantity >= 0
           ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')"}
         ) as active_lots
 
