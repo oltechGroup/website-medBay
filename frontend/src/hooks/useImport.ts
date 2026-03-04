@@ -44,6 +44,7 @@ export interface ManualImportData {
   expiry_date?: string;
   imageFile?: File | null;
   imageUrl?: string;
+  notes?: string; // ✅ Campo de notas existente
 }
 
 // --- HOOK PRINCIPAL ---
@@ -113,6 +114,9 @@ export const useImport = () => {
       formData.append('quantity', data.quantity.toString());
       formData.append('price', data.price.toString());
       formData.append('expiry_date', data.expiry_date || '');
+      
+      // ✅ CORRECCIÓN: Agregado el empaquetado del campo notas
+      formData.append('notes', data.notes || '');
 
       // Lógica de Imagen: Si hay archivo, se envía como 'image'. Si hay URL, como 'image_url'
       if (data.imageFile) {

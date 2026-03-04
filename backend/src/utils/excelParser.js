@@ -133,7 +133,9 @@ const excelParser = {
       lot_number: ['lote', 'lot', 'batch', 'número de lote', 'lot number', 'batch number'],
       expiry_date: ['caducidad', 'expiry', 'vencimiento', 'expiration', 'fecha caducidad', 'fecha vencimiento', 'exp date'],
       unit: ['unidad', 'unit', 'medida', 'measure', 'tipo unidad', 'unit type'],
-      supplier_sku: ['sku proveedor', 'supplier sku', 'código proveedor', 'codigo proveedor']
+      supplier_sku: ['sku proveedor', 'supplier sku', 'código proveedor', 'codigo proveedor'],
+      // ✅ NUEVO: Soporte para notas, accesorios e información incluida
+      notas: ['nota', 'notas', 'note', 'notes', 'incluye', 'includes', 'observaciones', 'observación', 'accesorios', 'descripcion extra']
     };
     
     columnNames.forEach(columnName => {
