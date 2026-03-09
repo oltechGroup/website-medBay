@@ -4,6 +4,7 @@ const db = require('../config/database'); // ✅ IMPORTANTE: Añadido para consu
 const Quote = require('../models/quoteModel');
 const Order = require('../models/orderModel');       
 const OrderItem = require('../models/orderItemModel'); 
+const Inventory = require('../models/productLotModel'); // ✅ IMPORTANTE: Para lógica de lotes
 const Address = require('../models/addressModel');   
 const User = require('../models/userModel');         
 const NotificationService = require('../services/notificationService');
@@ -144,12 +145,13 @@ const quoteController = {
         return res.status(400).json({ error: `Esta cotización ya fue ${quote.status}.` });
       }
 
-      // --- LOGICA DE ACEPTACIÓN (CREAR ORDEN) ---
+      // --- LOGICA DE ACEPTACIÓN (CREAR ORDEN E INVENTARIO) ---
       let newOrder = null;
 
       if (action === 'accepted') {
         const proposal = quote.admin_proposal;
         const request = quote.product_request;
+        const context = request.quote_context || {};
         
         // ✅ A. Consultas directas y seguras a la base de datos
         // Dirección
@@ -162,7 +164,34 @@ const quoteController = {
         
         const subtotal = parseFloat(proposal.unit_price) * parseInt(proposal.quantity_found);
 
-        // B. Crear la Orden
+        // ✅ B. LÓGICA INTELIGENTE DE LOTES
+        let finalLotId = context.lotId || null;
+        let finalProductSupplierId = context.supplierId || null;
+
+        // Si la cotización se hizo sobre un producto en general sin lote específico,
+        // necesitamos crear un "Lote Puente" para cuadrar el inventario.
+        if (!finalLotId && context.productId) {
+           const newLot = await Inventory.createSourcedLot(
+             context.productId,
+             proposal.quantity_found,
+             proposal.unit_price,
+             proposal.expiry_date,
+             proposal.lot_type
+           );
+           finalLotId = newLot.id;
+           finalProductSupplierId = newLot.product_supplier_id;
+        }
+
+        // ✅ C. RESERVAR STOCK (Asegurar que nadie más lo tome)
+        if (finalLotId) {
+           try {
+             await Inventory.reserveLotQuantity(finalLotId, proposal.quantity_found);
+           } catch (reserveError) {
+             return res.status(409).json({ error: 'El stock ya no está disponible o el lote expiró. Por favor contacta a soporte.' });
+           }
+        }
+
+        // D. Crear la Orden
         newOrder = await Order.create({
           customer_id: req.user.id,
           subtotal: subtotal,
@@ -170,18 +199,15 @@ const quoteController = {
           shipping_address_id: defaultAddressId, 
           billing_address_id: defaultAddressId,
           referral_code: referralCode, 
-          // ✅ Guardamos el nombre explícitamente en las notas para no perder el contexto
           notes: `Orden generada desde Cotización #${quote.id.slice(0, 8)}. Producto: ${request.product_name}. \nNota Admin: ${proposal.admin_notes || 'N/A'}`,
           quote_id: quote.id 
         });
 
-        // C. Crear los Items de la Orden
-        const context = request.quote_context || {};
-        
+        // E. Crear los Items de la Orden
         await OrderItem.create([{
           order_id: newOrder.id,
-          product_lot_id: context.lotId || null, 
-          product_supplier_id: context.supplierId || null,
+          product_lot_id: finalLotId, 
+          product_supplier_id: finalProductSupplierId,
           quantity: proposal.quantity_found,
           unit_price: proposal.unit_price,
           line_total: subtotal

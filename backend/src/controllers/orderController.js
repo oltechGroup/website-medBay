@@ -51,7 +51,7 @@ const orderController = {
 
       await OrderItem.create(orderItemsData);
 
-      // Reservar Inventario
+      // ✅ MAGIA DE INVENTARIO: Reservar stock para todos los ítems que tengan lote físico
       for (const item of items) {
         if (item.product_lot_id && Inventory.reserveLotQuantity) {
            await Inventory.reserveLotQuantity(item.product_lot_id, item.quantity);
@@ -72,6 +72,10 @@ const orderController = {
 
     } catch (error) {
       console.error('Error al crear solicitud:', error);
+      // Si falla por falta de stock, enviamos el mensaje al frontend
+      if(error.message.includes("Stock insuficiente")) {
+         return res.status(409).json({ error: 'No hay suficiente inventario disponible para completar la orden.' });
+      }
       res.status(500).json({ error: 'Error interno', details: error.message });
     }
   },
@@ -110,9 +114,6 @@ const orderController = {
       if (req.user.verification_level !== 'admin') return res.status(403).json({ error: 'No autorizado' });
 
       const updatedOrder = await Order.updateTaxAndStatus(id, tax_amount);
-
-      // TODO: Notificar al cliente "Tu cotización está lista"
-      // NotificationService.notifyValuationReady(id); 
 
       res.json({ success: true, order: updatedOrder });
     } catch (error) {
@@ -211,18 +212,35 @@ const orderController = {
 
       if (req.user.verification_level !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
 
+      // ✅ BLINDAJE CONTRA DOBLE DEVOLUCIÓN:
+      // 1. Obtenemos el estado actual de la orden ANTES de cambiarlo
+      const currentOrder = await Order.findById(id);
+      if (!currentOrder) return res.status(404).json({ error: 'Orden no encontrada' });
+
+      const wasAlreadyCancelledOrRejected = currentOrder.status === 'cancelled' || currentOrder.status === 'rejected';
+      const isCancellingOrRejecting = status === 'cancelled' || status === 'rejected';
+
+      // 2. Solo devolvemos stock si es la PRIMERA vez que se marca como rechazada/cancelada
+      if (isCancellingOrRejecting && !wasAlreadyCancelledOrRejected) {
+         const items = await OrderItem.findByOrder(id);
+         for (const item of items) {
+           if (item.product_lot_id && Inventory.releaseLotQuantity) {
+              await Inventory.releaseLotQuantity(item.product_lot_id, item.quantity);
+           }
+         }
+      }
+
       const updatedOrder = await Order.updateStatus(id, status, req.user.id);
       
       if (status === 'shipped' && tracking_number) {
          if (Order.updateTracking) await Order.updateTracking(id, tracking_number);
       }
 
-      // Notificaciones (Compatibilidad y Nuevos Estados)
+      // Notificaciones
       try {
         if (status === 'rejected') await NotificationService.notifyOrderRejected(id);
         else if (status === 'shipped') await NotificationService.notifyOrderShipped(id, tracking_number);
         else if (status === 'delivered') {
-            // ✅ Notificar entrega si existe el método en el servicio
             if(NotificationService.notifyOrderDelivered) await NotificationService.notifyOrderDelivered(id);
         }
       } catch (e) { console.error(e); }
@@ -230,6 +248,7 @@ const orderController = {
       res.json({ message: 'Estado actualizado', order: updatedOrder });
 
     } catch (error) {
+      console.error(error);
       res.status(500).json({ error: 'Error actualizando estado' });
     }
   },
@@ -260,7 +279,7 @@ const orderController = {
     }
   },
 
-  // ✅ NUEVO: Enviar mensaje de seguimiento (Concierge)
+  // Enviar mensaje de seguimiento (Concierge)
   sendUpdateMessage: async (req, res) => {
     try {
       if (req.user.verification_level !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
@@ -282,7 +301,7 @@ const orderController = {
         "Actualización de Seguimiento"
       );
 
-      // 2. Enviar Correo (Intento genérico, asegúrate de tener el método en NotificationService)
+      // 2. Enviar Correo
       try {
         if(NotificationService.sendCustomEmail) {
             await NotificationService.sendCustomEmail(
@@ -295,7 +314,7 @@ const orderController = {
             console.log("⚠️ NotificationService.sendCustomEmail no implementado. Mensaje solo guardado en BD.");
         }
       } catch (err) {
-          console.error("Error enviando email manual:", err);
+        console.error("Error enviando email manual:", err);
       }
 
       res.json({ success: true, message: "Mensaje enviado y registrado." });

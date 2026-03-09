@@ -296,7 +296,95 @@ const ProductLot = {
   findAll: async (filters = {}) => {
     const result = await ProductLot.findPaginated({ ...filters, limit: 1000, page: 1 });
     return result.lots;
+  },
+
+  // ==========================================
+  // 🧠 FASE 2: MOTOR INTELIGENTE DE INVENTARIO
+  // ==========================================
+
+  // ✅ 1. RESERVAR STOCK (Se llama al hacer la orden / aceptar cotización)
+  reserveLotQuantity: async (lotId, quantityToReserve) => {
+    const query = `
+      UPDATE product_lots 
+      SET 
+        quantity = quantity - $1,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2 AND quantity >= $1
+      RETURNING *
+    `;
+    const result = await db.query(query, [quantityToReserve, lotId]);
+    
+    // Si no devuelve nada, significa que no existe el lote o la cantidad bajó de lo permitido
+    if (result.rows.length === 0) {
+      throw new Error('Stock insuficiente o lote no encontrado para reservar.');
+    }
+    return result.rows[0];
+  },
+
+  // ✅ 2. LIBERAR STOCK (Se llama si la orden se cancela o rechaza)
+  releaseLotQuantity: async (lotId, quantityToRelease) => {
+    const query = `
+      UPDATE product_lots 
+      SET 
+        quantity = quantity + $1,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING *
+    `;
+    const result = await db.query(query, [quantityToRelease, lotId]);
+    return result.rows[0];
+  },
+
+  // ✅ 3. CREAR LOTE PUENTE (Para cotizaciones aceptadas de productos sin lote previo)
+  createSourcedLot: async (productId, quantity, price, expiryDate, status) => {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // 1. Buscamos si el producto ya tiene un proveedor vinculado
+      let psRes = await client.query('SELECT id FROM product_suppliers WHERE product_id = $1 LIMIT 1', [productId]);
+      let productSupplierId;
+
+      if (psRes.rows.length > 0) {
+        productSupplierId = psRes.rows[0].id;
+      } else {
+        // 2. Si no tiene, lo vinculamos con un proveedor activo genérico temporalmente
+        const supplierRes = await client.query('SELECT id, name FROM suppliers WHERE is_active = true LIMIT 1');
+        if (supplierRes.rows.length === 0) throw new Error("No se encontró ningún proveedor activo para asignar este nuevo lote.");
+        
+        const newPs = await client.query(
+          `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name) 
+           VALUES ($1, $2, $3, $4) RETURNING id`,
+          [productId, supplierRes.rows[0].id, `COTIZACION-${Date.now()}`, supplierRes.rows[0].name]
+        );
+        productSupplierId = newPs.rows[0].id;
+      }
+
+      // 3. Creamos el lote físico con la cantidad exacta que el admin consiguió en la cotización
+      // Se asigna prefijo "QT-" para identificar que este lote nació de una cotización (Quote)
+      const lotQuery = `
+        INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        RETURNING *
+      `;
+      const lotNumber = `QT-${Date.now().toString().slice(-6)}`;
+      const finalStatus = status === 'short_date' ? 'near_expiry' : status === 'in_date' ? 'available' : status;
+      
+      const lotResult = await client.query(lotQuery, [
+        productSupplierId, lotNumber, quantity, price, finalStatus, expiryDate || null
+      ]);
+
+      await client.query('COMMIT');
+      return lotResult.rows[0];
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
+
 };
 
 module.exports = ProductLot;

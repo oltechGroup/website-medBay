@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { 
   X, Package, User, Calendar, DollarSign, 
   FileText, CheckCircle2, AlertTriangle, Send, Tag, Info,
-  Phone, Building2, Truck, Trash2, Clock, Ban
+  Phone, Building2, Truck, Trash2, Clock, Ban, Stethoscope
 } from "lucide-react";
 import { useAdminQuotes, Quote } from "@/hooks/useAdminQuotes";
 import { formatCurrency, formatDate } from "@/lib/formatters";
@@ -24,7 +24,7 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
     quantity_found: 0,
     unit_price: "",
     expiry_date: "",
-    lot_type: "in_date", // 'in_date' | 'short_date' | 'expired'
+    lot_type: "in_date", // 'in_date' | 'short_date' | 'expired' | 'equipment'
     admin_notes: ""
   });
 
@@ -33,23 +33,42 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
   // Load initial data when modal opens
   useEffect(() => {
     if (quote) {
+      const requestNotes = quote.product_request.notes || "";
+      const isEquipmentRequested = requestNotes.includes("New / Durable") || requestNotes.includes("Equipment");
+      
+      // Intentar adivinar la preferencia del cliente para pre-llenar
+      let initialLotType = "in_date";
+      if (isEquipmentRequested) initialLotType = "equipment";
+      else if (requestNotes.includes("Short-Dated")) initialLotType = "short_date";
+      else if (requestNotes.includes("Expired")) initialLotType = "expired";
+
       setFormData({
         quantity_found: quote.product_request.quantity_asked, 
         unit_price: "",
         expiry_date: "",
-        lot_type: "in_date",
+        lot_type: initialLotType,
         admin_notes: ""
       });
-      setNoExpiry(false);
+      
+      // ✅ LOGICA INTELIGENTE: Si es equipo, no lleva caducidad
+      setNoExpiry(isEquipmentRequested);
     }
   }, [quote, isOpen]);
+
+  // Si el admin cambia el dropdown a equipment manualmente, también marcamos noExpiry
+  useEffect(() => {
+    if (formData.lot_type === 'equipment') {
+       setNoExpiry(true);
+       setFormData(prev => ({ ...prev, expiry_date: "" }));
+    }
+  }, [formData.lot_type]);
 
   if (!isOpen || !quote) return null;
 
   // --- NOTE CLEANING FUNCTION ---
   const extractUserNote = (fullNote?: string) => {
     if (!fullNote) return null;
-    const separator = "Customer Note:"; // Changed to English matching
+    const separator = "Client Note:"; // Matching exact frontend generated structure
     if (fullNote.includes(separator)) {
         const parts = fullNote.split(separator);
         return parts[parts.length - 1].trim(); 
@@ -61,6 +80,9 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
   };
 
   const userRealNote = extractUserNote(quote.product_request.notes);
+  const fullContextNotes = quote.product_request.notes || "";
+  const context = (quote.product_request as any).quote_context;
+  const isEquipment = formData.lot_type === 'equipment' || fullContextNotes.includes("New / Durable");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,12 +129,8 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
   // Helper to show client info
   const clientName = quote.user_name || quote.guest_info?.name || "Guest Customer";
   const clientEmail = quote.user_email || quote.guest_info?.email || "No email";
-  
-  // ✅ FIX 1: Ensure phone is extracted correctly from any possible source
   const clientPhone = (quote as any).user_phone || quote.guest_info?.phone || "No phone registered";
   
-  const context = (quote.product_request as any).quote_context;
-
   // --- STATE LOGIC (LOCK) ---
   const isAccepted = quote.status === 'accepted';
   const isProposalSent = quote.status === 'proposal_sent';
@@ -151,7 +169,7 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
             </div>
 
             {/* Smart Context */}
-            {context && (
+            {(context || fullContextNotes.includes("Preference:")) && (
                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl shadow-sm">
                     <div className="flex items-center gap-2 mb-3 text-blue-700">
                         <Info size={16}/>
@@ -159,7 +177,14 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
                     </div>
                     
                     <div className="space-y-3 text-sm">
-                        {context.lotNumber && (
+                        {/* Preference from the client Modal */}
+                        {fullContextNotes.includes("Preference:") && (
+                           <div className="text-xs font-bold text-blue-800 bg-white p-2 rounded border border-blue-100">
+                              Target: {fullContextNotes.split('\n')[0].replace('[', '').replace(']', '')}
+                           </div>
+                        )}
+
+                        {context?.lotNumber && (
                             <div className="bg-white p-2 rounded border border-blue-100">
                                 <div className="flex items-center gap-2 text-slate-500 mb-1">
                                     <Package size={12}/> <span className="text-[10px] font-bold uppercase">Viewed Lot</span>
@@ -168,7 +193,7 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
                             </div>
                         )}
 
-                        {context.supplierName && (
+                        {context?.supplierName && (
                              <div className="bg-white p-2 rounded border border-blue-100">
                                 <div className="flex items-center gap-2 text-slate-500 mb-1">
                                     <Truck size={12}/> <span className="text-[10px] font-bold uppercase">Supplier</span>
@@ -178,13 +203,13 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
                         )}
 
                         <div className="grid grid-cols-2 gap-2">
-                            {context.referencePrice && (
+                            {context?.referencePrice && (
                                 <div className="flex flex-col">
                                     <span className="text-[10px] text-slate-500">Ref Price:</span>
                                     <span className="font-bold text-slate-700">{formatCurrency(context.referencePrice)}</span>
                                 </div>
                             )}
-                            {context.stockAvailable !== undefined && (
+                            {context?.stockAvailable !== undefined && (
                                 <div className="flex flex-col text-right">
                                     <span className="text-[10px] text-slate-500">System Stock:</span>
                                     <span className="font-bold text-slate-700">{context.stockAvailable} pcs</span>
@@ -281,18 +306,16 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
                             <CheckCircle2 size={40}/>
                         </div>
                         <h3 className="text-2xl font-black text-slate-800 mb-2">Quote Accepted!</h3>
-                        <p className="text-slate-500 max-w-xs mb-8">The customer has confirmed the purchase. Proceed to generate the sales order.</p>
+                        <p className="text-slate-500 max-w-xs mb-8">The customer has confirmed the purchase. An order was generated successfully.</p>
                         
                         <div className="bg-white p-4 rounded-xl border border-slate-200 w-full max-w-xs text-left shadow-sm">
                             <p className="text-xs text-slate-400 font-bold uppercase mb-2">Agreed Details</p>
                             <div className="flex justify-between mb-1">
                                 <span className="text-sm text-slate-600">Price:</span>
-                                {/* ✅ FIX 2: Black text (text-slate-900) so it's not transparent */}
                                 <span className="font-bold text-slate-900">{formatCurrency(quote.admin_proposal?.unit_price || 0)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-sm text-slate-600">Quantity:</span>
-                                {/* ✅ FIX 2: Black text for quantity as well */}
                                 <span className="font-bold text-slate-900">{quote.admin_proposal?.quantity_found}</span>
                             </div>
                         </div>
@@ -324,7 +347,7 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
                 <div className="grid grid-cols-2 gap-5">
                   {/* Found Quantity */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-600 uppercase">Actual Stock</label>
+                    <label className="text-xs font-bold text-slate-600 uppercase">Found Quantity</label>
                     <div className="relative">
                       <Package className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input 
@@ -369,34 +392,40 @@ export default function QuoteResponseModal({ isOpen, onClose, quote }: QuoteResp
                       <option value="in_date">🟢 Valid (In Date)</option>
                       <option value="short_date">🟡 Short Expiration</option>
                       <option value="expired">🔴 Expired (Educational)</option>
+                      <option value="equipment">🩺 New / Durable (Equipment)</option>
                     </select>
                   </div>
 
                   {/* Expiration Date */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                        <label className="text-xs font-bold text-slate-600 uppercase">Expiration</label>
+                        <label className={`text-xs font-bold uppercase ${isEquipment ? 'text-slate-400' : 'text-slate-600'}`}>Expiration</label>
                         <label className="flex items-center gap-1 cursor-pointer">
                             <input 
                                 type="checkbox" 
                                 checked={noExpiry}
+                                disabled={isEquipment} // Bloquear checkbox si es equipo
                                 onChange={(e) => setNoExpiry(e.target.checked)}
-                                className="w-3 h-3 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                className="w-3 h-3 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
                             />
-                            <span className="text-[10px] text-slate-500 font-medium">Not applicable</span>
+                            <span className={`text-[10px] font-medium ${isEquipment ? 'text-slate-400' : 'text-slate-500'}`}>
+                                Not applicable
+                            </span>
                         </label>
                     </div>
                     
                     <div className="relative">
-                      <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 size={18} ${noExpiry ? 'text-slate-200' : 'text-slate-400'}`} />
+                      <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 size={18} ${noExpiry ? 'text-slate-300' : 'text-slate-400'}`} />
                       <input 
                         type="date"
                         required={!noExpiry}
                         disabled={noExpiry}
                         value={formData.expiry_date}
                         onChange={(e) => setFormData({...formData, expiry_date: e.target.value})}
-                        className={`w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-blue-500 font-medium text-slate-700 transition-all
-                            ${noExpiry ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'}
+                        className={`w-full pl-10 pr-4 py-3 rounded-xl border outline-none font-medium transition-all
+                            ${noExpiry 
+                                ? 'bg-slate-100 text-slate-400 border-slate-100 cursor-not-allowed' 
+                                : 'bg-white text-slate-700 border-slate-200 focus:border-blue-500'}
                         `}
                       />
                     </div>

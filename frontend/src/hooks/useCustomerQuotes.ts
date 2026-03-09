@@ -10,12 +10,24 @@ export interface QuoteRequest {
   sku: string;
   quantity_asked: number;
   notes?: string;
+  // ✅ AÑADIDO: Contexto opcional para mantener el tipado igual al Admin
+  quote_context?: {
+    lotId?: string;
+    lotNumber?: string;
+    referencePrice?: number;
+    expiryDate?: string;
+    stockAvailable?: number;
+    supplierName?: string;
+    productId?: string;
+    status?: string; 
+  };
 }
 
 export interface QuoteProposal {
   quantity_found: number;
   expiry_date: string;
-  lot_type: 'in_date' | 'short_date' | 'expired';
+  // ✅ AÑADIDO: Soporte para 'equipment'
+  lot_type: 'in_date' | 'short_date' | 'expired' | 'equipment';
   unit_price: number;
   admin_notes?: string;
   proposal_date: string;

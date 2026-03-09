@@ -438,10 +438,12 @@ export default function ProductPage() {
                     lots.map((lot: any) => (
                       <LotItem 
                         key={lot.id} lot={lot} onAddToCart={handleAddToCart} isAdding={isAdding}
+                        // ✅ AQUI INYECTAMOS EL STATUS CORREGIDO (lotData)
                         onQuote={(lotData) => handleOpenQuote({
                             lotId: lotData.id, lotNumber: lotData.lot_number,
                             referencePrice: parseFloat(lotData.price),
-                            expiryDate: lotData.expiry_date, stockAvailable: lotData.quantity
+                            expiryDate: lotData.expiry_date, stockAvailable: lotData.quantity,
+                            status: lotData.status
                         })}
                       />
                     ))

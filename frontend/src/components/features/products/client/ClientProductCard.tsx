@@ -405,12 +405,14 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                       lot={lot} 
                       onAddToCart={handleAddToCart}
                       isAdding={isAdding}
+                      // ✅ AQUI INYECTAMOS EL STATUS PARA QUE QUOTE MODAL SEPA SI ES EQUIPMENT
                       onQuote={(loteData) => handleOpenQuote({
                           lotId: loteData.id,
                           lotNumber: loteData.lot_number,
                           referencePrice: parseFloat(loteData.price),
                           expiryDate: loteData.expiry_date,
-                          stockAvailable: loteData.quantity
+                          stockAvailable: loteData.quantity,
+                          status: loteData.status 
                       })}
                     />
                   ))}

@@ -18,13 +18,16 @@ export interface ProductRequest {
     expiryDate?: string;
     stockAvailable?: number;
     supplierName?: string;
+    productId?: string; // ✅ AÑADIDO: Para la creación del lote puente
+    status?: string;    // ✅ AÑADIDO: Para saber si es equipo desde el origen
   };
 }
 
 export interface AdminProposal {
   quantity_found: number;
   expiry_date: string;
-  lot_type: 'in_date' | 'short_date' | 'expired';
+  // ✅ AÑADIDO: Soporte para 'equipment' en TypeScript
+  lot_type: 'in_date' | 'short_date' | 'expired' | 'equipment'; 
   unit_price: number;
   admin_notes?: string;
   proposal_date: string;

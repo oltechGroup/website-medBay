@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'; // ✅ We import useRouter
 import { 
   X, Calendar, Package, DollarSign, 
   CheckCircle2, XCircle, AlertTriangle, 
-  FileText, Clock, ShieldCheck, Tag, Ban
+  FileText, Clock, ShieldCheck, Tag, Ban, Stethoscope
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { CustomerQuote } from '@/hooks/useCustomerQuotes';
@@ -61,6 +61,13 @@ export default function CustomerQuoteModal({
           color: 'bg-red-50 text-red-800 border-red-200',
           icon: <AlertTriangle size={18} className="text-red-600" />
         };
+      case 'equipment': // ✅ NADA DE CADUCIDAD, ES EQUIPO
+        return {
+          label: 'New / Durable',
+          description: 'Medical equipment or precision instrument.',
+          color: 'bg-blue-50 text-blue-800 border-blue-200',
+          icon: <Stethoscope size={18} className="text-blue-600" />
+        };
       default:
         return {
           label: type,
@@ -73,6 +80,7 @@ export default function CustomerQuoteModal({
 
   const lotConfig = getLotTypeConfig(proposal.lot_type);
   const totalAmount = proposal.unit_price * proposal.quantity_found;
+  const isEquipment = proposal.lot_type === 'equipment'; // Flag para ocultar fecha
 
   // --- STATUS LOGIC ---
   const isAccepted = quote.status === 'accepted';
@@ -198,17 +206,19 @@ export default function CustomerQuoteModal({
                    )}
                 </div>
 
-                {/* EXPIRATION CARD */}
-                <div className="bg-white p-5 md:p-6 rounded-3xl border border-slate-200 shadow-sm">
-                   <div className="flex justify-between items-start mb-3">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expiration</span>
-                      <Calendar size={16} className="text-slate-400"/>
-                   </div>
-                   <p className="text-lg md:text-xl font-black text-slate-800">
-                     {formatDate(proposal.expiry_date)}
-                   </p>
-                   <p className="text-[10px] text-slate-400 font-medium mt-1">Certified exact date</p>
-                </div>
+                {/* EXPIRATION CARD (Only if NOT equipment) */}
+                {!isEquipment && (
+                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-slate-200 shadow-sm">
+                     <div className="flex justify-between items-start mb-3">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expiration</span>
+                        <Calendar size={16} className="text-slate-400"/>
+                     </div>
+                     <p className="text-lg md:text-xl font-black text-slate-800">
+                       {proposal.expiry_date ? formatDate(proposal.expiry_date) : 'N/A'}
+                     </p>
+                     <p className="text-[10px] text-slate-400 font-medium mt-1">Certified exact date</p>
+                  </div>
+                )}
               </div>
 
              {/* SELLER NOTES */}
@@ -241,7 +251,7 @@ export default function CustomerQuoteModal({
            {isActionable ? (
                <div className="flex gap-3 md:gap-4">
                    <button 
-                     onClick={() => handleAction('rejected')} // ✅ Using new handler
+                     onClick={() => handleAction('rejected')} 
                      disabled={isResponding}
                      className="flex-1 py-3.5 md:py-4 border-2 border-slate-100 rounded-2xl font-bold text-slate-500 hover:border-red-100 hover:bg-red-50 hover:text-red-600 transition-all disabled:opacity-50 text-xs md:text-sm uppercase tracking-wide"
                    >
@@ -249,7 +259,7 @@ export default function CustomerQuoteModal({
                    </button>
                    
                    <button 
-                     onClick={() => handleAction('accepted')} // ✅ Using new handler
+                     onClick={() => handleAction('accepted')} 
                      disabled={isResponding}
                      className="flex-[2] py-3.5 md:py-4 bg-slate-900 text-white rounded-2xl font-black text-xs md:text-sm uppercase tracking-wide hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-2 md:gap-3 disabled:opacity-50 group"
                    >

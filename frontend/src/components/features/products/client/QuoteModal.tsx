@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, FileText, CheckCircle2, AlertCircle, ArrowRight, Loader2, Package, Tag, Calendar } from "lucide-react";
+import { X, FileText, CheckCircle2, AlertCircle, ArrowRight, Loader2, Package, Tag, Calendar, Stethoscope } from "lucide-react";
 import { Product } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/lib/api";
@@ -15,6 +15,7 @@ export interface QuoteContext {
   referencePrice?: number;
   expiryDate?: string;
   stockAvailable?: number;
+  status?: string; // Para saber si es equipment
 }
 
 interface QuoteModalProps {
@@ -24,7 +25,7 @@ interface QuoteModalProps {
   initialContext?: QuoteContext; // ✅ Receive optional context
 }
 
-type QuoteType = "Current (Standard)" | "Short-Dated (Discounted)" | "Expired (Practice/Waste)";
+type QuoteType = "Current (Standard)" | "Short-Dated (Discounted)" | "Expired (Practice/Waste)" | "New / Durable";
 
 export default function QuoteModal({ isOpen, onClose, product, initialContext }: QuoteModalProps) {
   const { user, isAuthenticated } = useAuth();
@@ -37,30 +38,38 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
   const [type, setType] = useState<QuoteType>("Current (Standard)");
   const [notes, setNotes] = useState("");
 
+  const isEquipment = initialContext?.status === 'equipment';
+
   // 🧠 SMART LOGIC: Pre-fill based on context
   useEffect(() => {
-    if (isOpen && initialContext) {
-      // 1. Optional: setQuantity(1); 
+    if (isOpen) {
+      if (initialContext) {
+        // 1. Si es equipo médico, forzamos el tipo y no lo dejamos cambiar
+        if (initialContext.status === 'equipment') {
+          setType("New / Durable");
+        } 
+        // 2. If there is an expiration date, determine the TYPE automatically
+        else if (initialContext.expiryDate) {
+          const expiry = new Date(initialContext.expiryDate);
+          const now = new Date();
+          const monthsDiff = (expiry.getFullYear() - now.getFullYear()) * 12 + (expiry.getMonth() - now.getMonth());
 
-      // 2. If there is an expiration date, determine the TYPE automatically
-      if (initialContext.expiryDate) {
-        const expiry = new Date(initialContext.expiryDate);
-        const now = new Date();
-        const monthsDiff = (expiry.getFullYear() - now.getFullYear()) * 12 + (expiry.getMonth() - now.getMonth());
-
-        if (expiry < now) {
-          setType("Expired (Practice/Waste)");
-        } else if (monthsDiff <= 6) {
-          setType("Short-Dated (Discounted)");
+          if (expiry < now) {
+            setType("Expired (Practice/Waste)");
+          } else if (monthsDiff <= 6) {
+            setType("Short-Dated (Discounted)");
+          } else {
+            setType("Current (Standard)");
+          }
         } else {
           setType("Current (Standard)");
         }
-      }
-    } else if (isOpen) {
+      } else {
         // Reset if opened clean
         setQuantity(1);
         setType("Current (Standard)");
         setNotes("");
+      }
     }
   }, [isOpen, initialContext]);
 
@@ -83,13 +92,19 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
       
       const finalNotes = `${contextNote}\n\nClient Note: ${notes}`;
 
+      // ✅ AGREGAMOS EL productId AL CONTEXTO ANTES DE ENVIARLO
+      const payloadContext = {
+        ...initialContext,
+        productId: product.id 
+      };
+
       const payload = {
         product_name: product.description,
         sku: product.global_sku || 'N/A',
         quantity_asked: quantity,
         notes: finalNotes,
         // Send structured context in case backend evolves to store it in separate columns
-        quote_context: initialContext, 
+        quote_context: payloadContext, 
         guest_info: !isAuthenticated ? {
             name: "Web Guest",
             email: "guest@pending.com", 
@@ -118,7 +133,8 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
         <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 flex flex-col gap-2 animate-in fade-in">
             <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1">
-                    <CheckCircle2 size={12}/> Quoting Specific Lot
+                    {isEquipment ? <Stethoscope size={12}/> : <CheckCircle2 size={12}/>} 
+                    {isEquipment ? 'Quoting Equipment' : 'Quoting Specific Lot'}
                 </span>
                 {initialContext.lotNumber && (
                     <span className="text-[10px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-blue-100">
@@ -134,7 +150,7 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
                         Ref: {formatCurrency(initialContext.referencePrice)}
                     </span>
                 )}
-                {initialContext.expiryDate && (
+                {initialContext.expiryDate && !isEquipment && (
                     <span className="flex items-center gap-1">
                         <Calendar size={12} className="text-blue-500"/> 
                         Expires: {formatDate(initialContext.expiryDate)}
@@ -160,7 +176,7 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
           <div className="flex items-center gap-2 text-slate-800">
             <FileText className="text-blue-600" size={20} />
             <h3 className="font-bold">
-                {initialContext ? "Lot Quote" : "Request Quote"}
+                {initialContext ? (isEquipment ? "Equipment Quote" : "Lot Quote") : "Request Quote"}
             </h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
@@ -195,18 +211,21 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
               {renderContextBadge()}
 
               {/* Form */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Required Product Type</label>
-                <select 
-                  value={type}
-                  onChange={(e) => setType(e.target.value as QuoteType)}
-                  className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-900"
-                >
-                  <option value="Current (Standard)">Current (Standard)</option>
-                  <option value="Short-Dated (Discounted)">Short-Dated (Discounted)</option>
-                  <option value="Expired (Practice/Waste)">Expired (Practice/Waste)</option>
-                </select>
-              </div>
+              {/* Si NO es equipo, mostramos las opciones de caducidad */}
+              {!isEquipment && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Required Product Type</label>
+                  <select 
+                    value={type}
+                    onChange={(e) => setType(e.target.value as QuoteType)}
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-900"
+                  >
+                    <option value="Current (Standard)">Current (Standard)</option>
+                    <option value="Short-Dated (Discounted)">Short-Dated (Discounted)</option>
+                    <option value="Expired (Practice/Waste)">Expired (Practice/Waste)</option>
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Quantity Units</label>
@@ -225,7 +244,7 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
                   rows={3}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g.: I need them to have at least 6 months validity..."
+                  placeholder={isEquipment ? "e.g.: Do you offer installation services?" : "e.g.: I need them to have at least 6 months validity..."}
                   className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm resize-none text-slate-900"
                 />
               </div>
