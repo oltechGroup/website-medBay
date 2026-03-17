@@ -15,31 +15,31 @@ import { ClientProductCard } from "@/components/features/products/client/ClientP
 import { ClientSearch } from "@/components/features/products/client/ClientSearch"; 
 
 export default function Home() {
-  // ✅ SOLUCIÓN: Usamos los parámetros de tu hook para pedir exactamente 15 productos que SÍ tengan imagen
+  // ✅ SOLUCIÓN: Le pedimos al backend que nos mande los 15 con imagen, ya ordenados alfabéticamente
   const { products } = useProducts({
     limit: 15,
-    hasImages: 'with'
+    hasImages: 'with',
+    sortBy: 'description_asc' // ⚠️ NOTA: Si tu backend usa otra palabra para ordenar de la A-Z (como 'az', 'name_asc', o 'alpha'), cámbiala aquí.
   });
   
   const { user, isAuthenticated, logout } = useAuth(); // ✅ Auth Hook
   const [mounted, setMounted] = useState(false); // ✅ Hydration control state
 
-  // Solution to "token loss on reload" issue:
-  // Wait for the component to mount on the client to read the persisted Zustand state.
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Helper function to format the role badge visually
   const getRoleBadge = (role: string) => {
     if (role === 'admin') return <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-200">ADMIN</span>;
     if (role === 'medical_professional') return <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200">DOCTOR</span>;
     return <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200">BUSINESS</span>;
   };
 
-  // ✅ Ahora solo ordenamos de la A-Z, porque el backend ya nos garantizó que los 15 tienen imagen
+  // ✅ Mejoramos el ordenamiento de respaldo para que ignore diferencias entre mayúsculas y minúsculas
   const displayProducts = products
-    ? [...products].sort((a, b) => a.description.localeCompare(b.description))
+    ? [...products].sort((a, b) => 
+        (a.description || "").toLowerCase().localeCompare((b.description || "").toLowerCase())
+      )
     : [];
 
   return (
@@ -74,7 +74,6 @@ export default function Home() {
 
       {/* ======= FLOATING CATEGORY CARDS ======= */}
       <section className="relative z-20 -mt-16 w-[90%] max-w-[1200px] mx-auto px-4 md:px-0 pointer-events-none">
-        {/* ✅ AHORA SON 4 COLUMNAS PARA INCLUIR EQUIPO */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pointer-events-auto">
           
           <Link href="/products?status=available" className="group">
@@ -116,7 +115,6 @@ export default function Home() {
             </div>
           </Link>
 
-          {/* ✅ NUEVA TARJETA: EQUIPMENT */}
           <Link href="/products?status=equipment" className="group">
             <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-white hover:border-blue-200 transition-all duration-500 hover:-translate-y-2 h-full flex flex-col">
               <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 group-hover:bg-blue-500 group-hover:text-white transition-all duration-500 mb-6 shadow-sm">
