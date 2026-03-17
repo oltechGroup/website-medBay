@@ -15,7 +15,12 @@ import { ClientProductCard } from "@/components/features/products/client/ClientP
 import { ClientSearch } from "@/components/features/products/client/ClientSearch"; 
 
 export default function Home() {
-  const { products } = useProducts();
+  // ✅ SOLUCIÓN: Usamos los parámetros de tu hook para pedir exactamente 15 productos que SÍ tengan imagen
+  const { products } = useProducts({
+    limit: 15,
+    hasImages: 'with'
+  });
+  
   const { user, isAuthenticated, logout } = useAuth(); // ✅ Auth Hook
   const [mounted, setMounted] = useState(false); // ✅ Hydration control state
 
@@ -32,12 +37,9 @@ export default function Home() {
     return <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200">BUSINESS</span>;
   };
 
-  // ✅ NUEVA LÓGICA: Filtrar por imagen, ordenar A-Z y limitar a 15
+  // ✅ Ahora solo ordenamos de la A-Z, porque el backend ya nos garantizó que los 15 tienen imagen
   const displayProducts = products
-    ? [...products]
-        .filter((p) => p.primary_image || (p.image_count && p.image_count > 0))
-        .sort((a, b) => a.description.localeCompare(b.description))
-        .slice(0, 15)
+    ? [...products].sort((a, b) => a.description.localeCompare(b.description))
     : [];
 
   return (
