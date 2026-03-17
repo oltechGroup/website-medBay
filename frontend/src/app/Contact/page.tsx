@@ -16,11 +16,10 @@ import {
   AlertCircle,
   Facebook,
   Instagram,
-  MessageCircle // Usaremos este para WhatsApp
+  MessageCircle 
 } from "lucide-react";
 
 export default function Contact() {
-  // --- STATES (Intactos) ---
   const [formData, setFormData] = useState({
     nombre: "",
     email: "",
@@ -31,7 +30,6 @@ export default function Contact() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
-  // --- HANDLERS (Intactos) ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
       ...formData,
@@ -107,6 +105,7 @@ export default function Contact() {
             <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-white">
               <h2 className="text-2xl font-black mb-8 text-slate-800">Contact Information</h2>
               <div className="space-y-8">
+                
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Mail size={24} />
@@ -122,8 +121,10 @@ export default function Contact() {
                     <Phone size={24} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Sales Line</p>
-                    <p className="text-lg font-bold text-slate-700">+1 (787) 466-2212</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Sales Lines</p>
+                    <p className="text-base font-bold text-slate-700 mb-1">🇲🇽 +52 56 4781 9962</p>
+                    <p className="text-base font-bold text-slate-700 mb-1">🇵🇷 +1 (787) 466-2212</p>
+                    <p className="text-base font-bold text-slate-700">🇺🇸 +1 (656) 200-9789</p>
                   </div>
                 </div>
 
@@ -132,10 +133,12 @@ export default function Contact() {
                     <MapPin size={24} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Headquarters</p>
-                    <p className="text-lg font-bold text-slate-700 leading-snug">EDOMEX, Mexico</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Headquarters</p>
+                    <p className="text-base font-bold text-slate-700 leading-snug mb-1">EDOMEX, México</p>
+                    <p className="text-base font-bold text-slate-700 leading-snug">TAMPA, Florida USA</p>
                   </div>
                 </div>
+
               </div>
 
               <div className="mt-12 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4">
@@ -148,21 +151,57 @@ export default function Contact() {
             <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-white">
               <h2 className="text-2xl font-black mb-6 text-slate-800">Quick Connect</h2>
               <div className="grid grid-cols-1 gap-4">
-                {/* WHATSAPP - Botón Principal */}
-                <a 
-                  href="https://wa.me/17874662212" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-4 p-5 rounded-3xl bg-green-50 border border-green-100 hover:bg-green-500 hover:text-white transition-all group"
-                >
-                  <div className="w-12 h-12 bg-white text-green-600 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                    <MessageCircle size={28} />
-                  </div>
-                  <div>
-                    <span className="block text-[10px] font-bold text-green-700 group-hover:text-green-50 uppercase tracking-[0.2em]">Live Chat</span>
-                    <span className="text-lg font-black">WhatsApp Business</span>
-                  </div>
-                </a>
+                
+                {/* WHATSAPP - Múltiples Botones */}
+                <div className="space-y-3 mb-2">
+                  {/* WhatsApp MÉXICO */}
+                  <a 
+                    href="https://wa.me/525647819962" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-4 p-4 rounded-3xl bg-green-50 border border-green-100 hover:bg-green-500 hover:text-white transition-all group"
+                  >
+                    <div className="w-10 h-10 bg-white text-green-600 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform flex-shrink-0">
+                      <MessageCircle size={22} />
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-green-700 group-hover:text-green-50 uppercase tracking-[0.2em]">Live Chat • MÉXICO 🇲🇽</span>
+                      <span className="text-base font-black">+52 56 4781 9962</span>
+                    </div>
+                  </a>
+
+                  {/* WhatsApp CARIBE */}
+                  <a 
+                    href="https://wa.me/17874662212" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-4 p-4 rounded-3xl bg-green-50 border border-green-100 hover:bg-green-500 hover:text-white transition-all group"
+                  >
+                    <div className="w-10 h-10 bg-white text-green-600 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform flex-shrink-0">
+                      <MessageCircle size={22} />
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-green-700 group-hover:text-green-50 uppercase tracking-[0.2em]">Live Chat • CARIBE 🇵🇷</span>
+                      <span className="text-base font-black">+1 (787) 466-2212</span>
+                    </div>
+                  </a>
+
+                  {/* WhatsApp USA */}
+                  <a 
+                    href="https://wa.me/16562009789" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-4 p-4 rounded-3xl bg-green-50 border border-green-100 hover:bg-green-500 hover:text-white transition-all group"
+                  >
+                    <div className="w-10 h-10 bg-white text-green-600 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform flex-shrink-0">
+                      <MessageCircle size={22} />
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-green-700 group-hover:text-green-50 uppercase tracking-[0.2em]">Live Chat • USA 🇺🇸</span>
+                      <span className="text-base font-black">+1 (656) 200-9789</span>
+                    </div>
+                  </a>
+                </div>
 
                 {/* FB e IG en Fila */}
                 <div className="grid grid-cols-2 gap-4">
@@ -190,7 +229,7 @@ export default function Contact() {
             </div>
           </div>
 
-          {/* RIGHT SIDE: FORM (Intacto) */}
+          {/* RIGHT SIDE: FORM */}
           <div className="lg:col-span-7 order-1 lg:order-2">
             <div className="bg-white p-6 md:p-12 rounded-[2.5rem] shadow-2xl shadow-slate-200/60 border border-white relative overflow-hidden">
               <div className="relative z-10">
