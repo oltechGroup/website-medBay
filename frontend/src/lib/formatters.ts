@@ -54,24 +54,31 @@ export const getImageUrl = (path?: string | null) => {
 export const getLotStatusConfig = (status: string, expiryDate?: string) => {
   const s = status?.toLowerCase() || '';
 
+  if (s === 'equipment') {
+    return { 
+      color: 'bg-blue-100 text-blue-700 border-blue-200', 
+      label: 'Equipment', 
+      hex: '#3b82f6' 
+    };
+  }
   if (s === 'expired') {
     return { 
       color: 'bg-red-100 text-red-700 border-red-200', 
-      label: 'Caducado', 
+      label: 'Expired', 
       hex: '#ef4444' 
     };
   }
   if (s === 'near_expiry') {
     return { 
       color: 'bg-amber-100 text-amber-700 border-amber-200', 
-      label: 'Fecha Corta', 
+      label: 'Near Expiry', 
       hex: '#f59e0b' 
     };
   }
   
   return { 
     color: 'bg-green-100 text-green-700 border-green-200', 
-    label: 'En Fecha', 
+    label: 'On date', 
     hex: '#22c55e' 
   };
 };

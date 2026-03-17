@@ -136,7 +136,7 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
         <span className="font-medium">
           {isEquipment ? 'Condition:' : 'Expires:'} 
           <strong className="text-slate-800 ml-1">
-            {isEquipment ? 'New / Durable' : (lot.expiry_date ? formatDate(lot.expiry_date) : 'N/A')}
+            {isEquipment ? 'Pre-Owned / Inspected' : (lot.expiry_date ? formatDate(lot.expiry_date) : 'N/A')}
           </strong>
         </span>
       </div>
