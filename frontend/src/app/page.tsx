@@ -32,6 +32,14 @@ export default function Home() {
     return <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200">BUSINESS</span>;
   };
 
+  // ✅ NUEVA LÓGICA: Filtrar por imagen, ordenar A-Z y limitar a 15
+  const displayProducts = products
+    ? [...products]
+        .filter((p) => p.primary_image || (p.image_count && p.image_count > 0))
+        .sort((a, b) => a.description.localeCompare(b.description))
+        .slice(0, 15)
+    : [];
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
       {/* ======= HERO ======= */}
@@ -161,8 +169,8 @@ export default function Home() {
         <div className="w-[90%] max-w-[1200px] mx-auto px-4 md:px-0">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
             <div>
-              <div className="text-blue-600 font-black text-xs uppercase tracking-[0.3em] mb-3">Just added</div>
-              <h2 className="text-4xl font-black text-slate-900 tracking-tight">Latest Products</h2>
+              <div className="text-blue-600 font-black text-xs uppercase tracking-[0.3em] mb-3">Product List</div>
+              <h2 className="text-4xl font-black text-slate-900 tracking-tight">Product Catalog</h2>
             </div>
             <Link href="/products" className="group flex items-center gap-2 text-blue-600 font-black text-sm uppercase tracking-widest border-b-2 border-blue-600/10 pb-1 hover:border-blue-600 transition-all">
               Explore the full catalog <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -170,8 +178,8 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col gap-6">
-            {products && products.length > 0 ? (
-              products.slice(0, 5).map((product) => (
+            {displayProducts.length > 0 ? (
+              displayProducts.map((product) => (
                 <ClientProductCard key={product.id} product={product} />
               ))
             ) : (
