@@ -34,7 +34,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           text: 'text-red-700',
           badge: 'bg-red-100 text-red-800 border-red-200'
         };
-      case 'equipment': // ✅ AÑADIDO PARA EQUIPMENT
+      case 'equipment': 
         return {
           bg: 'bg-blue-50',
           border: 'border-blue-200',
@@ -70,14 +70,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       case 'available': return '🟢 Current';
       case 'near_expiry': return '🟡 Short-Date';
       case 'expired': return '🔴 Expired';
-      case 'equipment': return '🩺 Equip'; // ✅ AÑADIDO
+      case 'equipment': return '🩺 Equip';
       default: return status;
     }
   };
 
   const colors = getStatusColor(product.status);
   
-  // ✅ LOGICA INTELIGENTE PARA MOSTRAR VALORES
   const isEquipment = product.status === 'equipment';
   const hasPrice = product.price && product.price > 0;
   const hasStock = product.quantity && product.quantity > 0;
@@ -100,9 +99,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
         </div>
         
-        {/* Status Badge - Only once */}
+        {/* Status Badge */}
         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${colors.badge} whitespace-nowrap ml-2`}>
-          {getStatusLabel(product.status).split(' ')[1]} {/* Only text, without emoji */}
+          {getStatusLabel(product.status).split(' ')[1]}
         </span>
       </div>
 
@@ -114,7 +113,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         )}
       </div>
 
-      {/* Description - Only if it exists and with better format */}
+      {/* Description */}
       {product.product_description && (
         <div className="mb-3">
           <p className="text-sm text-gray-700 line-clamp-2 leading-relaxed">
@@ -123,16 +122,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
       )}
 
-      {/* Critical Information - Better Organized */}
+      {/* Critical Information */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="flex items-center space-x-2">
           <div className="p-1.5 bg-white rounded-lg border border-gray-200">
             <Package className="h-3 w-3 text-blue-600" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-xs text-gray-600">Stock</p>
-            <p className={`text-sm font-bold ${hasStock ? 'text-gray-900' : 'text-amber-600'}`}>
-              {hasStock ? `${product.quantity} units` : 'On Request'}
+            {/* 🚀 CAMBIO CLAVE: Ahora muestra la cantidad + unidad de medida */}
+            <p className={`text-sm font-bold truncate ${hasStock ? 'text-gray-900' : 'text-amber-600'}`}>
+              {hasStock 
+                ? `${product.quantity} ${product.unit_of_measure || 'units'}` 
+                : 'On Request'}
             </p>
           </div>
         </div>
@@ -150,7 +152,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
       </div>
 
-      {/* Price and Total Value - With better hierarchy */}
+      {/* Price and Total Value */}
       <div className="pt-3 border-t border-gray-200">
         <div className="flex items-center justify-between">
           <div>

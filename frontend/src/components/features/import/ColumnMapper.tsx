@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Map, CheckCircle, AlertCircle, Table, Download, MinusCircle, ArrowRight } from 'lucide-react';
+import { Map, CheckCircle, AlertCircle, Table, Download, MinusCircle, ArrowRight, Package } from 'lucide-react';
 
 interface ColumnMapperProps {
   previewData: any[];
@@ -26,8 +26,9 @@ const REQUIRED_FIELDS = [
 ];
 
 const OPTIONAL_FIELDS = [
+  { key: 'unidad_medida', label: 'Unit of Measure', description: 'Presentation (Piece, Box, Kit, etc.)' }, // 🚀 NUEVO CAMPO
   { key: 'imagen_url', label: 'Image (URL)', description: 'Product image URL' },
-  { key: 'notas', label: 'Notes / Includes', description: 'Additional info or included accessories' }, // ✅ NUEVO CAMPO AGREGADO
+  { key: 'notas', label: 'Notes / Includes', description: 'Additional info or included accessories' },
 ];
 
 export const ColumnMapper: React.FC<ColumnMapperProps> = ({
@@ -42,8 +43,6 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
   imageColumn, 
 }) => {
   const [mappings, setMappings] = useState(currentMappings || {});
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
 
   useEffect(() => {
     setMappings(currentMappings || {});
@@ -55,7 +54,6 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
       setMappings(newMappings);
       onMappingsChange(newMappings);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageColumn, availableColumns]);
 
   const handleMappingChange = (fieldKey: string, value: string) => {
@@ -167,7 +165,6 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
                         </option>
                       ))}
                     </select>
-                    {/* Visual dropdown indicator */}
                     <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-500">
                       <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
                     </div>
@@ -191,7 +188,10 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {OPTIONAL_FIELDS.map((field) => (
               <div key={field.key} className="border border-gray-200 rounded-xl p-5 bg-gray-50/50 hover:bg-white transition-colors">
-                <label className="block text-sm font-bold text-gray-700 mb-1">{field.label}</label>
+                <div className="flex items-center space-x-2 mb-1">
+                  {field.key === 'unidad_medida' && <Package className="w-4 h-4 text-blue-500" />}
+                  <label className="block text-sm font-bold text-gray-700">{field.label}</label>
+                </div>
                 <p className="text-xs text-gray-500 mb-4">{field.description}</p>
                 <div className="relative">
                   <select
@@ -216,13 +216,13 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({
       {/* Improved Preview Table */}
       <div className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
         <div className="bg-gray-900 px-6 py-4 flex justify-between items-center text-white">
-           <div className="flex items-center space-x-2">
-              <Table className="h-5 w-5 text-blue-400" />
-              <span className="font-bold text-sm tracking-wide">DATA PREVIEW</span>
-           </div>
-           <span className="text-xs font-bold bg-gray-700 px-3 py-1 rounded-full border border-gray-600">
-             Total: {totalRows.toLocaleString()} rows
-           </span>
+            <div className="flex items-center space-x-2">
+               <Table className="h-5 w-5 text-blue-400" />
+               <span className="font-bold text-sm tracking-wide">DATA PREVIEW</span>
+            </div>
+            <span className="text-xs font-bold bg-gray-700 px-3 py-1 rounded-full border border-gray-600">
+              Total: {totalRows.toLocaleString()} rows
+            </span>
         </div>
         
         <div className="overflow-x-auto">

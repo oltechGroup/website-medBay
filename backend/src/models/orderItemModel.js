@@ -3,26 +3,28 @@
 const db = require('../config/database');
 
 const OrderItem = {
-  // Crear ítems 
+  // --- 1. CREAR ÍTEMS (Actualizado para incluir Unit of Measure) ---
   create: async (itemsData) => {
     const values = [];
+    // 🚀 AJUSTE DE PRECISIÓN: Ahora manejamos 7 campos por ítem
     const placeholders = itemsData.map((item, index) => {
-      const offset = index * 6;
+      const offset = index * 7; // Antes era 6
       values.push(
         item.order_id,
         item.product_lot_id,
         item.product_supplier_id,
         item.quantity,
         item.unit_price,
-        item.line_total
+        item.line_total,
+        item.unit_of_measure || 'pcs' // ✅ Nuevo campo: Packaging unit
       );
-      return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`;
+      return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`;
     }).join(', ');
 
     const query = `
       INSERT INTO order_items (
         order_id, product_lot_id, product_supplier_id, 
-        quantity, unit_price, line_total
+        quantity, unit_price, line_total, unit_of_measure
       )
       VALUES ${placeholders}
       RETURNING *
@@ -32,21 +34,24 @@ const OrderItem = {
       const result = await db.query(query, values);
       return result.rows;
     } catch (error) {
+      console.error("Error inserting order items:", error.message);
       throw error;
     }
   },
 
-  // Obtener ítems de una orden
+  // --- 2. OBTENER ÍTEMS (Con toda la metadata de UOM) ---
   findByOrder: async (orderId) => {
     const query = `
       SELECT 
         oi.*,
-        -- ✅ TRUCO MAESTRO: 1. Busca en el catálogo. 2. Si no, busca en la cotización original. 3. Si no hay nada, pon 'Producto Especial'
+        -- ✅ TRUCO MAESTRO: 1. Busca en el catálogo. 2. Si no, busca en la cotización original.
         COALESCE(p.description, q.product_request->>'product_name', 'Producto Especial (Cotización)') as product_name,  
         COALESCE(p.global_sku, q.product_request->>'sku', 'N/A') as global_sku,
+        
         -- Datos del Lote
         pl.lot_number,
         pl.expiry_date,
+        
         -- Datos Específicos del Supplier-Producto
         ps.supplier_sku,
         
@@ -57,17 +62,11 @@ const OrderItem = {
         s.country as supplier_country 
 
       FROM order_items oi
-      -- ✅ Unimos con la Orden para saber si viene de una Cotización
       JOIN orders ord ON oi.order_id = ord.id
-      -- ✅ Unimos con la Cotización para extraer los datos originales
       LEFT JOIN quotes q ON ord.quote_id = q.id
-      -- Unimos con Lotes
       LEFT JOIN product_lots pl ON oi.product_lot_id = pl.id
-      -- Unimos con la tabla pivote product_suppliers
       LEFT JOIN product_suppliers ps ON oi.product_supplier_id = ps.id
-      -- Unimos con la Tabla Maestra de Proveedores
       LEFT JOIN suppliers s ON ps.supplier_id = s.id
-      -- Unimos con el Producto Base
       LEFT JOIN products p ON ps.product_id = p.id
       
       WHERE oi.order_id = $1
@@ -79,7 +78,7 @@ const OrderItem = {
     } catch (error) {
       console.error("Error detallado en findByOrder:", error.message);
       
-      // Fallback también protegido
+      // Fallback protegido (incluyendo oi.* para traer unit_of_measure)
       const fallbackQuery = `
         SELECT 
           oi.*,

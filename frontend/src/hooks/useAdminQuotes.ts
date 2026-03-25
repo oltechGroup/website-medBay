@@ -10,7 +10,7 @@ export interface ProductRequest {
   sku: string;
   quantity_asked: number;
   notes?: string;
-  // Contexto opcional por si lo necesitas tipar aquí también
+  // 🚀 ACTUALIZADO: Estructura formal para el contexto inteligente
   quote_context?: {
     lotId?: string;
     lotNumber?: string;
@@ -18,15 +18,15 @@ export interface ProductRequest {
     expiryDate?: string;
     stockAvailable?: number;
     supplierName?: string;
-    productId?: string; // ✅ AÑADIDO: Para la creación del lote puente
-    status?: string;    // ✅ AÑADIDO: Para saber si es equipo desde el origen
+    productId?: string; 
+    status?: string;    
+    requested_uom?: string; // ✅ NUEVO: La unidad que el cliente seleccionó
   };
 }
 
 export interface AdminProposal {
   quantity_found: number;
   expiry_date: string;
-  // ✅ AÑADIDO: Soporte para 'equipment' en TypeScript
   lot_type: 'in_date' | 'short_date' | 'expired' | 'equipment'; 
   unit_price: number;
   admin_notes?: string;
@@ -42,9 +42,9 @@ export interface GuestInfo {
 export interface Quote {
   id: string;
   user_id: string | null;
-  user_name?: string; // Viene del JOIN en backend
+  user_name?: string; 
   user_email?: string;
-  user_phone?: string; // Agregado para mostrar teléfono
+  user_phone?: string; 
   guest_info?: GuestInfo;
   
   product_request: ProductRequest;
@@ -65,7 +65,6 @@ export const useAdminQuotes = () => {
       const response = await api.get('/quotes');
       return response.data;
     },
-    // Refrescar cada minuto
     refetchInterval: 60000, 
   });
 
@@ -76,19 +75,17 @@ export const useAdminQuotes = () => {
       return response.data;
     },
     onSuccess: () => {
-      // Recargar la lista automáticamente
       queryClient.invalidateQueries({ queryKey: ['admin-quotes'] });
     },
   });
 
-  // 3. ✅ ELIMINAR COTIZACIÓN (NUEVO)
+  // 3. ELIMINAR COTIZACIÓN
   const deleteQuoteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await api.delete(`/quotes/${id}`);
       return response.data;
     },
     onSuccess: () => {
-      // Recargar la lista automáticamente tras borrar
       queryClient.invalidateQueries({ queryKey: ['admin-quotes'] });
     },
   });
@@ -120,13 +117,10 @@ export const useAdminQuotes = () => {
     quotes,
     isLoading,
     error,
-    // Acciones Propuesta
     sendProposal: sendProposalMutation.mutateAsync,
     isSending: sendProposalMutation.isPending,
-    // Acciones Eliminar
     deleteQuote: deleteQuoteMutation.mutateAsync,
     isDeleting: deleteQuoteMutation.isPending,
-    // UI Helpers
     getStatusLabel,
     getStatusColor
   };

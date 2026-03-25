@@ -19,7 +19,7 @@ const Cart = {
     return result.rows[0];
   },
 
-  // ✅ Obtener Carrito Completo (Con detalles de Producto y Lote)
+  // ✅ Obtener Carrito Completo (Actualizado con unit_of_measure)
   getCart: async (userId) => {
     const query = `
       SELECT 
@@ -32,8 +32,9 @@ const Cart = {
         pl.lot_number,
         pl.expiry_date,
         pl.price as unit_price,
-        pl.quantity as available_stock, -- Para validar stock en tiempo real
+        pl.quantity as available_stock,
         pl.status as lot_status,
+        pl.unit_of_measure, -- 🚀 NUEVO: Extraído de product_lots
         
         -- Datos del Producto
         p.id as product_id,
@@ -62,7 +63,7 @@ const Cart = {
     return result.rows;
   },
 
-  // ✅ Actualizar Cantidad (Desde la página del carrito)
+  // ✅ Actualizar Cantidad
   updateQuantity: async (cartItemId, quantity) => {
     const query = `
       UPDATE cart_items 
@@ -81,14 +82,14 @@ const Cart = {
     return result.rows[0];
   },
 
-  // ✅ Vaciar carrito (Al comprar)
+  // ✅ Vaciar carrito
   clearCart: async (userId) => {
     const query = 'DELETE FROM cart_items WHERE user_id = $1';
     await db.query(query, [userId]);
     return true;
   },
 
-  // ✅ Verificar stock antes de agregar
+  // ✅ Verificar stock
   checkStock: async (lotId) => {
     const query = 'SELECT quantity FROM product_lots WHERE id = $1';
     const result = await db.query(query, [lotId]);

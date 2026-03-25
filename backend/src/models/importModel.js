@@ -41,11 +41,13 @@ const ImportModel = {
     return uploadId;
   },
 
+  // ✅ ENTRADA MANUAL (Actualizada con unit_of_measure)
   createManualEntry: async (data) => {
     const { 
       supplier_id, sales_category, user_id, 
       description, sku, manufacturer, quantity, price, expiry_date,
-      image_url, local_image_path, notes 
+      image_url, local_image_path, notes,
+      unit_of_measure // 🚀 Nuevo campo
     } = data;
 
     const client = await db.pool.connect();
@@ -124,18 +126,26 @@ const ImportModel = {
         psId = psInsert.rows[0].id;
       }
 
-      // ✅ Creación o SUMA de Lote Inteligente
+      // ✅ Lógica de Lote Inteligente (Ahora diferencia por Unidad de Medida)
       let createdLotsCount = 0;
       const shouldCreateLot = hasPriceData || hasQtyData || hasDateData;
 
       if (shouldCreateLot) {
           let lotStatus = sales_category === 'regular' ? 'available' : sales_category;
           
-          let existingLotQuery = `SELECT id, quantity FROM product_lots WHERE product_supplier_id = $1 AND price = $2 AND status = $3`;
-          let queryParams = [psId, priceUSD, lotStatus];
+          // 🧠 Cambiamos la query para buscar EXACTAMENTE la misma unidad de medida
+          let existingLotQuery = `
+            SELECT id, quantity 
+            FROM product_lots 
+            WHERE product_supplier_id = $1 
+            AND price = $2 
+            AND status = $3 
+            AND (unit_of_measure = $4 OR (unit_of_measure IS NULL AND $4 IS NULL))
+          `;
+          let queryParams = [psId, priceUSD, lotStatus, unit_of_measure || null];
           
           if (expiry_date) {
-              existingLotQuery += ` AND expiry_date = $4`;
+              existingLotQuery += ` AND expiry_date = $5`;
               queryParams.push(expiry_date);
           } else {
               existingLotQuery += ` AND expiry_date IS NULL`;
@@ -144,17 +154,16 @@ const ImportModel = {
           const existingLotRes = await client.query(existingLotQuery, queryParams);
 
           if (existingLotRes.rows.length > 0) {
-              // Ya existe un lote con los mismos datos -> SUMAMOS LA CANTIDAD
               await client.query(
                   `UPDATE product_lots SET quantity = quantity + $1, updated_at = NOW() WHERE id = $2`,
                   [finalQty, existingLotRes.rows[0].id]
               );
           } else {
-              // No existe -> CREAMOS NUEVO LOTE
+              // 🚀 Insertamos el nuevo lote con la unidad de medida
               await client.query(
-                `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at) 
-                 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-                [psId, `MAN-LOT-${Date.now()}`, finalQty, priceUSD, lotStatus, hasDateData ? expiry_date : null]
+                `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, unit_of_measure, received_at) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+                [psId, `MAN-LOT-${Date.now()}`, finalQty, priceUSD, lotStatus, hasDateData ? expiry_date : null, unit_of_measure || null]
               );
               createdLotsCount = 1;
           }
@@ -274,6 +283,7 @@ const ImportModel = {
     }
   },
 
+  // ✅ PROCESAMIENTO POR LOTES (Actualizado con unit_of_measure)
   processBatch: async (dbRows, upload, currencyData, mappings, errors) => {
     const client = await db.pool.connect();
     let stats = { created_lots: 0, created_products: 0, created_manufacturers: 0, skipped: 0 };
@@ -289,6 +299,12 @@ const ImportModel = {
           await client.query('SAVEPOINT row_processing');
           const description = mappings.descripcion === 'not_applicable' ? null : item[mappings.descripcion];
           if (!description) throw new Error(`Row ${rowIndex}: Description is required to create a product.`);
+
+          // 🚀 Extraemos la Unidad de Medida del Excel
+          let unitOfMeasure = null;
+          if (mappings.unidad_medida && mappings.unidad_medida !== 'not_applicable') {
+              unitOfMeasure = item[mappings.unidad_medida] ? String(item[mappings.unidad_medida]).trim() : null;
+          }
 
           let notes = null;
           if (mappings.notas && mappings.notas !== 'not_applicable') {
@@ -378,17 +394,25 @@ const ImportModel = {
             psId = psInsert.rows[0].id;
           }
 
-          // ✅ Lógica de Creación o SUMA de Lote
+          // ✅ Lógica de Lote Inteligente (Actualizada para diferenciar por UOM)
           const shouldCreateLot = hasPriceData || hasQtyData || hasDateData;
 
           if (shouldCreateLot) {
               let lotStatus = upload.sales_category === 'regular' ? 'available' : upload.sales_category;
               
-              let existingLotQuery = `SELECT id, quantity FROM product_lots WHERE product_supplier_id = $1 AND price = $2 AND status = $3`;
-              let queryParams = [psId, priceUSD, lotStatus];
+              // 🧠 Buscamos coincidencia incluyendo la Unidad de Medida
+              let existingLotQuery = `
+                SELECT id, quantity 
+                FROM product_lots 
+                WHERE product_supplier_id = $1 
+                AND price = $2 
+                AND status = $3
+                AND (unit_of_measure = $4 OR (unit_of_measure IS NULL AND $4 IS NULL))
+              `;
+              let queryParams = [psId, priceUSD, lotStatus, unitOfMeasure];
               
               if (expiryDate) {
-                  existingLotQuery += ` AND expiry_date = $4`;
+                  existingLotQuery += ` AND expiry_date = $5`;
                   queryParams.push(expiryDate);
               } else {
                   existingLotQuery += ` AND expiry_date IS NULL`;
@@ -397,17 +421,16 @@ const ImportModel = {
               const existingLotRes = await client.query(existingLotQuery, queryParams);
 
               if (existingLotRes.rows.length > 0) {
-                  // Ya existe -> SUMAMOS
                   await client.query(
                       `UPDATE product_lots SET quantity = quantity + $1, updated_at = NOW() WHERE id = $2`,
                       [quantity, existingLotRes.rows[0].id]
                   );
               } else {
-                  // No existe -> INSERTAMOS
+                  // 🚀 Creamos nuevo lote con la unidad capturada
                   await client.query(
-                    `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at) 
-                     VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-                    [psId, `LOT-${Date.now()}-${Math.floor(Math.random()*10000)}`, quantity, priceUSD, lotStatus, expiryDate]
+                    `INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, unit_of_measure, received_at) 
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+                    [psId, `LOT-${Date.now()}-${Math.floor(Math.random()*10000)}`, quantity, priceUSD, lotStatus, expiryDate, unitOfMeasure]
                   );
                   stats.created_lots++;
               }

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from './useAuth';
 
+// --- INTERFACES ---
 export interface CartItem {
   cart_item_id: string;
   cart_quantity: number;
@@ -19,6 +20,7 @@ export interface CartItem {
   global_sku: string;
   manufacturer_name: string;
   product_image: string;
+  unit_of_measure?: string | null; // 🚀 NUEVO: Agregado para soportar empaques en el carrito
 }
 
 export interface CartSummary {
@@ -33,7 +35,6 @@ interface CartResponse {
 
 export const useCart = () => {
   const queryClient = useQueryClient();
-  // Extraemos también el token para asegurar que existe antes de la petición
   const { isAuthenticated, token } = useAuth();
 
   // 1. OBTENER CARRITO
@@ -43,12 +44,8 @@ export const useCart = () => {
       const response = await api.get('/cart');
       return response.data;
     },
-    // ✅ MEJORA: Solo habilitamos si está autenticado Y existe el token físicamente.
-    // Esto evita que useQuery se dispare durante el proceso de hidratación de Zustand.
     enabled: !!isAuthenticated && !!token, 
     staleTime: 1000 * 60,
-    // ✅ SEGURIDAD: Si falla por error de autenticación (401 o 403), no reintentamos.
-    // Esto evita que el interceptor de la API ejecute el logout varias veces.
     retry: (failureCount, error: any) => {
       if (error.response?.status === 401 || error.response?.status === 403) return false;
       return failureCount < 2;
@@ -102,7 +99,7 @@ export const useCart = () => {
   return {
     cartItems: cartQuery.data?.items || [],
     summary: cartQuery.data?.summary || { totalItems: 0, subtotal: 0 },
-    isLoading: cartQuery.isLoading && isAuthenticated, // Solo mostrar loading si realmente esperamos estar logueados
+    isLoading: cartQuery.isLoading && isAuthenticated, 
     error: cartQuery.error,
     
     addToCart: addToCartMutation.mutateAsync,

@@ -20,7 +20,8 @@ export interface ProductLot {
   expiry_date: string;
   quantity: number;
   price: number;
-  status: 'available' | 'near_expiry' | 'expired' | 'equipment'; // ✅ AÑADIDO
+  status: 'available' | 'near_expiry' | 'expired' | 'equipment';
+  unit_of_measure?: string | null; // 🚀 NUEVO: Unidad de medida
   received_at: string;
   created_at: string;
   updated_at: string;
@@ -39,7 +40,7 @@ export interface SupplierMetrics {
   available_lots: number;
   near_expiry_lots: number;
   expired_lots: number;
-  equipment_lots?: number; // ✅ AÑADIDO
+  equipment_lots?: number;
   total_lots: number;
   last_import: string;
   country_code?: string;
@@ -54,10 +55,9 @@ export interface InventoryDashboard {
   available_lots: number;
   near_expiry_lots: number;
   expired_lots: number;
-  equipment_lots?: number; // ✅ AÑADIDO
+  equipment_lots?: number;
   total_units: number;
   last_import: string;
-  // NUEVOS CAMPOS: Detalle de última importación
   last_import_supplier?: string;
   last_import_type?: string;
 }
@@ -93,7 +93,8 @@ export interface CreateLotData {
   expiry_date: string;
   quantity: number;
   price: number;
-  status: 'available' | 'near_expiry' | 'expired' | 'equipment'; // ✅ AÑADIDO
+  status: 'available' | 'near_expiry' | 'expired' | 'equipment';
+  unit_of_measure?: string | null; // 🚀 NUEVO: Unidad de medida
   received_at?: string;
 }
 
@@ -103,7 +104,7 @@ export const useInventory = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // DASHBOARD - MEJORADO
+  // DASHBOARD
   const getDashboard = useCallback(async (): Promise<InventoryDashboard> => {
     try {
       setLoading(true);
@@ -119,7 +120,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // MÉTRICAS POR PROVEEDOR - PAGINADAS
+  // MÉTRICAS POR PROVEEDOR
   const getSuppliersMetrics = useCallback(async (params: { page?: number; limit?: number; search?: string } = {}): Promise<PaginatedSuppliers> => {
     try {
       setLoading(true);
@@ -135,7 +136,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // OBTENER LOTES - PAGINACIÓN REAL
+  // OBTENER LOTES
   const getLots = useCallback(async (filters: LotFilters = {}): Promise<PaginatedLots> => {
     try {
       setLoading(true);
@@ -206,7 +207,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // CATÁLOGO POR PROVEEDOR Y ESTADO - PAGINADO
+  // CATÁLOGO POR PROVEEDOR
   const getCatalogBySupplier = useCallback(async (
     supplierId: string, 
     status: string, 
@@ -225,7 +226,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // OBTENER DATOS PARA FORMULARIO CON BÚSQUEDA DINÁMICA
+  // FORM DATA
   const getFormData = useCallback(async (search: string = '') => {
     try {
       const response = await api.get('/inventory/form-data', { params: { search } });
@@ -236,7 +237,7 @@ export const useInventory = () => {
     }
   }, []);
 
-  // CREAR LOTE PARA PRODUCTO EXISTENTE
+  // CREAR LOTE PARA PRODUCTO EXISTENTE (Actualizado con unit_of_measure)
   const createLotForProduct = useCallback(async (productData: {
     product_id: string;
     supplier_id?: string;
@@ -244,7 +245,8 @@ export const useInventory = () => {
     expiry_date: string;
     quantity: number;
     price: number;
-    status: 'available' | 'near_expiry' | 'expired' | 'equipment'; // ✅ AÑADIDO
+    status: 'available' | 'near_expiry' | 'expired' | 'equipment';
+    unit_of_measure?: string; // 🚀 NUEVO
   }): Promise<ProductLot> => {
     try {
       setLoading(true);
@@ -264,6 +266,7 @@ export const useInventory = () => {
         quantity: productData.quantity,
         price: productData.price,
         status: productData.status,
+        unit_of_measure: productData.unit_of_measure || null, // 🚀 NUEVO
         received_at: new Date().toISOString()
       };
 

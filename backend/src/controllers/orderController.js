@@ -38,7 +38,7 @@ const orderController = {
         notes
       });
 
-      // Insertar Ítems
+      // Insertar Ítems (Actualizado con Unit of Measure)
       const orderItemsData = items.map(item => ({
         order_id: newOrder.id,
         product_lot_id: item.product_lot_id,
@@ -46,7 +46,8 @@ const orderController = {
         quantity: item.quantity,
         unit_price: item.unit_price,
         line_total: item.unit_price * item.quantity,
-        expiry_category_name: item.lot_status 
+        expiry_category_name: item.lot_status,
+        unit_of_measure: item.unit_of_measure || 'pcs' // 🚀 NUEVO: Captura la unidad de medida
       }));
 
       await OrderItem.create(orderItemsData);
@@ -72,7 +73,6 @@ const orderController = {
 
     } catch (error) {
       console.error('Error al crear solicitud:', error);
-      // Si falla por falta de stock, enviamos el mensaje al frontend
       if(error.message.includes("Stock insuficiente")) {
          return res.status(409).json({ error: 'No hay suficiente inventario disponible para completar la orden.' });
       }
@@ -82,10 +82,9 @@ const orderController = {
 
   // --- 2. GESTIÓN DE COTIZACIÓN (Admin) ---
 
-  // A) Agregar una opción de envío a la orden
   addShippingOption: async (req, res) => {
     try {
-      const { id } = req.params; // Order ID
+      const { id } = req.params; 
       const { name, description, estimated_days, cost } = req.body;
 
       if (req.user.verification_level !== 'admin') return res.status(403).json({ error: 'No autorizado' });
@@ -105,10 +104,9 @@ const orderController = {
     }
   },
 
-  // B) Enviar Propuesta al Cliente (Finalizar Valuación)
   submitValuation: async (req, res) => {
     try {
-      const { id } = req.params; // Order ID
+      const { id } = req.params; 
       const { tax_amount } = req.body;
 
       if (req.user.verification_level !== 'admin') return res.status(403).json({ error: 'No autorizado' });
@@ -122,11 +120,11 @@ const orderController = {
     }
   },
 
-  // --- 3. SELECCIÓN DEL CLIENTE (Paso 2 del Flujo B2B) ---
+  // --- 3. SELECCIÓN DEL CLIENTE ---
 
   selectShippingMethod: async (req, res) => {
     try {
-      const { id } = req.params; // Order ID
+      const { id } = req.params; 
       const { shipping_option_id } = req.body;
 
       const order = await Order.findById(id);
@@ -204,7 +202,6 @@ const orderController = {
     }
   },
 
-  // Actualizar Estado (Bitácora / Admin General)
   updateStatus: async (req, res) => {
     try {
       const { id } = req.params;
@@ -212,15 +209,12 @@ const orderController = {
 
       if (req.user.verification_level !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
 
-      // ✅ BLINDAJE CONTRA DOBLE DEVOLUCIÓN:
-      // 1. Obtenemos el estado actual de la orden ANTES de cambiarlo
       const currentOrder = await Order.findById(id);
       if (!currentOrder) return res.status(404).json({ error: 'Orden no encontrada' });
 
       const wasAlreadyCancelledOrRejected = currentOrder.status === 'cancelled' || currentOrder.status === 'rejected';
       const isCancellingOrRejecting = status === 'cancelled' || status === 'rejected';
 
-      // 2. Solo devolvemos stock si es la PRIMERA vez que se marca como rechazada/cancelada
       if (isCancellingOrRejecting && !wasAlreadyCancelledOrRejected) {
          const items = await OrderItem.findByOrder(id);
          for (const item of items) {
@@ -236,7 +230,6 @@ const orderController = {
          if (Order.updateTracking) await Order.updateTracking(id, tracking_number);
       }
 
-      // Notificaciones
       try {
         if (status === 'rejected') await NotificationService.notifyOrderRejected(id);
         else if (status === 'shipped') await NotificationService.notifyOrderShipped(id, tracking_number);
@@ -279,12 +272,11 @@ const orderController = {
     }
   },
 
-  // Enviar mensaje de seguimiento (Concierge)
   sendUpdateMessage: async (req, res) => {
     try {
       if (req.user.verification_level !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
 
-      const { id } = req.params; // Order ID
+      const { id } = req.params; 
       const { message } = req.body; 
 
       if (!message) return res.status(400).json({ error: "El mensaje no puede estar vacío" });
@@ -292,7 +284,6 @@ const orderController = {
       const order = await Order.findById(id);
       if (!order) return res.status(404).json({ error: "Orden no encontrada" });
 
-      // 1. Guardar en Timeline
       await Order.addTimelineEntry(
         id, 
         req.user.id, 
@@ -301,7 +292,6 @@ const orderController = {
         "Actualización de Seguimiento"
       );
 
-      // 2. Enviar Correo
       try {
         if(NotificationService.sendCustomEmail) {
             await NotificationService.sendCustomEmail(
@@ -310,8 +300,6 @@ const orderController = {
                 message,
                 `Hola ${order.customer_name}, actualización de tu envío:`
             );
-        } else {
-            console.log("⚠️ NotificationService.sendCustomEmail no implementado. Mensaje solo guardado en BD.");
         }
       } catch (err) {
         console.error("Error enviando email manual:", err);

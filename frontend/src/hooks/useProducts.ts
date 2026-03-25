@@ -19,6 +19,7 @@ export interface Product {
   min_price?: number;
   max_price?: number;
   active_lots?: number;
+  uom_summary?: string; // 🚀 NUEVO: Resumen de unidades de medida (ej: "Box of 10, Piece")
 }
 
 export interface PaginationMetadata {
@@ -32,7 +33,6 @@ export interface ProductStats {
   total_products: number;
   products_with_images: number;
   products_without_images: number;
-  // ✅ Nuevos campos añadidos para la barra de progreso
   with_categories: number;
   without_categories: number;
 }
@@ -118,7 +118,6 @@ export const useProducts = (params?: UseProductsParams) => {
       if (manufacturerId) queryParams.append('manufacturerId', manufacturerId);
       if (categoryId) queryParams.append('categoryId', categoryId);
       
-      // ✅ CORRECCIÓN: Aseguramos que el parámetro se envíe al backend
       if (categoryStatus && categoryStatus !== 'all') {
         queryParams.append('categoryStatus', categoryStatus);
       }
@@ -144,7 +143,6 @@ export const useProducts = (params?: UseProductsParams) => {
     totalPages: 1
   };
 
-  // 📊 Estadísticas (Actualizado para recibir los nuevos contadores)
   const statsQuery = useQuery({
     queryKey: ['products', 'stats'],
     queryFn: async (): Promise<ProductStats> => {
@@ -154,8 +152,6 @@ export const useProducts = (params?: UseProductsParams) => {
     staleTime: 1000 * 60 * 5, 
   });
 
-  // --- El resto de las queries se mantienen IGUAL ---
-  
   const productsWithoutImagesQuery = useQuery({
     queryKey: ['products', 'without-images'],
     queryFn: async (): Promise<Product[]> => {
@@ -195,7 +191,6 @@ export const useProducts = (params?: UseProductsParams) => {
     }
   };
 
-  // --- MUTACIONES (Intactas) ---
   const createMutation = useMutation({
     mutationFn: async (productData: CreateProductData) => {
       const response = await api.post('/products', productData);
@@ -286,7 +281,6 @@ export const useProducts = (params?: UseProductsParams) => {
     },
   });
 
-  // Wrappers de métodos
   const uploadImage = async (productId: string, file: File) => {
     const formData = new FormData();
     formData.append('images', file);

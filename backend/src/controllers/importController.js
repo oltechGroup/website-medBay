@@ -72,10 +72,11 @@ const importController = {
       // ✅ SEGURIDAD B2B
       const supplier_id = req.user.verification_level === 'supplier' ? req.user.supplier_id : req.body.supplier_id;
 
-      // ✅ Añadimos "notes" para capturar "lo que incluye" el equipo médico
+      // ✅ Capturamos "unit_of_measure" del body
       const { 
         sales_category, description, sku, 
-        manufacturer, quantity, price, expiry_date, image_url, notes
+        manufacturer, quantity, price, expiry_date, image_url, notes,
+        unit_of_measure // 🚀 NUEVO CAMPO
       } = req.body;
 
       if (!description || !supplier_id) {
@@ -96,12 +97,13 @@ const importController = {
         description,
         sku,
         manufacturer,
-        quantity: parsedQuantity, // Se pasa nulo si está vacío
-        price: parsedPrice,       // Se pasa nulo si está vacío
+        quantity: parsedQuantity, 
+        price: parsedPrice,
         expiry_date: parsedExpiry,
         image_url, 
         local_image_path,
-        notes // ✅ Se pasa al modelo
+        notes,
+        unit_of_measure // 🚀 PASADO AL MODELO
       });
 
       res.json({
@@ -223,25 +225,25 @@ const importController = {
       const latestImport = history[0];
 
       if (latestImport) {
-         if (latestImport.status === 'uploaded') {
-             return res.json({ success: true, activeImport: null });
-         }
-         
-         if (latestImport.status === 'processing') {
-             const progress = await ImportModel.getImportProgress(latestImport.id);
-             return res.json({ success: true, activeImport: progress });
-         }
+          if (latestImport.status === 'uploaded') {
+              return res.json({ success: true, activeImport: null });
+          }
+          
+          if (latestImport.status === 'processing') {
+              const progress = await ImportModel.getImportProgress(latestImport.id);
+              return res.json({ success: true, activeImport: progress });
+          }
 
-         const importDate = new Date(latestImport.created_at);
-         const oneHourAgo = new Date();
-         oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+          const importDate = new Date(latestImport.created_at);
+          const oneHourAgo = new Date();
+          oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
-         if (importDate > oneHourAgo) {
-             const progress = await ImportModel.getImportProgress(latestImport.id);
-             if (progress) {
-                return res.json({ success: true, activeImport: progress });
-             }
-         }
+          if (importDate > oneHourAgo) {
+              const progress = await ImportModel.getImportProgress(latestImport.id);
+              if (progress) {
+                 return res.json({ success: true, activeImport: progress });
+              }
+          }
       }
 
       res.json({ success: true, activeImport: null });

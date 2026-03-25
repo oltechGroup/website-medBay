@@ -3,26 +3,22 @@
 
 import Link from "next/link";
 import { useCart } from "@/hooks/useCart";
-import { useAuth } from "@/hooks/useAuth"; // ✅ We import useAuth
+import { useAuth } from "@/hooks/useAuth"; 
 import { formatCurrency, formatDate, getImageUrl } from "@/lib/formatters";
 import { 
   Trash2, Plus, Minus, ShoppingCart, ArrowRight, 
   Package, Calendar, AlertCircle, 
-  Tag, AlertTriangle 
+  Tag, AlertTriangle, Layers // 🚀 Icono adicional
 } from "lucide-react";
 import { useState } from "react";
 
 export default function CartPage() {
-  // ✅ We get the token and isAuthenticated for hydration control
   const { isAuthenticated, token } = useAuth();
   const { cartItems, summary, isLoading, updateQuantity, removeItem, clearCart } = useCart();
   
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
 
-  // ✅ ANTI-FLICKER LOGIC:
-  // Show loading if the hook says it's loading 
-  // OR if we are logged in but the token is still being recovered (hydration)
   const isInitialLoading = isLoading || (isAuthenticated && !token);
 
   const handleUpdateQuantity = async (itemId: string, lotId: string, newQuantity: number) => {
@@ -40,7 +36,6 @@ export default function CartPage() {
     setIsClearModalOpen(false);
   };
 
-  // --- LOADING STATE ---
   if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -62,7 +57,6 @@ export default function CartPage() {
       <main className="flex-grow w-[90%] max-w-[1400px] mx-auto pt-32 pb-12 relative">
         
         {cartItems.length === 0 ? (
-          /* --- EMPTY STATE --- */
           <div className="flex flex-col items-center justify-center py-12 md:py-20 text-center animate-in fade-in zoom-in-95 duration-500">
             <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-full flex items-center justify-center shadow-lg shadow-slate-200/50 mb-6 md:mb-8 border border-slate-100">
               <ShoppingCart size={40} className="text-slate-300 ml-2 md:w-12 md:h-12" />
@@ -79,7 +73,6 @@ export default function CartPage() {
             </Link>
           </div>
         ) : (
-          /* --- CART CONTENT --- */
           <>
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 md:mb-8 gap-4">
                <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">Purchase Order</h1>
@@ -116,7 +109,7 @@ export default function CartPage() {
                           </button>
                         </div>
 
-                        {/* Lot Info */}
+                        {/* 🚀 Lot Info (Actualizado con UOM) */}
                         <div className="inline-flex flex-wrap items-center gap-x-4 gap-y-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100 mb-4 md:mb-5 w-full sm:w-auto">
                           <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
                             <Package size={14} className="text-blue-500" />
@@ -124,29 +117,40 @@ export default function CartPage() {
                           </div>
                           <div className="w-px h-3 bg-slate-300 hidden sm:block"></div>
                           <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                            <Layers size={14} className="text-blue-500" />
+                            Packaging: <span className="font-bold text-slate-900">{item.unit_of_measure || 'Unit'}</span>
+                          </div>
+                          <div className="w-px h-3 bg-slate-300 hidden sm:block"></div>
+                          <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
                             <Calendar size={14} className="text-blue-500" />
-                            Expiration: <span className="font-bold text-slate-900">{formatDate(item.expiry_date)}</span>
+                            Exp: <span className="font-bold text-slate-900">{formatDate(item.expiry_date)}</span>
                           </div>
                         </div>
 
                         {/* Controls and Price */}
                         <div className="flex flex-wrap items-end justify-between gap-4">
-                          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-                            <button onClick={() => handleUpdateQuantity(item.cart_item_id, item.product_lot_id, item.cart_quantity - 1)} disabled={item.cart_quantity <= 1 || updatingId === item.cart_item_id} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-500 hover:text-blue-600 disabled:opacity-50 hover:shadow transition-all">
-                              <Minus size={14} />
-                            </button>
-                            <span className="font-bold text-slate-800 w-8 md:w-10 text-center text-sm">
-                              {updatingId === item.cart_item_id ? <span className="animate-pulse">...</span> : item.cart_quantity}
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                              <button onClick={() => handleUpdateQuantity(item.cart_item_id, item.product_lot_id, item.cart_quantity - 1)} disabled={item.cart_quantity <= 1 || updatingId === item.cart_item_id} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-500 hover:text-blue-600 disabled:opacity-50 hover:shadow transition-all">
+                                <Minus size={14} />
+                              </button>
+                              <span className="font-bold text-slate-800 w-8 md:w-10 text-center text-sm">
+                                {updatingId === item.cart_item_id ? <span className="animate-pulse">...</span> : item.cart_quantity}
+                              </span>
+                              <button onClick={() => handleUpdateQuantity(item.cart_item_id, item.product_lot_id, item.cart_quantity + 1)} disabled={item.cart_quantity >= item.available_stock || updatingId === item.cart_item_id} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-500 hover:text-blue-600 disabled:opacity-50 hover:shadow transition-all">
+                                <Plus size={14} />
+                              </button>
+                            </div>
+                            {/* 🚀 Etiqueta de unidad al lado del selector */}
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                              {item.unit_of_measure || 'pcs'}
                             </span>
-                            <button onClick={() => handleUpdateQuantity(item.cart_item_id, item.product_lot_id, item.cart_quantity + 1)} disabled={item.cart_quantity >= item.available_stock || updatingId === item.cart_item_id} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-500 hover:text-blue-600 disabled:opacity-50 hover:shadow transition-all">
-                              <Plus size={14} />
-                            </button>
                           </div>
 
                           <div className="text-right">
                              <div className="flex items-center justify-end gap-1.5 mb-1 opacity-70 group-hover:opacity-100 transition-opacity">
                                 <Tag size={12} className="text-slate-400" />
-                                <span className="text-[10px] md:text-[11px] font-medium text-slate-500 uppercase tracking-wide">Unit:</span>
+                                <span className="text-[10px] md:text-[11px] font-medium text-slate-500 uppercase tracking-wide">Price per {item.unit_of_measure || 'unit'}:</span>
                                 <span className="text-xs font-bold text-slate-700">{formatCurrency(parseFloat(item.unit_price))}</span>
                              </div>
                              <div className="flex items-baseline justify-end gap-2">

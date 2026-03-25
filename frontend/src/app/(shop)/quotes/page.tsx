@@ -5,7 +5,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { 
   Package, Calendar, ChevronRight, MessageSquareQuote, 
-  Search, Filter, ExternalLink, FileText, CheckCircle2, Clock, XCircle 
+  Search, Filter, ExternalLink, FileText, CheckCircle2, Clock, XCircle,
+  Layers // 🚀 Icono para la unidad
 } from 'lucide-react';
 import { useCustomerQuotes, CustomerQuote } from '@/hooks/useCustomerQuotes';
 import { formatDate } from '@/lib/formatters';
@@ -14,9 +15,8 @@ import CustomerQuoteModal from './components/CustomerQuoteModal';
 export default function CustomerQuotesPage() {
   const { quotes, isLoading, respondToQuote, isResponding, getStatusInfo } = useCustomerQuotes();
   const [selectedQuote, setSelectedQuote] = useState<CustomerQuote | null>(null);
-  const [filter, setFilter] = useState('all'); // all | active | history
+  const [filter, setFilter] = useState('all'); 
 
-  // Response Logic (Intact)
   const handleRespond = async (id: string, action: 'accepted' | 'rejected') => {
     try {
       await respondToQuote({ id, action });
@@ -26,7 +26,6 @@ export default function CustomerQuotesPage() {
     }
   };
 
-  // Simple Filtering (Intact)
   const filteredQuotes = quotes.filter(q => {
     if (filter === 'active') return ['pending', 'proposal_sent'].includes(q.status);
     if (filter === 'history') return ['accepted', 'rejected', 'converted_to_order'].includes(q.status);
@@ -35,7 +34,6 @@ export default function CustomerQuotesPage() {
 
   return (
     <div className="bg-slate-50 min-h-screen font-sans">
-      {/* Adjustment: pt-32 to compensate for Fixed Header */}
       <div className="container mx-auto px-4 md:px-6 max-w-6xl pt-32 pb-20">
         
         {/* SECTION HEADER */}
@@ -63,7 +61,7 @@ export default function CustomerQuotesPage() {
         </div>
 
         {/* FILTER TABS */}
-        <div className="flex gap-2 mb-6 md:mb-8 overflow-x-auto pb-2 custom-scrollbar no-scrollbar">
+        <div className="flex gap-2 mb-6 md:mb-8 overflow-x-auto pb-2 no-scrollbar">
           {[
             { id: 'all', label: 'All' },
             { id: 'active', label: 'In Progress' },
@@ -86,12 +84,10 @@ export default function CustomerQuotesPage() {
         {/* QUOTES LIST */}
         <div className="space-y-4 md:space-y-6">
           {isLoading ? (
-            // Premium Skeleton Loading
             [1, 2, 3].map(i => (
               <div key={i} className="bg-white p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-slate-100 shadow-sm animate-pulse h-32 md:h-40"></div>
             ))
           ) : filteredQuotes.length === 0 ? (
-            // Premium Empty State
             <div className="bg-white rounded-2xl md:rounded-[3rem] p-10 md:p-16 text-center border border-dashed border-slate-200 flex flex-col items-center">
               <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-50 rounded-full flex items-center justify-center mb-4 md:mb-6 shadow-sm">
                 <Package size={40} className="text-slate-300 md:w-12 md:h-12" />
@@ -110,6 +106,8 @@ export default function CustomerQuotesPage() {
           ) : (
             filteredQuotes.map((quote) => {
               const status = getStatusInfo(quote.status);
+              // 🚀 Lógica para extraer la unidad de medida del contexto o notas
+              const requestedUom = quote.quote_context?.requested_uom || "pcs";
               
               return (
                 <div 
@@ -118,7 +116,6 @@ export default function CustomerQuotesPage() {
                 >
                   <div className="p-5 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-start md:items-center justify-between">
                     
-                    {/* MAIN INFO */}
                     <div className="flex items-start gap-4 md:gap-6 flex-1 w-full">
                       <div className="w-12 h-12 md:w-16 md:h-16 bg-slate-50 rounded-xl md:rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-all flex-shrink-0">
                         <FileText size={24} className="md:w-8 md:h-8" />
@@ -141,18 +138,21 @@ export default function CustomerQuotesPage() {
                           {quote.product_request.product_name}
                         </h3>
                         
-                        <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-slate-500 font-medium">
-                           <span>Qty: <strong className="text-slate-800">{quote.product_request.quantity_asked} pcs</strong></span>
-                           <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                        <div className="flex flex-wrap items-center gap-3 md:gap-4 text-xs md:text-sm text-slate-500 font-medium">
+                           {/* 🚀 CAMBIO: Cantidad + Unidad de Medida solicitada */}
+                           <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/50">
+                              Qty: <strong className="text-slate-800">{quote.product_request.quantity_asked}</strong>
+                              <span className="text-[10px] font-black text-blue-600 uppercase flex items-center gap-1">
+                                <Layers size={10}/> {requestedUom}
+                              </span>
+                           </span>
+                           <span className="w-1 h-1 bg-slate-300 rounded-full hidden xs:block"></span>
                            <span className="font-mono text-slate-400 truncate max-w-[100px] md:max-w-none">SKU: {quote.product_request.sku}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* ACTIONS */}
                     <div className="w-full md:w-auto flex flex-col items-end gap-2 md:gap-3 min-w-[180px]">
-                      
-                      {/* Case 1: Proposal Ready */}
                       {status.actionRequired ? (
                         <button 
                           onClick={() => setSelectedQuote(quote)}
@@ -161,7 +161,6 @@ export default function CustomerQuotesPage() {
                           View Proposal <ExternalLink size={16} className="md:w-[18px] md:h-[18px]" />
                         </button>
                       ) : (
-                        // Case 2: View details only
                         <button 
                           onClick={() => setSelectedQuote(quote)} 
                           className="w-full bg-white border-2 border-slate-100 text-slate-500 px-6 py-3 md:py-3.5 rounded-xl font-bold hover:border-slate-300 hover:text-slate-800 transition-all flex items-center justify-center gap-2 text-sm md:text-base"
@@ -171,7 +170,7 @@ export default function CustomerQuotesPage() {
                       )}
                       
                       {status.actionRequired && (
-                          <p className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded animate-pulse w-full md:w-auto text-center">
+                          <p className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded animate-pulse w-full md:w-auto text-center uppercase tracking-widest">
                             Action required!
                           </p>
                       )}
@@ -184,7 +183,6 @@ export default function CustomerQuotesPage() {
           )}
         </div>
 
-        {/* MODAL (Opens when selecting a quote) */}
         <CustomerQuoteModal 
           isOpen={!!selectedQuote}
           onClose={() => setSelectedQuote(null)}

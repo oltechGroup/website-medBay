@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { 
   Building, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, Trash2, 
   FileText, Lock, FileSpreadsheet, Keyboard, Link as LinkIcon, ImageIcon, 
-  Save, RefreshCw, ChevronDown, Database, DollarSign 
+  Save, RefreshCw, ChevronDown, Database, DollarSign, Package // 🚀 Icono añadido
 } from 'lucide-react';
 import { FileUploadZone } from '@/components/features/import/FileUploadZone';
 import { ColumnMapper } from '@/components/features/import/ColumnMapper';
@@ -20,7 +20,7 @@ const CATEGORIES = [
   { id: 'regular', label: 'In Date', color: 'bg-green-100 text-green-700 border-green-200 ring-green-500' },
   { id: 'near_expiry', label: 'Short-Dated', color: 'bg-yellow-100 text-yellow-700 border-yellow-200 ring-yellow-500' },
   { id: 'expired', label: 'Expired', color: 'bg-red-100 text-red-700 border-red-200 ring-red-500' },
-  { id: 'equipment', label: 'Equipment & Instruments', color: 'bg-blue-100 text-blue-700 border-blue-200 ring-blue-500' } // ✅ NUEVA CATEGORÍA
+  { id: 'equipment', label: 'Equipment & Instruments', color: 'bg-blue-100 text-blue-700 border-blue-200 ring-blue-500' }
 ];
 
 export const UploadWizard = () => {
@@ -37,19 +37,17 @@ export const UploadWizard = () => {
   const isSupplier = user?.verification_level === 'supplier';
   const canCleanCatalog = isAdmin || isSupplier;
 
-  // 1. Estados de Navegación
   const [step, setStep] = useState(1);
   const [importMethod, setImportMethod] = useState<'excel' | 'manual' | null>(null);
   const [loading, setLoading] = useState(false);
   const [restoringSession, setRestoringSession] = useState(true);
 
-  // 2. Estados de Datos
   const [supplierId, setSupplierId] = useState(isSupplier && user?.supplier_id ? user.supplier_id : '');
   const [category, setCategory] = useState('regular');
   const [uploadId, setUploadId] = useState('');
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   
-  // 3. Estados de Formulario Manual
+  // 🚀 ESTADO ACTUALIZADO: Añadida unit_of_measure
   const [manualData, setManualData] = useState({
     description: '',
     sku: '',
@@ -58,12 +56,12 @@ export const UploadWizard = () => {
     price: 0,
     expiry_date: '',
     imageUrl: '',
-    notes: '' // ✅ NUEVO CAMPO DE NOTAS
+    notes: '',
+    unit_of_measure: '' 
   });
   const [manualImageFile, setManualImageFile] = useState<File | null>(null);
   const [imageMode, setImageMode] = useState<'url' | 'file'>('url');
 
-  // 4. Modales y Auxiliares
   const [showCleanModal, setShowCleanModal] = useState(false);
   const [showCleanSuccessModal, setShowCleanSuccessModal] = useState(false);
   const [cleanDeletedCount, setCleanDeletedCount] = useState(0);
@@ -73,7 +71,6 @@ export const UploadWizard = () => {
   const [localSuppliers, setLocalSuppliers] = useState<any[]>([]);
   const [cleaned, setCleaned] = useState(false);
   
-  // Excel Data
   const [file, setFile] = useState<File | null>(null);
   const [columns, setColumns] = useState<string[]>([]);
   const [preview, setPreview] = useState<any[]>([]);
@@ -81,7 +78,6 @@ export const UploadWizard = () => {
 
   const isFinished = progress && ['completed', 'completed_with_errors', 'finished', 'failed', 'error'].includes(progress.status);
 
-  // AUTO-RESTORATION
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -100,26 +96,21 @@ export const UploadWizard = () => {
     checkSession();
   }, [getActiveStatus]);
 
-  // Si el usuario entra y el contexto carga después, nos aseguramos de setear su supplierId
   useEffect(() => {
     if (isSupplier && user?.supplier_id && !supplierId) {
       setSupplierId(user.supplier_id);
     }
   }, [isSupplier, user, supplierId]);
 
-  // ✅ Escuchar cambios de categoría o proveedor para reiniciar el estado 'cleaned'
   useEffect(() => {
     setCleaned(false);
   }, [category, supplierId]);
 
   const activeSuppliers = [...(suppliers || []).filter((s: any) => s.is_active !== false && s.is_active !== 'f'), ...localSuppliers];
   
-  // Buscar datos del proveedor actual
   const selectedSupplierData = isSupplier 
     ? { name: user?.company_name || user?.full_name } 
     : activeSuppliers.find((s:any) => s.id === supplierId);
-
-  // --- HANDLERS ---
 
   const handleCreateSupplier = async () => {
     if (!newSupplierName || !newSupplierCountry) return;
@@ -186,7 +177,8 @@ export const UploadWizard = () => {
     setFile(null);
     setUploadId('');
     setProgress(null);
-    setManualData({ description: '', sku: '', manufacturer: '', quantity: 0, price: 0, expiry_date: '', imageUrl: '', notes: '' });
+    // 🚀 RESET ACTUALIZADO
+    setManualData({ description: '', sku: '', manufacturer: '', quantity: 0, price: 0, expiry_date: '', imageUrl: '', notes: '', unit_of_measure: '' });
   };
 
   if (restoringSession) {
@@ -200,7 +192,6 @@ export const UploadWizard = () => {
 
   return (
     <div className="p-8">
-      {/* 📟 STEP INDICATOR */}
       <div className="flex justify-center mb-12">
         {[1, 2, 3, 4].map(i => (
           <div key={i} className="flex items-center">
@@ -214,7 +205,6 @@ export const UploadWizard = () => {
         ))}
       </div>
 
-      {/* STEP 1: SUPPLIER & CATEGORY */}
       {step === 1 && (
         <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-500">
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
@@ -258,8 +248,6 @@ export const UploadWizard = () => {
               <div className="space-y-6 animate-in fade-in duration-500">
                 <div className="h-px bg-slate-100 w-full"></div>
                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-600">Inventory Tier</h3>
-                
-                {/* ✅ GRILLA ACTUALIZADA PARA 4 COLUMNAS */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {CATEGORIES.map(cat => (
                     <button key={cat.id} onClick={() => setCategory(cat.id)} className={`p-4 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${category === cat.id ? 'bg-slate-900 border-slate-900 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}>
@@ -295,10 +283,9 @@ export const UploadWizard = () => {
         </div>
       )}
 
-      {/* STEP 2: METHOD SELECTION */}
       {step === 2 && !importMethod && (
         <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in zoom-in-95 duration-500">
-           <button onClick={() => { setImportMethod('excel'); setStep(2); }} className="bg-white border-2 border-slate-100 p-10 rounded-[3rem] text-center hover:border-blue-500 hover:shadow-2xl transition-all group">
+           <button onClick={() => { setImportMethod('excel'); }} className="bg-white border-2 border-slate-100 p-10 rounded-[3rem] text-center hover:border-blue-500 hover:shadow-2xl transition-all group">
               <div className="w-20 h-20 bg-blue-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-600 transition-colors">
                 <FileSpreadsheet className="h-10 w-10 text-blue-600 group-hover:text-white" />
               </div>
@@ -320,7 +307,6 @@ export const UploadWizard = () => {
         </div>
       )}
 
-      {/* STEP 3: EXECUTION (EXCEL BRANCH) */}
       {step === 2 && importMethod === 'excel' && (
         <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-500">
            <div className="bg-blue-900 rounded-[2rem] p-6 text-white flex items-center justify-between shadow-xl">
@@ -338,7 +324,6 @@ export const UploadWizard = () => {
         </div>
       )}
 
-      {/* STEP 3: EXECUTION (MANUAL BRANCH) */}
       {step === 2 && importMethod === 'manual' && (
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
           <div className="bg-purple-900 rounded-[2rem] p-6 text-white flex items-center justify-between shadow-xl">
@@ -360,7 +345,6 @@ export const UploadWizard = () => {
                   <textarea required className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-bold text-slate-900 text-sm shadow-inner min-h-[120px]" value={manualData.description} onChange={e => setManualData({...manualData, description: e.target.value})} placeholder="Main product name and specs..." />
                 </div>
                 
-                {/* ✅ NUEVO CAMPO: NOTAS / INCLUYE */}
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Notes / Includes (Optional)</label>
                   <textarea className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-bold text-slate-900 text-sm shadow-inner min-h-[100px]" value={manualData.notes} onChange={e => setManualData({...manualData, notes: e.target.value})} placeholder="List of included accessories, warranty details, etc..." />
@@ -379,25 +363,33 @@ export const UploadWizard = () => {
               </div>
 
               <div className="space-y-8">
+                {/* 🚀 FILA ACTUALIZADA: Cantidad + Unidad de Medida */}
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Quantity</label>
                     <input type="number" className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-slate-900 text-sm" value={manualData.quantity} onChange={e => setManualData({...manualData, quantity: parseInt(e.target.value)})} />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Price (Source)</label>
-                    <div className="relative">
-                      <input type="number" step="0.01" className="w-full pl-10 pr-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-slate-900 text-sm" value={manualData.price} onChange={e => setManualData({...manualData, price: parseFloat(e.target.value)})} />
-                      <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    </div>
+                    <label className="block text-[10px] font-black text-blue-600 uppercase tracking-widest mb-3 ml-1 flex items-center gap-1.5">
+                       <Package className="w-3 h-3"/> Unit of Measure
+                    </label>
+                    <input className="w-full px-5 py-4 bg-blue-50/30 border-2 border-transparent rounded-2xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-slate-900 text-sm placeholder:text-slate-300" value={manualData.unit_of_measure} onChange={e => setManualData({...manualData, unit_of_measure: e.target.value})} placeholder="e.g. Box of 10" />
                   </div>
                 </div>
+
+                <div>
+                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Price (Source)</label>
+                   <div className="relative">
+                      <input type="number" step="0.01" className="w-full pl-10 pr-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-slate-900 text-sm" value={manualData.price} onChange={e => setManualData({...manualData, price: parseFloat(e.target.value)})} />
+                      <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                   </div>
+                </div>
+
                 <div>
                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Expiration Date</label>
                    <input type="date" className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-slate-900 text-sm" value={manualData.expiry_date} onChange={e => setManualData({...manualData, expiry_date: e.target.value})} />
                 </div>
                 
-                {/* SMART IMAGE SELECTOR */}
                 <div className="space-y-3">
                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">Asset Image</label>
                    <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
@@ -424,7 +416,6 @@ export const UploadWizard = () => {
         </div>
       )}
 
-      {/* STEP 3 (Excel Mapping) */}
       {step === 3 && (
         <div className="animate-in fade-in slide-in-from-right-8 duration-500">
           <ColumnMapper previewData={preview} availableColumns={columns} currentMappings={mappings} onMappingsChange={setMappings} onComplete={handleStartExcelProcess} />
@@ -432,7 +423,6 @@ export const UploadWizard = () => {
         </div>
       )}
 
-      {/* STEP 4: PROCESSING & RESULTS (UNIVERSAL) */}
       {step === 4 && (
         <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in zoom-in-95 duration-500">
           {!isFinished ? (

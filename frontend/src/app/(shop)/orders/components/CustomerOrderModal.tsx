@@ -5,13 +5,13 @@ import { useEffect, useState } from "react";
 import { 
   X, Package, MapPin, CreditCard, Truck, 
   CheckCircle2, AlertCircle, Clock, FileText, 
-  Loader2, UploadCloud, DollarSign, Landmark
+  Loader2, UploadCloud, DollarSign, Landmark,
+  Layers // 🚀 Icono para la unidad
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { Order, OrderItem, ShippingOption } from "@/hooks/useMyOrders"; 
 import { api } from "@/lib/api";
 
-// --- REAL BANK DETAILS ---
 const BANK_DETAILS = {
   company: "Silkweb Systems & Innovations LLC",
   bank: "JP Morgan Chase Bank, N.A.",
@@ -44,11 +44,8 @@ export default function CustomerOrderModal({
   const [items, setItems] = useState<OrderItem[]>([]);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // State for customer selection (Local before sending)
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
 
-  // Load items and options when opening the modal
   useEffect(() => {
     if (isOpen && order.id) {
       setLoading(true);
@@ -64,22 +61,16 @@ export default function CustomerOrderModal({
 
   if (!isOpen) return null;
 
-  // --- TOTALS CALCULATION LOGIC (PREVIEW) ---
   const selectedOption = shippingOptions.find(o => o.id === selectedOptionId);
-  
   const currentSubtotal = parseFloat(order.subtotal || '0');
   const currentTax = parseFloat(order.tax || '0');
-  
   const currentShippingCost = selectedOption 
     ? parseFloat(selectedOption.cost) 
     : parseFloat(order.shipping_cost || '0');
-
   const currentTotal = currentSubtotal + currentTax + currentShippingCost;
 
-  // --- CONFIRMATION HANDLER ---
   const handleConfirmSelection = async () => {
     if (!selectedOptionId) return;
-    
     try {
       await onSelectShipping({ 
         orderId: order.id, 
@@ -88,11 +79,10 @@ export default function CustomerOrderModal({
       onClose();
     } catch (error) {
       console.error("Error selecting shipping:", error);
-      alert("There was a problem processing your selection. Please try again.");
+      alert("There was a problem processing your selection.");
     }
   };
 
-  // Status Helpers (Visual)
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending_valuation': return { color: 'bg-amber-100 text-amber-700', icon: <Clock size={14}/>, label: 'Quoting Shipping' };
@@ -108,23 +98,14 @@ export default function CustomerOrderModal({
 
   const statusInfo = getStatusBadge(order.status);
 
-  // Try to parse address if it comes as a string
   let parsedAddress = order.shipping_address_json;
   if (typeof parsedAddress === 'string') {
-    try {
-      parsedAddress = JSON.parse(parsedAddress);
-    } catch (e) {
-      console.error("Error parsing address JSON", e);
-    }
+    try { parsedAddress = JSON.parse(parsedAddress); } catch (e) { console.error("Error parsing address JSON", e); }
   }
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-300" 
-        onClick={onClose}
-      ></div>
+      <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-300" onClick={onClose}></div>
 
       <div className="relative bg-white w-full max-w-4xl h-[90vh] md:h-[85vh] rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-300 border border-white/20">
         
@@ -144,7 +125,6 @@ export default function CustomerOrderModal({
           </button>
         </div>
 
-        {/* BODY (Scrollable) */}
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50 p-6 md:p-8">
           {loading ? (
              <div className="flex h-full items-center justify-center">
@@ -155,7 +135,6 @@ export default function CustomerOrderModal({
               
               {/* LEFT: PRODUCTS */}
               <div className="lg:col-span-2 space-y-6">
-                
                 <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 font-bold text-slate-700 text-xs md:text-sm uppercase tracking-wide">
                     Purchase Summary
@@ -177,10 +156,19 @@ export default function CustomerOrderModal({
                              <span className="text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500 border border-slate-200">
                                Lot: {item.lot_number}
                              </span>
+                             {/* 🚀 NUEVO: Badge de Unidad de Medida en la orden */}
+                             {(item as any).unit_of_measure && (
+                               <span className="text-[10px] font-black bg-blue-50 px-2 py-0.5 rounded text-blue-600 border border-blue-100 uppercase flex items-center gap-1">
+                                 <Layers size={10}/> {(item as any).unit_of_measure}
+                               </span>
+                             )}
                           </div>
                         </div>
                         <div className="text-right w-full sm:w-auto pl-[3.25rem] sm:pl-0">
-                          <p className="text-xs md:text-sm font-bold text-slate-600">{item.quantity} x {formatCurrency(item.unit_price)}</p>
+                          {/* 🚀 Cantidad actualizada con unidad */}
+                          <p className="text-xs md:text-sm font-bold text-slate-600">
+                            {item.quantity} {(item as any).unit_of_measure || 'pcs'} x {formatCurrency(item.unit_price)}
+                          </p>
                           <p className="text-sm md:text-base font-black text-slate-900 mt-1">{formatCurrency(item.line_total)}</p>
                         </div>
                       </div>
@@ -201,10 +189,8 @@ export default function CustomerOrderModal({
                 )}
               </div>
 
-              {/* RIGHT: ACTION PANELS (B2B Logic) */}
+              {/* RIGHT: ACTION PANELS */}
               <div className="space-y-6">
-                
-                {/* --- 1. SHIPPING SELECTION (Only if waiting for approval) --- */}
                 {order.status === 'waiting_customer_approval' && (
                   <div className="bg-white p-6 rounded-3xl border-2 border-sky-100 shadow-lg shadow-sky-100/50">
                     <h4 className="font-bold text-sky-800 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide">
@@ -246,18 +232,14 @@ export default function CustomerOrderModal({
                   </div>
                 )}
 
-                {/* --- 2. BANK DETAILS + EVIDENCE --- */}
                 {(order.status === 'payment_pending' || order.status === 'payment_review') && (
                   <div className="space-y-4">
-                    
-                    {/* Bank Details Card */}
                     {order.status === 'payment_pending' && (
-                      <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl animate-in fade-in zoom-in-95">
+                      <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl">
                         <div className="flex items-center gap-2 mb-4 text-blue-400">
                           <Landmark size={20}/> 
                           <span className="font-bold text-sm uppercase tracking-wider">Transfer Details</span>
                         </div>
-                        
                         <div className="space-y-3 text-sm">
                           <div>
                             <p className="text-slate-400 text-xs uppercase">Beneficiary</p>
@@ -289,27 +271,22 @@ export default function CustomerOrderModal({
                       </div>
                     )}
 
-                    {/* SUCCESS CARD OR FILE UPLOAD */}
                     {order.status === 'payment_review' ? (
                       <div className="bg-purple-50 p-6 rounded-3xl border-2 border-purple-200 shadow-lg shadow-purple-100/50 text-center animate-in fade-in slide-in-from-bottom-4">
                         <div className="w-12 h-12 bg-purple-200 text-purple-700 rounded-full flex items-center justify-center mx-auto mb-3">
                           <CheckCircle2 size={24} />
                         </div>
                         <h4 className="font-bold text-purple-900 mb-1">Evidence Received!</h4>
-                        <p className="text-xs text-purple-700 font-medium">
-                          Your payment is being validated by our team. 
-                          You will receive a notification shortly to proceed with the shipment.
-                        </p>
+                        <p className="text-xs text-purple-700 font-medium">Your payment is being validated by our team.</p>
                       </div>
                     ) : (
-                      <div className="bg-white p-6 rounded-3xl border-2 border-blue-100 shadow-lg shadow-blue-100/50 text-center animate-in fade-in zoom-in">
+                      <div className="bg-white p-6 rounded-3xl border-2 border-blue-100 shadow-lg shadow-blue-100/50 text-center">
                         <h4 className="font-bold text-slate-800 mb-1">Upload Receipt</h4>
                         <p className="text-xs text-slate-500 mb-4">Attach a photo or PDF of your transfer.</p>
-                        
                         {isUploading ? (
                           <div className="py-3 flex justify-center text-blue-600"><Loader2 className="animate-spin"/></div>
                         ) : (
-                          <label className="block w-full py-3 bg-blue-600 text-white rounded-xl font-bold cursor-pointer hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 active:scale-95 text-sm">
+                          <label className="block w-full py-3 bg-blue-600 text-white rounded-xl font-bold cursor-pointer hover:bg-blue-700 shadow-lg shadow-blue-600/20 active:scale-95 text-sm">
                             Select File
                             <input 
                               type="file" 
@@ -324,11 +301,9 @@ export default function CustomerOrderModal({
                         )}
                       </div>
                     )}
-
                   </div>
                 )}
 
-                {/* 3. DYNAMIC FINANCIAL SUMMARY */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                    <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2 text-xs md:text-sm uppercase tracking-wide">
                      <CreditCard size={16}/> Totals
@@ -355,7 +330,6 @@ export default function CustomerOrderModal({
                    </div>
                 </div>
 
-                {/* 4. ACTUAL ADDRESS */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                    <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2 text-xs md:text-sm uppercase tracking-wide">
                      <MapPin size={16}/> Ship to
@@ -372,7 +346,6 @@ export default function CustomerOrderModal({
                      <p className="text-slate-400 italic text-sm">Standard address</p>
                    )}
                 </div>
-
               </div>
             </div>
           )}

@@ -24,7 +24,7 @@ export interface AddressJSON {
   tax_id?: string;
 }
 
-// 3. Estructura de Ítem
+// 3. Estructura de Ítem (Actualizada con Unit of Measure)
 export interface OrderItem {
   id: string;
   product_name: string;
@@ -36,19 +36,20 @@ export interface OrderItem {
   lot_number: string;
   expiry_date: string;
   supplier_name?: string; 
+  unit_of_measure?: string | null; // 🚀 NUEVO: Campo agregado para evitar errores de TS
 }
 
-// ✅ 4. Estructura de Opción de Envío (NUEVO)
+// 4. Estructura de Opción de Envío
 export interface ShippingOption {
   id: string;
   name: string;
   description?: string;
   estimated_days?: string;
-  cost: string; // El backend devuelve numeric como string usualmente, o number.
+  cost: string; 
   is_selected: boolean;
 }
 
-// 5. Estructura de Orden (Actualizada con nuevos estados)
+// 5. Estructura de Orden
 export interface AdminOrder {
   id: string;
   customer_id: string;
@@ -57,26 +58,23 @@ export interface AdminOrder {
   customer_phone?: string;
   customer_company?: string;
   
-  // ✅ ESTADOS ACTUALIZADOS PARA FLUJO B2B
   status: 
-    | 'pending_valuation'           // 1. Nueva solicitud (Admin debe cotizar)
-    | 'waiting_customer_approval'   // 2. Cotización enviada (Esperando cliente)
-    | 'payment_pending'             // 3. Cliente aceptó (Esperando pago)
-    | 'payment_review'              // 4. Pago subido (Validar evidencia)
-    | 'processing'                  // 5. Pago OK (Preparando envío)
-    | 'shipped'                     // 6. Enviado
-    | 'delivered'                   // 7. Finalizado
+    | 'pending_valuation' 
+    | 'waiting_customer_approval' 
+    | 'payment_pending' 
+    | 'payment_review' 
+    | 'processing' 
+    | 'shipped' 
+    | 'delivered' 
     | 'cancelled' 
     | 'rejected';
   
-  // Totales y Costos
   total: string;
   subtotal: string;
   tax: string;
   shipping_cost: string;
   currency: string;
   
-  // Direcciones Completas (JSON)
   shipping_address_json?: AddressJSON;
   billing_address_json?: AddressJSON;
   
@@ -95,7 +93,7 @@ interface OrderDetailsResponse {
   order: AdminOrder;
   items: OrderItem[];
   suppliers: Supplier[];
-  shippingOptions: ShippingOption[]; // ✅ Nuevo campo
+  shippingOptions: ShippingOption[]; 
 }
 
 export const useAdminOrders = () => {
@@ -117,7 +115,7 @@ export const useAdminOrders = () => {
     return response.data; 
   };
 
-  // 3. CAMBIAR ESTADO GENERAL (Bitácora / Enviar / Rechazar)
+  // 3. CAMBIAR ESTADO GENERAL
   const updateStatusMutation = useMutation({
     mutationFn: async ({ orderId, status, tracking_number }: { orderId: string; status: string; tracking_number?: string }) => {
       const response = await api.put(`/orders/${orderId}/status`, { status, tracking_number });
@@ -128,7 +126,7 @@ export const useAdminOrders = () => {
     },
   });
 
-  // ✅ 4. AGREGAR OPCIÓN DE ENVÍO (NUEVO)
+  // 4. AGREGAR OPCIÓN DE ENVÍO
   const addShippingOptionMutation = useMutation({
     mutationFn: async (data: { orderId: string; name: string; description: string; estimated_days: string; cost: number }) => {
       const response = await api.post(`/orders/${data.orderId}/shipping-options`, {
@@ -140,12 +138,11 @@ export const useAdminOrders = () => {
       return response.data;
     },
     onSuccess: () => {
-      // Invalidamos para refrescar la lista
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
     },
   });
 
-  // ✅ 5. ENVIAR VALUACIÓN / COTIZACIÓN AL CLIENTE (NUEVO)
+  // 5. ENVIAR VALUACIÓN
   const submitValuationMutation = useMutation({
     mutationFn: async ({ orderId, tax_amount }: { orderId: string; tax_amount: number }) => {
       const response = await api.post(`/orders/${orderId}/valuation`, { tax_amount });
@@ -156,13 +153,13 @@ export const useAdminOrders = () => {
     },
   });
 
-  // --- HELPERS PARA UI (Etiquetas Actualizadas) ---
+  // --- HELPERS PARA UI ---
   
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'pending_valuation': return 'Nueva Solicitud (Cotizar)'; // 🟡 Estado 1
-      case 'waiting_customer_approval': return 'Esperando Cliente'; // 🔵 Estado 2
-      case 'payment_pending': return 'Esperando Pago';              // 🟣 Estado 3
+      case 'pending_valuation': return 'Nueva Solicitud (Cotizar)';
+      case 'waiting_customer_approval': return 'Esperando Cliente';
+      case 'payment_pending': return 'Esperando Pago';
       case 'payment_review': return 'Validando Pago';
       case 'processing': return 'En Proceso / Preparando';
       case 'shipped': return 'Enviado / En Tránsito';
@@ -175,7 +172,7 @@ export const useAdminOrders = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending_valuation': return 'bg-rose-100 text-rose-700 border-rose-200'; // Color llamativo para acción requerida
+      case 'pending_valuation': return 'bg-rose-100 text-rose-700 border-rose-200';
       case 'waiting_customer_approval': return 'bg-sky-100 text-sky-700 border-sky-200';
       case 'payment_pending': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'payment_review': return 'bg-purple-100 text-purple-700 border-purple-200';
@@ -196,14 +193,10 @@ export const useAdminOrders = () => {
     getOrderDetails,
     updateStatus: updateStatusMutation.mutateAsync,
     isUpdating: updateStatusMutation.isPending,
-    
-    // Exportamos las nuevas funciones
     addShippingOption: addShippingOptionMutation.mutateAsync,
     isAddingOption: addShippingOptionMutation.isPending,
-    
     submitValuation: submitValuationMutation.mutateAsync,
     isSubmittingValuation: submitValuationMutation.isPending,
-    
     getStatusLabel,
     getStatusColor
   };

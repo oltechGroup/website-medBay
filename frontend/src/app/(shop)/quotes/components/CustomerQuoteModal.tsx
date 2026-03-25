@@ -2,11 +2,12 @@
 "use client";
 
 import React from 'react';
-import { useRouter } from 'next/navigation'; // ✅ We import useRouter
+import { useRouter } from 'next/navigation';
 import { 
   X, Calendar, Package, DollarSign, 
   CheckCircle2, XCircle, AlertTriangle, 
-  FileText, Clock, ShieldCheck, Tag, Ban, Stethoscope
+  FileText, Clock, ShieldCheck, Tag, Ban, Stethoscope,
+  Layers // 🚀 Icono para UOM
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { CustomerQuote } from '@/hooks/useCustomerQuotes';
@@ -15,7 +16,6 @@ interface CustomerQuoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   quote: CustomerQuote | null;
-  // ✅ Update type so onRespond can return orderId
   onRespond: (id: string, action: 'accepted' | 'rejected') => Promise<{ orderId?: string } | void>;
   isResponding: boolean;
 }
@@ -28,7 +28,7 @@ export default function CustomerQuoteModal({
   isResponding 
 }: CustomerQuoteModalProps) {
   
-  const router = useRouter(); // ✅ Initialize router
+  const router = useRouter();
 
   if (!isOpen || !quote) return null;
 
@@ -36,6 +36,9 @@ export default function CustomerQuoteModal({
   const request = quote.product_request;
 
   if (!proposal) return null;
+
+  // 🚀 Extraemos la unidad de medida del contexto
+  const requestedUom = quote.quote_context?.requested_uom || "units";
 
   // --- VISUAL HELPERS ---
   const getLotTypeConfig = (type: string) => {
@@ -61,7 +64,7 @@ export default function CustomerQuoteModal({
           color: 'bg-red-50 text-red-800 border-red-200',
           icon: <AlertTriangle size={18} className="text-red-600" />
         };
-      case 'equipment': // ✅ NADA DE CADUCIDAD, ES EQUIPO
+      case 'equipment': 
         return {
           label: 'New / Durable',
           description: 'Medical equipment or precision instrument.',
@@ -80,22 +83,18 @@ export default function CustomerQuoteModal({
 
   const lotConfig = getLotTypeConfig(proposal.lot_type);
   const totalAmount = proposal.unit_price * proposal.quantity_found;
-  const isEquipment = proposal.lot_type === 'equipment'; // Flag para ocultar fecha
+  const isEquipment = proposal.lot_type === 'equipment';
 
-  // --- STATUS LOGIC ---
   const isAccepted = quote.status === 'accepted';
   const isRejected = quote.status === 'rejected';
   const isActionable = quote.status === 'proposal_sent';
 
-  // --- RESPONSE HANDLER ---
   const handleAction = async (action: 'accepted' | 'rejected') => {
     try {
       const result = await onRespond(quote.id, action);
-      
-      // ✅ If accepted and returns an orderId, we redirect
       if (action === 'accepted' && result?.orderId) {
-        onClose(); // Close modal first
-        router.push(`/orders?newOrder=${result.orderId}`); // Optional: pass ID to highlight it
+        onClose();
+        router.push(`/orders?newOrder=${result.orderId}`);
       }
     } catch (error) {
        console.error("Error processing action", error);
@@ -104,13 +103,8 @@ export default function CustomerQuoteModal({
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center p-0 md:p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-300" 
-        onClick={onClose}
-      ></div>
+      <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-300" onClick={onClose}></div>
 
-      {/* Modal Content */}
       <div className="relative bg-white w-full max-w-3xl h-[90vh] md:h-auto md:max-h-[90vh] rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-300 border border-white/20">
         
         {/* HEADER */}
@@ -124,18 +118,15 @@ export default function CustomerQuoteModal({
               <p className="text-[10px] md:text-xs font-bold text-slate-400 mt-1 uppercase tracking-wide">Ref: {request.sku}</p>
             </div>
           </div>
-          <button 
-            onClick={onClose} 
-            className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
-          >
+          <button onClick={onClose} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
             <X size={20} className="md:w-6 md:h-6" />
           </button>
         </div>
 
-        {/* BODY (Scrollable) */}
+        {/* BODY */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 space-y-6 md:space-y-8 bg-slate-50/50">
           
-          {/* 1. PRODUCT SUMMARY */}
+          {/* 1. PRODUCT SUMMARY (Actualizado con UOM solicitada) */}
           <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-slate-100">
               <div className="flex items-start gap-4 md:gap-5">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-slate-100 rounded-2xl flex items-center justify-center flex-shrink-0">
@@ -145,7 +136,11 @@ export default function CustomerQuoteModal({
                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Requested Product</p>
                    <h3 className="text-lg md:text-xl font-bold text-slate-800 leading-snug mb-2 truncate md:whitespace-normal">{request.product_name}</h3>
                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500 font-medium">
-                      <span className="bg-slate-100 px-2 py-0.5 rounded text-[10px] md:text-xs">Qty: {request.quantity_asked}</span>
+                      {/* 🚀 Visualización clara de cantidad + unidad */}
+                      <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded text-[10px] md:text-xs font-bold text-slate-700">
+                        Qty: {request.quantity_asked} 
+                        <span className="text-blue-600 uppercase font-black tracking-tighter">{requestedUom}</span>
+                      </span>
                       <span className="font-mono text-[10px] md:text-xs">SKU: {request.sku}</span>
                    </div>
                 </div>
@@ -160,8 +155,6 @@ export default function CustomerQuoteModal({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-                
-                {/* CONDITION CARD */}
                 <div className={`p-5 md:p-6 rounded-3xl border-2 ${lotConfig.color} bg-white relative overflow-hidden group`}>
                    <div className="flex justify-between items-start mb-3 relative z-10">
                       <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Condition</span>
@@ -174,7 +167,7 @@ export default function CustomerQuoteModal({
                    </div>
                 </div>
 
-                {/* PRICE CARD */}
+                {/* PRICE CARD (Actualizado para mostrar 'per unit') */}
                 <div className="bg-white p-5 md:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
                    <div className="flex justify-between items-start mb-2">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit Price</span>
@@ -184,19 +177,20 @@ export default function CustomerQuoteModal({
                      <p className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
                        {formatCurrency(proposal.unit_price)}
                      </p>
-                     <p className="text-[10px] text-slate-400 font-bold mt-1">Currency: USD</p>
+                     <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">Price per {requestedUom}</p>
                    </div>
                 </div>
 
-                {/* QUANTITY CARD */}
+                {/* QUANTITY CARD (Actualizado con UOM) */}
                 <div className="bg-white p-5 md:p-6 rounded-3xl border border-slate-200 shadow-sm">
                    <div className="flex justify-between items-start mb-3">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Availability</span>
                       <Package size={16} className="text-slate-400"/>
                    </div>
-                   <div className="flex items-baseline gap-1">
+                   <div className="flex items-baseline gap-1.5">
                       <p className="text-xl md:text-2xl font-black text-slate-800">{proposal.quantity_found}</p>
-                      <span className="text-xs md:text-sm font-bold text-slate-400">units</span>
+                      {/* 🚀 Muestra la unidad aquí también */}
+                      <span className="text-xs md:text-sm font-black text-blue-600 uppercase">{requestedUom}</span>
                    </div>
                    {proposal.quantity_found < request.quantity_asked && (
                      <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-100">
@@ -206,7 +200,6 @@ export default function CustomerQuoteModal({
                    )}
                 </div>
 
-                {/* EXPIRATION CARD (Only if NOT equipment) */}
                 {!isEquipment && (
                   <div className="bg-white p-5 md:p-6 rounded-3xl border border-slate-200 shadow-sm">
                      <div className="flex justify-between items-start mb-3">
@@ -221,8 +214,7 @@ export default function CustomerQuoteModal({
                 )}
               </div>
 
-             {/* SELLER NOTES */}
-             {proposal.admin_notes && (
+              {proposal.admin_notes && (
                 <div className="bg-blue-50 p-4 md:p-5 rounded-2xl border border-blue-100 flex gap-3 items-start mt-4">
                    <FileText className="text-blue-500 flex-shrink-0 mt-0.5" size={18} />
                    <div className="text-xs md:text-sm text-blue-900">
@@ -230,10 +222,9 @@ export default function CustomerQuoteModal({
                       <p className="leading-relaxed opacity-80">"{proposal.admin_notes}"</p>
                    </div>
                 </div>
-             )}
+              )}
           </div>
 
-          {/* 3. FINANCIAL SUMMARY */}
           <div className="border-t border-slate-200 pt-6 flex justify-between items-end">
              <div>
                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Payable</p>
@@ -246,7 +237,7 @@ export default function CustomerQuoteModal({
 
         </div>
 
-        {/* FOOTER - ACTIONS */}
+        {/* FOOTER */}
         <div className="p-5 md:p-6 bg-white border-t border-slate-100 sticky bottom-0 z-10 flex-shrink-0">
            {isActionable ? (
                <div className="flex gap-3 md:gap-4">

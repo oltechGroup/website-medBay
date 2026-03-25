@@ -2,33 +2,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, FileText, CheckCircle2, AlertCircle, ArrowRight, Loader2, Package, Tag, Calendar, Stethoscope } from "lucide-react";
+import { X, FileText, CheckCircle2, AlertCircle, ArrowRight, Loader2, Package, Tag, Calendar, Stethoscope, ChevronDown } from "lucide-react";
 import { Product } from "@/hooks/useProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/lib/api";
 import { getImageUrl, formatCurrency, formatDate } from "@/lib/formatters";
 
-// ✅ NEW: Define the structure for smart context
 export interface QuoteContext {
   lotId?: string;
   lotNumber?: string;
   referencePrice?: number;
   expiryDate?: string;
   stockAvailable?: number;
-  status?: string; // Para saber si es equipment
+  status?: string;
 }
 
 interface QuoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product;
-  initialContext?: QuoteContext; // ✅ Receive optional context
+  initialContext?: QuoteContext;
 }
 
 type QuoteType = "Current (Standard)" | "Short-Dated (Discounted)" | "Expired (Practice/Waste)" | "New / Durable";
+// 🚀 NUEVO TIPO PARA UNIDAD
+type UOMType = "Piece(s)" | "Box(es)";
 
 export default function QuoteModal({ isOpen, onClose, product, initialContext }: QuoteModalProps) {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -36,19 +37,19 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
   // Form State
   const [quantity, setQuantity] = useState<number>(1);
   const [type, setType] = useState<QuoteType>("Current (Standard)");
+  const [uom, setUom] = useState<UOMType>("Piece(s)"); // 🚀 NUEVO ESTADO
   const [notes, setNotes] = useState("");
 
-  const isEquipment = initialContext?.status === 'equipment';
+  const isEquipment = initialContext?.status === 'equipment' || type === "New / Durable";
 
-  // 🧠 SMART LOGIC: Pre-fill based on context
+  // 🧠 SMART LOGIC: Pre-fill
   useEffect(() => {
     if (isOpen) {
       if (initialContext) {
-        // 1. Si es equipo médico, forzamos el tipo y no lo dejamos cambiar
         if (initialContext.status === 'equipment') {
           setType("New / Durable");
+          setUom("Piece(s)"); // Equipo siempre es pieza
         } 
-        // 2. If there is an expiration date, determine the TYPE automatically
         else if (initialContext.expiryDate) {
           const expiry = new Date(initialContext.expiryDate);
           const now = new Date();
@@ -61,13 +62,11 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
           } else {
             setType("Current (Standard)");
           }
-        } else {
-          setType("Current (Standard)");
         }
       } else {
-        // Reset if opened clean
         setQuantity(1);
         setType("Current (Standard)");
+        setUom("Piece(s)");
         setNotes("");
       }
     }
@@ -80,22 +79,21 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
     setError("");
 
     try {
-      // Build technical note for admin
-      let contextNote = `[Preference: ${type}]`;
+      // 🚀 INCLUIMOS LA UNIDAD EN LA NOTA TÉCNICA
+      let contextNote = `[Preference: ${type}] [Unit: ${uom}]`;
       
       if (initialContext) {
         contextNote += `\n--- SOURCE CONTEXT ---`;
         if (initialContext.lotNumber) contextNote += `\nSpecific Lot: ${initialContext.lotNumber}`;
         if (initialContext.referencePrice) contextNote += `\nPrice Seen: ${formatCurrency(initialContext.referencePrice)}`;
-        if (initialContext.stockAvailable !== undefined) contextNote += `\nSystem Stock: ${initialContext.stockAvailable}`;
       }
       
       const finalNotes = `${contextNote}\n\nClient Note: ${notes}`;
 
-      // ✅ AGREGAMOS EL productId AL CONTEXTO ANTES DE ENVIARLO
       const payloadContext = {
         ...initialContext,
-        productId: product.id 
+        productId: product.id,
+        requested_uom: uom // Enviamos la unidad estructurada también
       };
 
       const payload = {
@@ -103,7 +101,6 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
         sku: product.global_sku || 'N/A',
         quantity_asked: quantity,
         notes: finalNotes,
-        // Send structured context in case backend evolves to store it in separate columns
         quote_context: payloadContext, 
         guest_info: !isAuthenticated ? {
             name: "Web Guest",
@@ -115,18 +112,12 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
       await api.post('/quotes', payload);
       setStep(3);
     } catch (err: any) {
-      console.error(err);
-      if (err.response?.status === 401) {
-        setError("Please log in to request a quote.");
-      } else {
-        setError("There was an error sending the request. Please try again.");
-      }
+      setError("There was an error sending the request. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper to render context badge
   const renderContextBadge = () => {
     if (!initialContext) return null;
     return (
@@ -163,11 +154,7 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm transition-opacity animate-in fade-in"
-        onClick={onClose}
-      ></div>
+      <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm transition-opacity animate-in fade-in" onClick={onClose}></div>
 
       <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         
@@ -184,21 +171,14 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
           </button>
         </div>
 
-        {/* Body */}
         <div className="p-6">
-          
-          {/* STEP 1: CONFIGURATION */}
           {step === 1 && (
             <div className="space-y-5 animate-in slide-in-from-right-4">
               
               {/* Product Summary */}
               <div className="flex gap-4 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <div className="w-12 h-12 bg-white rounded-lg p-1 border border-slate-200 flex-shrink-0">
-                  <img 
-                    src={getImageUrl(product.primary_image)} 
-                    className="w-full h-full object-contain mix-blend-multiply" 
-                    alt={product.description}
-                  />
+                  <img src={getImageUrl(product.primary_image)} className="w-full h-full object-contain mix-blend-multiply" alt={product.description} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-slate-400 uppercase">{product.manufacturer_name}</p>
@@ -207,14 +187,12 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
                 </div>
               </div>
 
-              {/* ✅ SMART ZONE: Lot Context */}
               {renderContextBadge()}
 
-              {/* Form */}
-              {/* Si NO es equipo, mostramos las opciones de caducidad */}
+              {/* Required Product Type */}
               {!isEquipment && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Required Product Type</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Required Product Status</label>
                   <select 
                     value={type}
                     onChange={(e) => setType(e.target.value as QuoteType)}
@@ -227,33 +205,56 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Quantity Units</label>
-                <input 
-                  type="number" 
-                  min={1}
-                  value={quantity}
-                  onChange={(e) => setQuantity(parseInt(e.target.value))}
-                  className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-900"
-                />
+              {/* 🚀 QUANTITY & UOM ROW */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Quantity</label>
+                  <input 
+                    type="number" 
+                    min={1}
+                    value={quantity}
+                    onChange={(e) => setQuantity(parseInt(e.target.value))}
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Presentation</label>
+                  {isEquipment ? (
+                    <div className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-500 flex items-center gap-2">
+                       <Package size={14}/> Piece(s)
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <select 
+                        value={uom}
+                        onChange={(e) => setUom(e.target.value as UOMType)}
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-bold text-blue-600 appearance-none"
+                      >
+                        <option value="Piece(s)">Piece(s)</option>
+                        <option value="Box(es)">Box(es)</option>
+                      </select>
+                      <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Additional Comments (Optional)</label>
                 <textarea 
-                  rows={3}
+                  rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder={isEquipment ? "e.g.: Do you offer installation services?" : "e.g.: I need them to have at least 6 months validity..."}
+                  placeholder={isEquipment ? "e.g.: Do you offer international warranty?" : "e.g.: I need specific lot certificates..."}
                   className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm resize-none text-slate-900"
                 />
               </div>
 
-              {/* Warning if not logged in */}
               {!isAuthenticated && (
                 <div className="text-xs text-amber-600 bg-amber-50 p-3 rounded-lg flex gap-2 items-center">
                   <AlertCircle size={14} />
-                  <span>To track your quote, we recommend logging in or registering.</span>
+                  <span>Log in to track this quote in your dashboard.</span>
                 </div>
               )}
 
@@ -261,87 +262,53 @@ export default function QuoteModal({ isOpen, onClose, product, initialContext }:
                 onClick={() => setStep(2)}
                 className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-lg"
               >
-                Continue <ArrowRight size={18} />
+                Review Request <ArrowRight size={18} />
               </button>
             </div>
           )}
 
-          {/* STEP 2: CONFIRMATION */}
           {step === 2 && (
             <div className="space-y-6 animate-in slide-in-from-right-4 text-center">
               <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-blue-600">
                 <AlertCircle size={32} />
               </div>
               
-              <div>
-                <h4 className="text-xl font-bold text-slate-800">Confirm your request</h4>
-                <p className="text-sm text-slate-500 mt-1">
-                  We will send this request to the sales team to confirm availability.
-                </p>
-              </div>
+              <h4 className="text-xl font-bold text-slate-800">Confirm Quote Request</h4>
 
               <div className="bg-slate-50 rounded-2xl p-4 text-left space-y-3 text-sm border border-slate-100">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Product:</span>
+                  <span className="text-slate-500">Item:</span>
                   <span className="font-bold text-slate-800 text-right w-1/2 truncate">{product.description}</span>
                 </div>
-                
-                {/* Context Summary in Confirmation */}
-                {initialContext && initialContext.referencePrice && (
-                    <div className="flex justify-between text-blue-600 bg-blue-50/50 p-1 rounded">
-                        <span className="text-blue-500 font-medium">Ref. Price:</span>
-                        <span className="font-bold">{formatCurrency(initialContext.referencePrice)}</span>
-                    </div>
-                )}
-
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Quantity:</span>
-                  <span className="font-bold text-slate-800">{quantity} units</span>
+                  <span className="text-slate-500">Order:</span>
+                  <span className="font-bold text-slate-800">{quantity} {uom}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Type:</span>
+                  <span className="text-slate-500">Preference:</span>
                   <span className="font-bold text-blue-600">{type}</span>
                 </div>
               </div>
 
-              {error && (
-                <p className="text-xs text-red-500 font-bold bg-red-50 p-2 rounded-lg">{error}</p>
-              )}
+              {error && <p className="text-xs text-red-500 font-bold bg-red-50 p-2 rounded-lg">{error}</p>}
 
               <div className="flex gap-3">
-                <button 
-                  onClick={() => setStep(1)}
-                  className="flex-1 py-3 border border-slate-200 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors"
-                >
-                  Back
-                </button>
-                <button 
-                  onClick={handleSubmit}
-                  disabled={loading}
-                  className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
-                >
-                  {loading ? <Loader2 className="animate-spin" size={20}/> : "Confirm Submission"}
+                <button onClick={() => setStep(1)} className="flex-1 py-3 border border-slate-200 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors">Back</button>
+                <button onClick={handleSubmit} disabled={loading} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-70">
+                  {loading ? <Loader2 className="animate-spin" size={20}/> : "Send Request"}
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 3: SUCCESS */}
           {step === 3 && (
             <div className="text-center py-8 animate-in zoom-in-95">
               <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto text-green-500 mb-6">
                 <CheckCircle2 size={40} />
               </div>
               <h4 className="text-2xl font-black text-slate-800 mb-2">Request Sent!</h4>
-              <p className="text-slate-500 mb-8 max-w-xs mx-auto">
-                We have received your quote request. You can check the status in your "My Quotes" dashboard.
-              </p>
-              <button 
-                onClick={onClose}
-                className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-slate-800 transition-colors"
-              >
-                Got it, thanks
-              </button>
+              <p className="text-slate-500 mb-8 max-w-xs mx-auto">Our sales team will contact you within 24-48 business hours with a formal proposal.</p>
+              <button onClick={onClose} className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-slate-800 transition-colors">Return to Catalog</button>
             </div>
           )}
 

@@ -18,7 +18,7 @@ import {
   ChevronDown,
   Layers,
   Tag,
-  Stethoscope // ✅ IMPORTACIÓN AGREGADA
+  Stethoscope 
 } from 'lucide-react';
 import { ProductLot, CreateLotData, useInventory } from '@/hooks/useInventory';
 
@@ -36,7 +36,8 @@ interface FormData {
   expiry_date: string;
   quantity: number;
   price: number;
-  status: 'available' | 'near_expiry' | 'expired' | 'equipment'; // ✅ Añadido 'equipment'
+  status: 'available' | 'near_expiry' | 'expired' | 'equipment';
+  unit_of_measure: string; // 🚀 NUEVO CAMPO
   received_at: string;
 }
 
@@ -48,7 +49,7 @@ export const LotForm: React.FC<LotFormProps> = ({
 }) => {
   const { getFormData } = useInventory();
   
-  // 1. Estados del Formulario
+  // 1. Estados del Formulario (Actualizado con unit_of_measure)
   const [formData, setFormData] = useState<FormData>({
     product_id: '',
     supplier_id: '',
@@ -57,6 +58,7 @@ export const LotForm: React.FC<LotFormProps> = ({
     quantity: 0,
     price: 0,
     status: 'available',
+    unit_of_measure: '', // 🚀 Inicializado
     received_at: new Date().toISOString().split('T')[0]
   });
 
@@ -104,7 +106,7 @@ export const LotForm: React.FC<LotFormProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 4. Pre-llenado en modo Edición
+  // 4. Pre-llenado en modo Edición (Actualizado con unit_of_measure)
   useEffect(() => {
     if (lot && initialLoading) {
       setFormData({
@@ -115,6 +117,7 @@ export const LotForm: React.FC<LotFormProps> = ({
         quantity: lot.quantity,
         price: lot.price,
         status: lot.status,
+        unit_of_measure: lot.unit_of_measure || '', // 🚀 Capturado del lote
         received_at: lot.received_at ? lot.received_at.split('T')[0] : new Date().toISOString().split('T')[0]
       });
       setProductSearch(lot.product_name);
@@ -144,12 +147,10 @@ export const LotForm: React.FC<LotFormProps> = ({
     if (!formData.supplier_id) newErrors.supplier_id = 'Supplier required';
     if (!formData.lot_number.trim()) newErrors.lot_number = 'Lot SKU required';
     
-    // Si es equipo médico, la caducidad NO es obligatoria
     if (formData.status !== 'equipment' && !formData.expiry_date) {
         newErrors.expiry_date = 'Required';
     }
     
-    // Ya no exigimos cantidad mayor a 0 si solo estamos registrando precio/fechas
     if (formData.quantity < 0) newErrors.quantity = 'Invalid qty'; 
     
     setErrors(newErrors);
@@ -170,10 +171,9 @@ export const LotForm: React.FC<LotFormProps> = ({
     available: { icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50', label: 'OPTIMAL' },
     near_expiry: { icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', label: 'WARNING' },
     expired: { icon: Ban, color: 'text-red-600', bg: 'bg-red-50', label: 'EXPIRED' },
-    equipment: { icon: Stethoscope, color: 'text-blue-600', bg: 'bg-blue-50', label: 'EQUIPMENT' } // ✅ Añadido 'equipment'
+    equipment: { icon: Stethoscope, color: 'text-blue-600', bg: 'bg-blue-50', label: 'EQUIPMENT' }
   }[formData.status];
 
-  // Estilo común para inputs
   const inputBaseClass = "w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-50 transition-all font-bold text-slate-900 placeholder-slate-400 shadow-sm";
 
   if (initialLoading) {
@@ -215,7 +215,6 @@ export const LotForm: React.FC<LotFormProps> = ({
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Product Identity</h3>
             </div>
 
-            {/* BUSCADOR INTELIGENTE */}
             <div className="relative" ref={dropdownRef}>
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Search Catalog Item *</label>
               <div className="relative group">
@@ -253,7 +252,6 @@ export const LotForm: React.FC<LotFormProps> = ({
               {errors.product_id && <p className="mt-2 text-[10px] font-black text-red-500 uppercase ml-1 tracking-widest">{errors.product_id}</p>}
             </div>
 
-            {/* PROVEEDOR */}
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Supplier Partner *</label>
               <div className="relative">
@@ -271,7 +269,6 @@ export const LotForm: React.FC<LotFormProps> = ({
               </div>
             </div>
 
-            {/* LOT NUMBER */}
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Batch SKU / Lot Number *</label>
               <div className="relative group">
@@ -292,7 +289,7 @@ export const LotForm: React.FC<LotFormProps> = ({
           <div className="space-y-8">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-600">Timeline & Stock</h3>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-600">Timeline & Packaging</h3>
             </div>
 
             <div className="grid grid-cols-2 gap-5">
@@ -315,42 +312,59 @@ export const LotForm: React.FC<LotFormProps> = ({
               </div>
             </div>
 
+            {/* 🚀 FILA REESTRUCTURADA: Units + Unit of Measure */}
             <div className="grid grid-cols-2 gap-5">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Units (Optional)</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Total Stock</label>
                 <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} className={inputBaseClass} />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Unit Cost (Optional)</label>
+                <label className="block text-[10px] font-black text-blue-600 uppercase tracking-widest mb-3 ml-1 flex items-center gap-1.5">
+                  <Package className="w-3 h-3"/> Unit of Measure
+                </label>
+                <input 
+                  type="text" 
+                  name="unit_of_measure" 
+                  value={formData.unit_of_measure} 
+                  onChange={handleChange} 
+                  placeholder="e.g. Box of 5"
+                  className={`${inputBaseClass} bg-blue-50/20 border-blue-100 focus:bg-white`} 
+                />
+              </div>
+            </div>
+
+            {/* 🚀 FILA REESTRUCTURADA: Unit Cost + Health Status */}
+            <div className="grid grid-cols-2 gap-5">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Unit Cost</label>
                 <div className="relative">
                   <input type="number" name="price" step="0.01" value={formData.price} onChange={handleChange} className={`${inputBaseClass} pl-10`} />
                   <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                 </div>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Health Status</label>
-              <div className="relative">
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className={`${inputBaseClass} pl-14 appearance-none font-black text-[10px] uppercase tracking-[0.2em] ${statusConfig.bg} ${statusConfig.color}`}
-                >
-                  <option value="available">🟢 Optimal - In Date</option>
-                  <option value="near_expiry">🟡 Warning - Short Date</option>
-                  <option value="expired">🔴 Alert - Expired</option>
-                  <option value="equipment">🩺 Info - Equipment</option>
-                </select>
-                <statusConfig.icon className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5" />
-                <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none opacity-40" />
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Health Status</label>
+                <div className="relative">
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    className={`${inputBaseClass} pl-14 appearance-none font-black text-[10px] uppercase tracking-[0.2em] ${statusConfig.bg} ${statusConfig.color}`}
+                  >
+                    <option value="available">🟢 Optimal - In Date</option>
+                    <option value="near_expiry">🟡 Warning - Short Date</option>
+                    <option value="expired">🔴 Alert - Expired</option>
+                    <option value="equipment">🩺 Info - Equipment</option>
+                  </select>
+                  <statusConfig.icon className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5" />
+                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none opacity-40" />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* 💰 VALUATION SUMMARY CARD - BLACK EDITION */}
+        {/* 💰 VALUATION SUMMARY CARD */}
         <div className="bg-slate-900 rounded-[2.5rem] p-10 flex items-center justify-between shadow-2xl shadow-slate-200 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 transition-transform group-hover:scale-110 duration-700"></div>
           <div className="flex items-center gap-6 relative z-10">
@@ -379,7 +393,6 @@ export const LotForm: React.FC<LotFormProps> = ({
           </div>
         )}
 
-        {/* FOOTER ACTIONS */}
         <div className="flex items-center justify-end gap-6 pt-6 border-t-2 border-slate-50">
           <button
             type="button"

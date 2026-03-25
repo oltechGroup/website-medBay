@@ -19,7 +19,7 @@ const inventoryController = {
   getSuppliersMetrics: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 6; // Por defecto 6 tarjetas por página
+      const limit = parseInt(req.query.limit) || 6; 
       const search = req.query.search || '';
 
       const result = await ProductLot.findPaginatedSuppliers({
@@ -74,7 +74,7 @@ const inventoryController = {
     }
   },
 
-  // ✅ CREAR NUEVO LOTE (Validación Relajada para Inteligencia de Lotes)
+  // ✅ CREAR NUEVO LOTE (Actualizado con unit_of_measure)
   createLot: async (req, res) => {
     try {
       const {
@@ -84,10 +84,10 @@ const inventoryController = {
         quantity,
         price,
         status,
-        received_at
+        received_at,
+        unit_of_measure // 🚀 Capturamos la unidad
       } = req.body;
 
-      // 🚨 Solo exigimos la relación, el número de lote y el estado. Lo demás es opcional.
       if (!product_supplier_id || !lot_number || !status) {
         return res.status(400).json({ 
           error: 'Faltan campos requeridos fundamentales: product_supplier_id, lot_number o status' 
@@ -101,7 +101,8 @@ const inventoryController = {
         quantity: quantity || 0,
         price: price || 0,
         status,
-        received_at: received_at || new Date()
+        received_at: received_at || new Date(),
+        unit_of_measure: unit_of_measure || null // 🚀 Pasamos la unidad al modelo
       });
 
       res.status(201).json({
@@ -117,7 +118,7 @@ const inventoryController = {
     }
   },
 
-  // ✅ ACTUALIZAR LOTE (Validación Relajada)
+  // ✅ ACTUALIZAR LOTE (Actualizado con unit_of_measure)
   updateLot: async (req, res) => {
     try {
       const { id } = req.params;
@@ -128,7 +129,8 @@ const inventoryController = {
         quantity,
         price,
         status,
-        received_at
+        received_at,
+        unit_of_measure // 🚀 Capturamos la unidad
       } = req.body;
 
       const updatedLot = await ProductLot.update(id, {
@@ -138,7 +140,8 @@ const inventoryController = {
         quantity: quantity || 0,
         price: price || 0,
         status,
-        received_at
+        received_at,
+        unit_of_measure: unit_of_measure || null // 🚀 Pasamos la unidad al modelo
       });
 
       if (!updatedLot) {
@@ -182,7 +185,6 @@ const inventoryController = {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 20;
 
-      // 🚨 Añadido 'equipment' a los estados válidos
       const validStatuses = ['available', 'near_expiry', 'expired', 'equipment'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ error: 'Estado no válido' });
@@ -202,12 +204,11 @@ const inventoryController = {
     }
   },
 
-  // ✅ OBTENER PRODUCTOS Y PROVEEDORES PARA FORMULARIO (Evita crashes de memoria)
+  // ✅ OBTENER PRODUCTOS Y PROVEEDORES PARA FORMULARIO
   getFormData: async (req, res) => {
     try {
       const search = req.query.search || '';
       
-      // Si el frontend envía búsqueda, filtramos. Si no, solo mandamos los primeros 50 para evitar sobrecarga.
       const productsQuery = `
         SELECT id, description as name, global_sku 
         FROM products 

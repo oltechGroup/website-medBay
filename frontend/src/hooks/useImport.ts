@@ -44,7 +44,8 @@ export interface ManualImportData {
   expiry_date?: string;
   imageFile?: File | null;
   imageUrl?: string;
-  notes?: string; // ✅ Campo de notas existente
+  notes?: string;
+  unit_of_measure?: string; // 🚀 NUEVO: Unidad de medida
 }
 
 // --- HOOK PRINCIPAL ---
@@ -99,7 +100,7 @@ export const useImport = () => {
     }
   };
 
-  // ✅ 4. NUEVA FUNCIÓN: ENTRADA MANUAL (CIRUGÍA DE PRECISIÓN)
+  // ✅ 4. FUNCIÓN ACTUALIZADA: ENTRADA MANUAL
   const submitManualImport = async (data: ManualImportData) => {
     try {
       setLoading(true);
@@ -114,11 +115,12 @@ export const useImport = () => {
       formData.append('quantity', data.quantity.toString());
       formData.append('price', data.price.toString());
       formData.append('expiry_date', data.expiry_date || '');
-      
-      // ✅ CORRECCIÓN: Agregado el empaquetado del campo notas
       formData.append('notes', data.notes || '');
+      
+      // 🚀 NUEVO: Agregamos la Unidad de Medida al FormData
+      formData.append('unit_of_measure', data.unit_of_measure || '');
 
-      // Lógica de Imagen: Si hay archivo, se envía como 'image'. Si hay URL, como 'image_url'
+      // Lógica de Imagen
       if (data.imageFile) {
         formData.append('image', data.imageFile);
       }
@@ -130,7 +132,7 @@ export const useImport = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      return res.data; // Retorna { success, upload_id }
+      return res.data; 
     } catch (err: any) {
       throw new Error(err.response?.data?.error || 'Error submitting manual entry');
     } finally {
@@ -189,7 +191,7 @@ export const useImport = () => {
     createQuickSupplier,
     cleanCatalog,
     uploadFile,
-    submitManualImport, // ✅ Exportado para el nuevo formulario
+    submitManualImport, 
     getMappingTemplate,
     startProcessing,
     getImportProgress,

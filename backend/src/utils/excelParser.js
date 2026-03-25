@@ -132,17 +132,17 @@ const excelParser = {
       quantity: ['cantidad', 'quantity', 'stock', 'inventario', 'qty', 'stock', 'existencia'],
       lot_number: ['lote', 'lot', 'batch', 'número de lote', 'lot number', 'batch number'],
       expiry_date: ['caducidad', 'expiry', 'vencimiento', 'expiration', 'fecha caducidad', 'fecha vencimiento', 'exp date'],
-      unit: ['unidad', 'unit', 'medida', 'measure', 'tipo unidad', 'unit type'],
+      // 🚀 Cambiado de 'unit' a 'unidad_medida' para consistencia con el Model e ImportModel
+      unidad_medida: ['unidad', 'unit', 'medida', 'measure', 'uom', 'presentación', 'presentacion', 'tipo unidad', 'unit type'],
       supplier_sku: ['sku proveedor', 'supplier sku', 'código proveedor', 'codigo proveedor'],
-      // ✅ NUEVO: Soporte para notas, accesorios e información incluida
       notas: ['nota', 'notas', 'note', 'notes', 'incluye', 'includes', 'observaciones', 'observación', 'accesorios', 'descripcion extra']
     };
     
     columnNames.forEach(columnName => {
       const lowerColumn = columnName.toLowerCase().trim();
       
-      for (const [field, patterns] of Object.entries(patterns)) {
-        if (patterns.some(pattern => {
+      for (const [field, patternsList] of Object.entries(patterns)) {
+        if (patternsList.some(pattern => {
           // Búsqueda exacta o parcial
           return lowerColumn === pattern || 
                  lowerColumn.includes(pattern) ||
@@ -165,9 +165,6 @@ const excelParser = {
     if (!parsedData.product_name) {
       errors.push('Nombre del producto / Descripción es requerido');
     }
-    
-    // Eliminamos las validaciones estrictas de lote, fecha, cantidad y precio.
-    // El ImportModel se encargará de evaluar estos datos y decidir si crea o no un lote.
 
     return errors;
   }

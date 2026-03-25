@@ -5,8 +5,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Product } from '@/hooks/useProducts';
-// ✅ IMPORTACIÓN UNIFICADA: Usamos la función que ya funciona en el Home
 import { getImageUrl, formatCurrency } from '@/lib/formatters';
+import { Package } from 'lucide-react'; // 🚀 Icono para la unidad
 
 interface ProductTableProps {
   products: Product[];
@@ -23,9 +23,6 @@ export const ProductTable = ({
 }: ProductTableProps) => {
   const router = useRouter();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-
-  // ✅ LOCAL getImageUrl ELIMINADO para usar la función maestra de @/lib/formatters
-  // Esto asegura que las imágenes se carguen siempre desde https://api.medbaysupply.com
 
   const renderPrice = (product: Product) => {
     const { min_price, max_price, active_lots } = product;
@@ -201,8 +198,11 @@ export const ProductTable = ({
                       <div className="flex items-center text-sm text-gray-600">
                         <strong className="mr-1">Manufacturer:</strong> {product.manufacturer_name || 'Not assigned'}
                       </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <strong className="mr-1">Images:</strong> {product.image_count || 0}
+                      {/* 🚀 NUEVA FILA: Unidad de Medida (UOM) */}
+                      <div className="flex items-center text-sm text-blue-600 font-medium">
+                        <Package className="w-3.5 h-3.5 mr-1.5" />
+                        <strong className="mr-1 text-gray-600 font-bold">Packaging:</strong> 
+                        {product.uom_summary || 'Standard Unit'}
                       </div>
                     </div>
 
@@ -212,6 +212,9 @@ export const ProductTable = ({
                           <strong className="text-gray-600 block mb-1">Categories:</strong>
                           {renderCategories(product)}
                         </div>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <strong className="mr-1 font-bold">Images:</strong> {product.image_count || 0}
                       </div>
                       {product.active_lots !== undefined && (
                         <div className="flex items-center text-sm text-gray-600">

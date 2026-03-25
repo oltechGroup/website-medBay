@@ -3,7 +3,7 @@
 const db = require('../config/database');
 
 const ProductLot = {
-  // ✅ CREAR LOTE
+  // ✅ CREAR LOTE (Actualizado con unit_of_measure)
   create: async (lotData) => {
     const {
       product_supplier_id,
@@ -12,28 +12,28 @@ const ProductLot = {
       quantity,
       price,
       status,
-      received_at
+      received_at,
+      unit_of_measure // 🚀 Nuevo campo
     } = lotData;
 
     const query = `
       INSERT INTO product_lots (
         product_supplier_id, lot_number, expiry_date, quantity, 
-        price, status, received_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        price, status, received_at, unit_of_measure
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
     `;
     
     const values = [
       product_supplier_id, lot_number, expiry_date, quantity,
-      price, status, received_at || new Date()
+      price, status, received_at || new Date(), unit_of_measure || null
     ];
     
     const result = await db.query(query, values);
     return result.rows[0];
   },
 
-  // ✅ NUEVO: OBTENER LOTES PAGINADOS (Para la página de "Ver Lotes")
-  // Soporta búsqueda, filtros por proveedor y estado.
+  // ✅ OBTENER LOTES PAGINADOS (Actualizado con unit_of_measure)
   findPaginated: async ({ page = 1, limit = 20, supplier_id = '', status = '', search = '' }) => {
     const offset = (page - 1) * limit;
     let whereConditions = [];
@@ -60,7 +60,6 @@ const ProductLot = {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    // 1. Contar total para paginación
     const countQuery = `
       SELECT COUNT(*) 
       FROM product_lots pl
@@ -72,7 +71,6 @@ const ProductLot = {
     const countResult = await db.query(countQuery, params);
     const totalItems = parseInt(countResult.rows[0].count);
 
-    // 2. Obtener datos con LIMIT/OFFSET y Tie-breaker
     const dataParams = [...params, limit, offset];
     const dataQuery = `
       SELECT 
@@ -105,7 +103,7 @@ const ProductLot = {
     };
   },
 
-  // ✅ OBTENER POR ID DE LOTE
+  // ✅ OBTENER POR ID DE LOTE (Actualizado con unit_of_measure)
   findById: async (id) => {
     const query = `
       SELECT 
@@ -127,7 +125,7 @@ const ProductLot = {
     return result.rows[0];
   },
 
-  // ✅ NUEVO: OBTENER LOTES POR ID DE PRODUCTO (Faltaba esta función para el Frontend del cliente)
+  // ✅ OBTENER LOTES POR ID DE PRODUCTO (Actualizado con unit_of_measure)
   findByProductId: async (productId, statusFilter = 'all') => {
     let query = `
       SELECT 
@@ -144,7 +142,6 @@ const ProductLot = {
     
     const params = [productId];
     
-    // Permitir filtrar por estado (incluyendo equipment)
     if (statusFilter && statusFilter !== 'all') {
       query += ` AND pl.status = $2`;
       params.push(statusFilter);
@@ -152,14 +149,13 @@ const ProductLot = {
       query += ` AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')`;
     }
     
-    // Ordenar por fecha de caducidad y luego por precio
     query += ` ORDER BY pl.expiry_date ASC NULLS LAST, pl.price ASC`;
     
     const result = await db.query(query, params);
     return result.rows;
   },
 
-  // ✅ ACTUALIZAR LOTE
+  // ✅ ACTUALIZAR LOTE (Actualizado con unit_of_measure)
   update: async (id, lotData) => {
     const {
       product_supplier_id,
@@ -168,7 +164,8 @@ const ProductLot = {
       quantity,
       price,
       status,
-      received_at
+      received_at,
+      unit_of_measure // 🚀 Nuevo campo
     } = lotData;
 
     const query = `
@@ -181,29 +178,29 @@ const ProductLot = {
         price = $5, 
         status = $6, 
         received_at = $7,
+        unit_of_measure = $8,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $8
+      WHERE id = $9
       RETURNING *
     `;
     
     const values = [
       product_supplier_id, lot_number, expiry_date, quantity,
-      price, status, received_at, id
+      price, status, received_at, unit_of_measure || null, id
     ];
     
     const result = await db.query(query, values);
     return result.rows[0];
   },
 
-  // ✅ ELIMINAR LOTE
+  // ✅ ELIMINAR LOTE (Sin cambios necesarios)
   delete: async (id) => {
     const query = 'DELETE FROM product_lots WHERE id = $1 RETURNING *';
     const result = await db.query(query, [id]);
     return result.rows[0];
   },
 
-  // ✅ MÉTRICAS DASHBOARD MEJORADAS
-  // Ahora identifica proveedor, tipo de la última importación y cuenta equipos
+  // ✅ MÉTRICAS DASHBOARD (Sin cambios, unit_of_measure no afecta totales)
   getDashboardMetrics: async () => {
     const query = `
       WITH last_import_info AS (
@@ -238,8 +235,7 @@ const ProductLot = {
     return result.rows[0];
   },
 
-  // ✅ MÉTRICAS PROVEEDORES PAGINADAS
-  // Para la página principal de tarjetas de proveedores, ahora cuenta equipos
+  // ✅ MÉTRICAS PROVEEDORES PAGINADAS (Sin cambios)
   findPaginatedSuppliers: async ({ page = 1, limit = 6, search = '' }) => {
     const offset = (page - 1) * limit;
     let whereClause = 'WHERE s.is_active = true';
@@ -302,7 +298,7 @@ const ProductLot = {
   // 🧠 FASE 2: MOTOR INTELIGENTE DE INVENTARIO
   // ==========================================
 
-  // ✅ 1. RESERVAR STOCK (Se llama al hacer la orden / aceptar cotización)
+  // ✅ 1. RESERVAR STOCK (Sin cambios, descuenta unidades independientemente de la UOM)
   reserveLotQuantity: async (lotId, quantityToReserve) => {
     const query = `
       UPDATE product_lots 
@@ -314,14 +310,13 @@ const ProductLot = {
     `;
     const result = await db.query(query, [quantityToReserve, lotId]);
     
-    // Si no devuelve nada, significa que no existe el lote o la cantidad bajó de lo permitido
     if (result.rows.length === 0) {
       throw new Error('Stock insuficiente o lote no encontrado para reservar.');
     }
     return result.rows[0];
   },
 
-  // ✅ 2. LIBERAR STOCK (Se llama si la orden se cancela o rechaza)
+  // ✅ 2. LIBERAR STOCK (Sin cambios)
   releaseLotQuantity: async (lotId, quantityToRelease) => {
     const query = `
       UPDATE product_lots 
@@ -335,43 +330,39 @@ const ProductLot = {
     return result.rows[0];
   },
 
-  // ✅ 3. CREAR LOTE PUENTE (Para cotizaciones aceptadas de productos sin lote previo)
-  createSourcedLot: async (productId, quantity, price, expiryDate, status) => {
+  // ✅ 3. CREAR LOTE PUENTE (Actualizado con unit_of_measure)
+  createSourcedLot: async (productId, quantity, price, expiryDate, status, unit_of_measure) => {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
       
-      // 1. Buscamos si el producto ya tiene un proveedor vinculado
       let psRes = await client.query('SELECT id FROM product_suppliers WHERE product_id = $1 LIMIT 1', [productId]);
       let productSupplierId;
 
       if (psRes.rows.length > 0) {
         productSupplierId = psRes.rows[0].id;
       } else {
-        // 2. Si no tiene, lo vinculamos con un proveedor activo genérico temporalmente
         const supplierRes = await client.query('SELECT id, name FROM suppliers WHERE is_active = true LIMIT 1');
         if (supplierRes.rows.length === 0) throw new Error("No se encontró ningún proveedor activo para asignar este nuevo lote.");
         
         const newPs = await client.query(
           `INSERT INTO product_suppliers (product_id, supplier_id, supplier_sku, supplier_name) 
-           VALUES ($1, $2, $3, $4) RETURNING id`,
+            VALUES ($1, $2, $3, $4) RETURNING id`,
           [productId, supplierRes.rows[0].id, `COTIZACION-${Date.now()}`, supplierRes.rows[0].name]
         );
         productSupplierId = newPs.rows[0].id;
       }
 
-      // 3. Creamos el lote físico con la cantidad exacta que el admin consiguió en la cotización
-      // Se asigna prefijo "QT-" para identificar que este lote nació de una cotización (Quote)
       const lotQuery = `
-        INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, received_at)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        INSERT INTO product_lots (product_supplier_id, lot_number, quantity, price, status, expiry_date, unit_of_measure, received_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
         RETURNING *
       `;
       const lotNumber = `QT-${Date.now().toString().slice(-6)}`;
       const finalStatus = status === 'short_date' ? 'near_expiry' : status === 'in_date' ? 'available' : status;
       
       const lotResult = await client.query(lotQuery, [
-        productSupplierId, lotNumber, quantity, price, finalStatus, expiryDate || null
+        productSupplierId, lotNumber, quantity, price, finalStatus, expiryDate || null, unit_of_measure || null
       ]);
 
       await client.query('COMMIT');

@@ -31,11 +31,9 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
   
   const hasPrice = price && parseFloat(price) > 0;
   const hasStock = lot.quantity > 0;
-  const isEquipment = lot.status === 'equipment'; // ✅ VERIFICACIÓN DE EQUIPO
+  const isEquipment = lot.status === 'equipment';
 
-  // Lógica Inteligente para visualización de Lotes
   const renderLotActions = () => {
-    // Si tiene Precio y Cantidad -> COMPRA DIRECTA (Aplica tanto para Insumos como para Equipo)
     if (hasPrice && hasStock) {
       return (
         <>
@@ -70,9 +68,6 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
       );
     }
 
-    // SI FALTA PRECIO O CANTIDAD -> FLUJOS DE COTIZACIÓN
-    
-    // CASO 1: TIENE PRECIO, PERO NO CANTIDAD (Bajo en Stock / Solicitar Disponibilidad)
     if (hasPrice && !hasStock) {
       return (
         <button
@@ -84,7 +79,6 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
       );
     }
 
-    // CASO 2: TIENE CANTIDAD, PERO NO PRECIO (Solicitar Cotización)
     if (!hasPrice && hasStock) {
        return (
         <button
@@ -96,7 +90,6 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
       );
     }
 
-    // CASO 3: NO TIENE NI PRECIO NI CANTIDAD (Solo Fecha o Nada) -> Solicitar Disponibilidad General / Cotizar Equipo
     return (
       <button
         onClick={() => onQuote(lot)}
@@ -124,13 +117,15 @@ const LotItem = ({ lot, onAddToCart, isAdding, onQuote }: LotItemProps) => {
            <p className="text-2xl font-black text-blue-600">
              {hasPrice ? formatCurrency(price) : <span className="text-slate-400 text-sm italic">Quote Req.</span>}
            </p>
-           <p className={`text-[10px] uppercase font-bold tracking-wide mt-1 ${hasStock ? 'text-slate-400' : (hasPrice ? 'text-amber-500' : 'text-blue-600')}`}>
-             {hasStock ? `Available: ${lot.quantity}` : (hasPrice ? 'Low Stock' : 'On Request')}
+           {/* 🚀 CAMBIO VISUAL: Texto más grande y Unidad de Medida añadida */}
+           <p className={`text-xs uppercase font-black tracking-widest mt-1.5 ${hasStock ? 'text-slate-600' : (hasPrice ? 'text-amber-500' : 'text-blue-600')}`}>
+             {hasStock 
+               ? `Available: ${lot.quantity} ${lot.unit_of_measure || 'pcs'}` 
+               : (hasPrice ? 'Low Stock' : 'On Request')}
            </p>
         </div>
       </div>
 
-      {/* ✅ FECHA DE CADUCIDAD O CONDICIÓN DEL EQUIPO */}
       <div className="flex items-center gap-2 text-xs text-slate-500 mb-5 bg-slate-50 p-3 rounded-xl border border-slate-100">
         {isEquipment ? <CheckCircle size={16} className="text-blue-500" /> : <Calendar size={16} className="text-blue-500"/>}
         <span className="font-medium">
@@ -164,13 +159,10 @@ export default function ProductPage() {
   const { addToCart, isAdding } = useCart();
   const { addToWishlist, removeFromWishlist, useWishlistStatus } = useWishlist();
   
-  // Obtenemos si está en favoritos
   const { data: isInWishlist } = useWishlistStatus(productId);
 
-  // Cargamos los detalles (lotes, categorías, imágenes extra)
-  const { lots, categories, images, isLoadingDetails } = useProductDetails(productId, true);
+  const { lots, images, isLoadingDetails } = useProductDetails(productId, true);
 
-  // Cargar el producto base
   useEffect(() => {
     const fetchProductBase = async () => {
       try {
@@ -215,13 +207,10 @@ export default function ProductPage() {
     );
   }
 
-  // ✅ LÓGICA DE IMÁGENES CORREGIDA
   let validImages: any[] = [];
-  
   if (product.primary_image) {
     validImages.push({ image_url: product.primary_image, id: 'primary' });
   }
-
   if (images && Array.isArray(images)) {
      const extraImages = images.filter((img: any) => !img.is_primary && img.image_url);
      validImages = [...validImages, ...extraImages];
@@ -234,7 +223,6 @@ export default function ProductPage() {
   const handleNextImage = () => setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
   const handlePrevImage = () => setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
 
-  // Lógica de Carrito y Wishlist
   const handleAddToCart = async (lotId: string, quantity: number, redirect: boolean = false) => {
     if (!isAuthenticated) return router.push('/login');
     try {
@@ -264,8 +252,6 @@ export default function ProductPage() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pt-6 pb-20">
       <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-        
-        {/* Breadcrumb / Back Button */}
         <button 
           onClick={() => router.back()} 
           className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-blue-600 transition-colors mb-8"
@@ -274,11 +260,8 @@ export default function ProductPage() {
         </button>
 
         <div className="bg-white rounded-[3rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col lg:flex-row">
-          
           {/* === LEFT COLUMN: IMAGES === */}
           <div className="w-full lg:w-1/2 bg-slate-50/50 p-6 lg:p-12 flex flex-col items-center justify-start border-b lg:border-b-0 lg:border-r border-slate-100 relative">
-            
-            {/* Wishlist Button Flotante */}
             <button 
               onClick={handleToggleWishlist}
               className={`absolute top-8 right-8 z-10 p-3 rounded-full shadow-md border transition-all hover:scale-105 active:scale-95
@@ -297,7 +280,6 @@ export default function ProductPage() {
                   e.currentTarget.src = "https://placehold.co/800x800/f8fafc/94a3b8?text=No+Image";
                 }}
               />
-              
               {allImages.length > 1 && (
                 <>
                   <button onClick={handlePrevImage} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/90 backdrop-blur rounded-full shadow-lg text-slate-600 border border-slate-100 hover:bg-blue-50 transition-colors">
@@ -310,7 +292,6 @@ export default function ProductPage() {
               )}
             </div>
             
-            {/* Thumbnails */}
             {allImages.length > 1 && (
               <div className="flex gap-4 overflow-x-auto py-2 px-1 w-full justify-center no-scrollbar">
                 {allImages.map((img, idx) => (
@@ -336,28 +317,19 @@ export default function ProductPage() {
 
           {/* === RIGHT COLUMN: INFO & LOTS === */}
           <div className="w-full lg:w-1/2 flex flex-col p-8 lg:p-12">
-            
             <div className="mb-6">
               <span className="inline-block px-4 py-1.5 bg-slate-100 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">
                 {product.manufacturer_name || "Generic Manufacturer"}
               </span>
-              
               <h1 className="text-3xl lg:text-4xl font-black text-slate-900 mb-6 leading-tight tracking-tight">
                 {product.description}
               </h1>
-              
               <div className="flex flex-wrap gap-3 mb-8">
                   <span className="bg-white border-2 border-slate-100 px-4 py-2 rounded-xl text-xs font-mono font-bold text-slate-600">
                     SKU: {product.global_sku || 'N/A'}
                   </span>
-                  {categories.map((cat: any) => (
-                    <span key={cat.id} className="bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-blue-100">
-                      {cat.name}
-                    </span>
-                  ))}
               </div>
 
-              {/* ✅ BLOQUE DE NOTAS / INCLUYE MOVIDO HACIA ARRIBA */}
               {product.notes && product.notes.trim() !== '' && (
                 <div className="mb-8 bg-blue-50/50 border border-blue-100 rounded-3xl p-6 md:p-8 shadow-sm">
                   <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -369,7 +341,6 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* ✅ NUEVO BLOQUE DE PRECIO HEROE */}
               <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-6 shadow-sm mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div>
                   {hasReferencePrice ? (
@@ -391,16 +362,14 @@ export default function ProductPage() {
                   ) : (
                     <>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                         Reference Price
+                          Reference Price
                       </p>
                       <span className="text-2xl font-black text-slate-600 italic">
-                         Price on request
+                          Price on request
                       </span>
                     </>
                   )}
                 </div>
-
-                {/* Si no hay precio de referencia o no hay lotes activos, mostramos el botón grande aquí */}
                 {(!hasReferencePrice || !hasActiveLots) && (
                   <button 
                     onClick={() => handleOpenQuote({ referencePrice: minPrice })}
@@ -410,12 +379,11 @@ export default function ProductPage() {
                   </button>
                 )}
               </div>
-
             </div>
 
             <div className="h-px bg-slate-100 w-full mb-10"></div>
 
-            {/* Inventario */}
+            {/* Inventory Section */}
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-black text-slate-900 flex items-center gap-2 text-xl uppercase tracking-tight">
@@ -438,7 +406,6 @@ export default function ProductPage() {
                     lots.map((lot: any) => (
                       <LotItem 
                         key={lot.id} lot={lot} onAddToCart={handleAddToCart} isAdding={isAdding}
-                        // ✅ AQUI INYECTAMOS EL STATUS CORREGIDO (lotData)
                         onQuote={(lotData) => handleOpenQuote({
                             lotId: lotData.id, lotNumber: lotData.lot_number,
                             referencePrice: parseFloat(lotData.price),
@@ -448,7 +415,6 @@ export default function ProductPage() {
                       />
                     ))
                 ) : (
-                    // PRODUCTO SIN STOCK - MENSAJE LIMPIO
                     <div className="text-center py-16 bg-slate-50 rounded-[2rem] border border-dashed border-slate-300">
                       <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
                         <AlertCircle className="text-amber-400" size={32} />
@@ -467,7 +433,6 @@ export default function ProductPage() {
                 )}
               </div>
             </div>
-            
           </div>
         </div>
       </div>

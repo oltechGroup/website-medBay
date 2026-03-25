@@ -55,6 +55,46 @@ const Order = {
     }
   },
 
+  // 🚀 NUEVO MÉTODO: Insertar ítems con Unidad de Medida
+  // Este método es crucial para cuando se crea la orden desde el carrito o cotización
+  createItems: async (orderId, items) => {
+    const queries = items.map(item => {
+      return db.query(`
+        INSERT INTO order_items (
+          order_id, product_id, product_lot_id, quantity, 
+          unit_price, line_total, unit_of_measure -- ✅ Columna añadida
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        orderId, 
+        item.product_id, 
+        item.product_lot_id, 
+        item.quantity, 
+        item.unit_price, 
+        item.line_total,
+        item.unit_of_measure || 'pcs' // ✅ Respaldamos la unidad
+      ]);
+    });
+    return Promise.all(queries);
+  },
+
+  // 🚀 NUEVO MÉTODO: Obtener ítems con Unidad de Medida
+  // Este es el que alimenta al Modal del Admin y del Cliente
+  getItemsByOrderId: async (orderId) => {
+    const query = `
+      SELECT 
+        oi.*, 
+        p.description as product_name, 
+        p.global_sku,
+        pl.lot_number
+      FROM order_items oi
+      JOIN products p ON oi.product_id = p.id
+      JOIN product_lots pl ON oi.product_lot_id = pl.id
+      WHERE oi.order_id = $1
+    `;
+    const result = await db.query(query, [orderId]);
+    return result.rows;
+  },
+
   // --- 2. GESTIÓN DE OPCIONES DE ENVÍO (Admin) ---
   
   createShippingOption: async (optionData) => {
@@ -247,7 +287,6 @@ const Order = {
         u.full_name as customer_name,
         u.phone as customer_phone,
         u.company_name as customer_company,
-        -- ✅ AHORA SÍ: Dirección completa en la lista general de admin
         json_build_object(
           'street', sa.street,
           'street_number', sa.street_number,
@@ -276,7 +315,6 @@ const Order = {
         o.*,
         u.email as customer_email,
         u.full_name as customer_name,
-        -- ✅ AHORA SÍ: Dirección completa en la lista "Mis Pedidos" del cliente
         json_build_object(
           'street', sa.street,
           'street_number', sa.street_number,

@@ -33,9 +33,7 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
   const hasStock = lot.quantity > 0;
   const isEquipment = lot.status === 'equipment';
 
-  // Lógica Inteligente para visualización de Lotes
   const renderLotActions = () => {
-    // Si tiene Precio y Cantidad -> COMPRA DIRECTA (Aplica tanto para Insumos como para Equipo)
     if (hasPrice && hasStock) {
       return (
         <>
@@ -70,9 +68,6 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
       );
     }
 
-    // SI FALTA PRECIO O CANTIDAD -> FLUJOS DE COTIZACIÓN
-    
-    // CASO 1: TIENE PRECIO, PERO NO CANTIDAD (Bajo en Stock / Solicitar Disponibilidad)
     if (hasPrice && !hasStock) {
       return (
         <button
@@ -84,7 +79,6 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
       );
     }
 
-    // CASO 2: TIENE CANTIDAD, PERO NO PRECIO (Solicitar Cotización)
     if (!hasPrice && hasStock) {
        return (
         <button
@@ -96,7 +90,6 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
       );
     }
 
-    // CASO 3: NO TIENE NI PRECIO NI CANTIDAD (Solo Fecha o Nada) -> Solicitar Disponibilidad General / Cotizar Equipo
     return (
       <button
         onClick={() => onQuote(lot)}
@@ -122,7 +115,7 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
         )}
       </div>
 
-      {/* 2. Expiration or Condition (EQUIPO vs INSUMO) */}
+      {/* 2. Expiration or Condition */}
       <div className="col-span-6 md:col-span-3 flex items-center gap-3 text-sm text-gray-600">
         <div className="p-2 bg-gray-50 rounded-lg text-gray-400">
           {isEquipment ? <CheckCircle size={18} /> : <Calendar size={18}/>}
@@ -137,18 +130,21 @@ const LotRow = ({ lot, onAddToCart, isAdding, onQuote }: LotRowProps) => {
         </div>
       </div>
 
-      {/* 3. Price and Stock */}
+      {/* 3. Price and Stock (Actualizado con UOM) */}
       <div className="col-span-6 md:col-span-3 text-right md:text-left flex flex-col">
         <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wide mb-0.5">Unit Price</span>
         <span className="font-black text-blue-700 text-lg">
             {hasPrice ? formatCurrency(price) : <span className="text-slate-400 italic text-sm font-bold">Quote Req.</span>}
         </span>
-        <span className={`text-[10px] mt-0.5 font-bold ${hasStock ? 'text-green-600' : (hasPrice ? 'text-amber-500' : 'text-blue-600')}`}>
-            {hasStock ? `Stock: ${lot.quantity} pcs` : (hasPrice ? 'Low Stock' : 'Check availability')}
+        {/* 🚀 CAMBIO CLAVE: Muestra "Stock: 5 Pieza" o "Stock: 2 Box of 10" */}
+        <span className={`text-[10px] mt-0.5 font-bold truncate ${hasStock ? 'text-green-600' : (hasPrice ? 'text-amber-500' : 'text-blue-600')}`}>
+            {hasStock 
+              ? `Stock: ${lot.quantity} ${lot.unit_of_measure || 'pcs'}` 
+              : (hasPrice ? 'Low Stock' : 'Check availability')}
         </span>
       </div>
 
-      {/* 4. Action Controls (SMART) */}
+      {/* 4. Action Controls */}
       <div className="col-span-12 md:col-span-3 flex flex-col gap-2">
         {renderLotActions()}
       </div>
@@ -184,7 +180,6 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
 
   const hasActiveLots = product.active_lots && product.active_lots > 0;
   
-  // ✅ VARIABLES SEGURAS DE PRECIO (Para evitar errores TypeScript de undefined)
   const minPrice = product.min_price ? Number(product.min_price) : 0;
   const maxPrice = product.max_price ? Number(product.max_price) : 0;
   const hasReferencePrice = minPrice > 0;
@@ -247,33 +242,33 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
           
           {/* IMAGE + WISHLIST BUTTON */}
           <div className="relative w-full md:w-32 h-32 flex-shrink-0 bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
-             <div 
-               onClick={handleNavigateToProduct} 
-               className="w-full h-full p-2 cursor-pointer bg-white"
-             >
-                <img 
-                  src={getImageUrl(product.primary_image)} 
-                  alt={product.description}
-                  className="w-full h-full object-contain mix-blend-multiply transition-transform group-hover/card:scale-105"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null; 
-                    e.currentTarget.src = "https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image";
-                  }}
-                />
-             </div>
+              <div 
+                onClick={handleNavigateToProduct} 
+                className="w-full h-full p-2 cursor-pointer bg-white"
+              >
+                 <img 
+                   src={getImageUrl(product.primary_image)} 
+                   alt={product.description}
+                   className="w-full h-full object-contain mix-blend-multiply transition-transform group-hover/card:scale-105"
+                   onError={(e) => {
+                     e.currentTarget.onerror = null; 
+                     e.currentTarget.src = "https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image";
+                   }}
+                 />
+              </div>
 
-             {mounted && (
-               <button 
-                 onClick={handleToggleWishlist}
-                 className={`absolute top-2 right-2 p-1.5 rounded-full shadow-sm border transition-all z-10
-                   ${isInWishlist 
-                     ? 'bg-red-50 border-red-100 text-red-500' 
-                     : 'bg-white border-gray-200 text-gray-300 hover:text-red-400 hover:border-red-100'}
-                 `}
-               >
-                 <Heart size={14} className={isInWishlist ? "fill-current" : ""} />
-               </button>
-             )}
+              {mounted && (
+                <button 
+                  onClick={handleToggleWishlist}
+                  className={`absolute top-2 right-2 p-1.5 rounded-full shadow-sm border transition-all z-10
+                    ${isInWishlist 
+                      ? 'bg-red-50 border-red-100 text-red-500' 
+                      : 'bg-white border-gray-200 text-gray-300 hover:text-red-400 hover:border-red-100'}
+                  `}
+                >
+                  <Heart size={14} className={isInWishlist ? "fill-current" : ""} />
+                </button>
+              )}
           </div>
 
           {/* INFO */}
@@ -286,7 +281,6 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
               {product.description}
             </h3>
 
-            {/* ✅ MOSTRAR NOTAS / INCLUYE (TRUNCADO) */}
             {product.notes && (
               <div className="mt-2 mb-3 bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-left">
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1">
@@ -304,15 +298,17 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                </span>
                
                {mounted && (
-                   hasActiveLots ? (
-                     <span className="flex items-center gap-1.5 text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-full text-[10px] border border-emerald-100">
-                       <Package size={12} /> {product.active_lots} Lots available
-                     </span>
-                   ) : (
-                     <span className="flex items-center gap-1.5 text-blue-700 font-bold bg-blue-50 px-2.5 py-1 rounded-full text-[10px] border border-blue-100">
-                       <Info size={12} /> {hasReferencePrice ? "Available on request" : "Check Availability"}
-                     </span>
-                   )
+                   <>
+                    <span className="flex items-center gap-1.5 text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-full text-[10px] border border-emerald-100">
+                      <Package size={12} /> {hasActiveLots ? `${product.active_lots} Lots` : 'Available on request'}
+                    </span>
+                    {/* 🚀 NUEVA INFO: Resumen de empaques disponibles */}
+                    {product.uom_summary && (
+                      <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
+                         Options: {product.uom_summary}
+                      </span>
+                    )}
+                   </>
                )}
             </div>
           </div>
@@ -358,10 +354,10 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
               onClick={handleMainAction}
               className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all text-xs uppercase tracking-wide
               ${isExpanded 
-                 ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' 
-                 : hasActiveLots 
-                   ? 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg shadow-slate-900/10' 
-                   : 'bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50' 
+                  ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' 
+                  : hasActiveLots 
+                    ? 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg shadow-slate-900/10' 
+                    : 'bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50' 
                }`}
             >
               {isExpanded ? (
@@ -375,7 +371,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
           </div>
         </div>
 
-        {/* === EXPANDABLE AREA (LOT LIST) === */}
+        {/* === EXPANDABLE AREA === */}
         {isExpanded && (
           <div className="border-t border-gray-100 bg-slate-50/50 p-4 md:p-6 animate-in slide-in-from-top-2 duration-200">
             <div className="flex justify-between items-center mb-4 px-1">
@@ -383,7 +379,7 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                   <Package className="text-blue-500" size={16}/> 
                   {filterStatus !== 'all' 
                     ? `Filtered Inventory (${filterStatus === 'expired' ? 'Expired' : 'Near Expiry'})` 
-                    : 'Select a lot'}
+                    : 'Select presentation and lot'}
                 </h4>
                 <button 
                   onClick={() => handleOpenQuote()}
@@ -405,7 +401,6 @@ export const ClientProductCard = ({ product, filterStatus = 'all' }: ClientProdu
                       lot={lot} 
                       onAddToCart={handleAddToCart}
                       isAdding={isAdding}
-                      // ✅ AQUI INYECTAMOS EL STATUS PARA QUE QUOTE MODAL SEPA SI ES EQUIPMENT
                       onQuote={(loteData) => handleOpenQuote({
                           lotId: loteData.id,
                           lotNumber: loteData.lot_number,

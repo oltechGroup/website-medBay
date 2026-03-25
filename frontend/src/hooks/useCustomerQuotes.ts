@@ -4,29 +4,31 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from './useAuth';
 
-// Tipos de datos (Espejo de lo que envía el backend)
+// --- INTERFACES ---
+
 export interface QuoteRequest {
   product_name: string;
   sku: string;
   quantity_asked: number;
   notes?: string;
-  // ✅ AÑADIDO: Contexto opcional para mantener el tipado igual al Admin
-  quote_context?: {
-    lotId?: string;
-    lotNumber?: string;
-    referencePrice?: number;
-    expiryDate?: string;
-    stockAvailable?: number;
-    supplierName?: string;
-    productId?: string;
-    status?: string; 
-  };
+}
+
+// 🚀 Definimos la interfaz del contexto para que sea reutilizable
+export interface QuoteContext {
+  lotId?: string;
+  lotNumber?: string;
+  referencePrice?: number;
+  expiryDate?: string;
+  stockAvailable?: number;
+  supplierName?: string;
+  productId?: string;
+  status?: string; 
+  requested_uom?: string; // 🚀 NUEVO: Agregado para que TS lo reconozca en la UI
 }
 
 export interface QuoteProposal {
   quantity_found: number;
   expiry_date: string;
-  // ✅ AÑADIDO: Soporte para 'equipment'
   lot_type: 'in_date' | 'short_date' | 'expired' | 'equipment';
   unit_price: number;
   admin_notes?: string;
@@ -37,9 +39,12 @@ export interface CustomerQuote {
   id: string;
   status: 'pending' | 'proposal_sent' | 'accepted' | 'rejected' | 'converted_to_order';
   product_request: QuoteRequest;
+  quote_context?: QuoteContext; // 🚀 MOVIDO A NIVEL PRINCIPAL: Para que quote.quote_context funcione
   admin_proposal?: QuoteProposal;
   created_at: string;
 }
+
+// --- HOOK ---
 
 export const useCustomerQuotes = () => {
   const { isAuthenticated } = useAuth();
@@ -52,19 +57,17 @@ export const useCustomerQuotes = () => {
       const response = await api.get('/quotes/my-quotes');
       return response.data;
     },
-    enabled: isAuthenticated, // Solo si está logueado
+    enabled: isAuthenticated,
   });
 
-  // 2. Responder a una propuesta (Aceptar/Rechazar)
+  // 2. Responder a una propuesta
   const respondMutation = useMutation({
     mutationFn: async ({ id, action }: { id: string; action: 'accepted' | 'rejected' }) => {
       const response = await api.put(`/quotes/${id}/respond`, { action });
       return response.data;
     },
     onSuccess: () => {
-      // Recargar datos para actualizar la UI
       queryClient.invalidateQueries({ queryKey: ['my-quotes'] });
-      // También invalidamos notificaciones por si había alerta pendiente
       queryClient.invalidateQueries({ queryKey: ['client-notifications'] });
     },
   });

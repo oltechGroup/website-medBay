@@ -22,7 +22,6 @@ const Product = {
     return result.rows[0];
   },
 
-  // ✅ FUNCION ESTABILIZADA: Tie-breaker añadido para evitar saltos en la paginación
   findPaginated: async ({ 
     page = 1, 
     limit = 20, 
@@ -42,7 +41,6 @@ const Product = {
     let params = [];
     let paramCount = 1;
 
-    // --- 1. BÚSQUEDA ---
     if (searchTerm) {
       whereConditions.push(`(
         p.description ILIKE $${paramCount} OR 
@@ -57,35 +55,30 @@ const Product = {
       paramCount++;
     }
 
-    // --- 2. FABRICANTE ---
     if (manufacturerId) {
       whereConditions.push(`p.manufacturer_id = $${paramCount}`);
       params.push(manufacturerId);
       paramCount++;
     }
 
-    // --- 3. IMÁGENES ---
     if (hasImages === 'with') {
       whereConditions.push(`EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id)`);
     } else if (hasImages === 'without') {
       whereConditions.push(`NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id)`);
     }
     
-    // --- 4. CATEGORÍA ESPECÍFICA ---
     if (categoryId) {
       whereConditions.push(`EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id AND pc.category_id = $${paramCount})`);
       params.push(categoryId);
       paramCount++;
     }
 
-    // --- 5. CATEGORY STATUS (Uncategorized / Categorized) ---
     if (categoryStatus === 'uncategorized') {
       whereConditions.push(`NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id)`);
     } else if (categoryStatus === 'categorized') {
       whereConditions.push(`EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id)`);
     }
 
-    // --- 6. STATUS DE INVENTARIO (Lotes) ---
     if (status && status !== 'all') {
       whereConditions.push(`EXISTS (
         SELECT 1 FROM product_lots pl 
@@ -98,7 +91,6 @@ const Product = {
       paramCount++;
     }
 
-    // --- 7. PRECIO ---
     if (minPrice !== null) {
       whereConditions.push(`EXISTS (
         SELECT 1 FROM product_lots pl 
@@ -120,10 +112,8 @@ const Product = {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    // --- ORDENAMIENTO (CORREGIDO CON TIE-BREAKER) ---
     let orderByClause = 'ORDER BY p.created_at DESC, p.id ASC'; 
 
-    // ✅ ACTUALIZADO: Añadido 'equipment' a los IN statements
     const priceSortColumn = `(
       SELECT MIN(pl.price) 
       FROM product_lots pl 
@@ -158,7 +148,6 @@ const Product = {
     params.push(limit);
     params.push(offset);
 
-    // ✅ ACTUALIZADO: Cambiado quantity > 0 a quantity >= 0 para incluir lotes que solo tengan precio o fecha
     const dataQuery = `
       SELECT 
         p.id,
@@ -198,7 +187,15 @@ const Product = {
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
           WHERE ps.product_id = p.id AND pl.quantity >= 0
           ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')"}
-        ) as active_lots
+        ) as active_lots,
+
+        -- 🚀 NUEVO: Resumen de unidades de medida
+        (SELECT string_agg(DISTINCT COALESCE(pl.unit_of_measure, 'Unit'), ', ')
+         FROM product_lots pl 
+         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+         WHERE ps.product_id = p.id AND pl.quantity >= 0
+         ${status && status !== 'all' ? `AND pl.status = '${status}'` : "AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')"}
+        ) as uom_summary
 
       FROM products p
       LEFT JOIN manufacturers m ON p.manufacturer_id = m.id
@@ -226,7 +223,6 @@ const Product = {
     return result.rows;
   },
   
-  // ✅ CORRECCIÓN APLICADA: Ahora findById calcula imágenes y precios igual que el catálogo general
   findById: async (id) => {
     const query = `
       SELECT 
@@ -261,7 +257,15 @@ const Product = {
           JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
           WHERE ps.product_id = p.id AND pl.quantity >= 0
           AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')
-        ) as active_lots
+        ) as active_lots,
+
+        -- 🚀 NUEVO: Resumen de unidades de medida para el detalle
+        (SELECT string_agg(DISTINCT COALESCE(pl.unit_of_measure, 'Unit'), ', ')
+         FROM product_lots pl 
+         JOIN product_suppliers ps ON pl.product_supplier_id = ps.id 
+         WHERE ps.product_id = p.id AND pl.quantity >= 0
+         AND pl.status IN ('available', 'near_expiry', 'expired', 'equipment')
+        ) as uom_summary
 
       FROM products p
       LEFT JOIN manufacturers m ON p.manufacturer_id = m.id

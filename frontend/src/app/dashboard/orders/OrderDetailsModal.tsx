@@ -7,7 +7,8 @@ import {
   CheckCircle2, XCircle, Truck, FileText, 
   ExternalLink, ShieldCheck, AlertTriangle,
   Clock, Phone, MessageCircle, Building2,
-  Plus, Send, DollarSign, Loader2, AlertCircle
+  Plus, Send, DollarSign, Loader2, AlertCircle,
+  Layers // 🚀 Icono para la unidad
 } from "lucide-react";
 import { useAdminOrders, AdminOrder, OrderItem, Supplier, ShippingOption } from "@/hooks/useAdminOrders";
 import { formatCurrency, formatDate } from "@/lib/formatters";
@@ -40,11 +41,9 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const [loading, setLoading] = useState(true);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
 
-  // Message States
   const [newMessage, setNewMessage] = useState("");
   const [isSendingMsg, setIsSendingMsg] = useState(false);
 
-  // ✅ CONFIRMATION MODAL STATES
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -54,7 +53,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', actionLabel: '', actionColor: '', onConfirm: () => {} });
 
-  // Data Loading
   const fetchOrder = () => {
     getOrderDetails(orderId)
       .then((data) => {
@@ -63,7 +61,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
         setSuppliers(data.suppliers || []);
         setShippingOptions(data.shippingOptions || []);
         
-        // Only update tax from DB if the user hasn't started typing
         if (!hasEditedTax) {
            setTaxInput(data.order.tax || '0');
         }
@@ -80,14 +77,9 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
 
   if (!isOpen) return null;
 
-  // --- B2B HANDLERS ---
-
   const handleAddOption = async () => {
     if (!newOption.name || !newOption.cost) return alert("Name and Cost are required");
-    
-    // Format to clean 2 decimals before sending
     const cleanCost = parseFloat(newOption.cost).toFixed(2);
-
     await addShippingOption({
       orderId,
       name: newOption.name,
@@ -95,7 +87,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
       estimated_days: newOption.days,
       cost: parseFloat(cleanCost)
     });
-    
     setNewOption({ name: '', days: '', cost: '' });
     fetchOrder(); 
   };
@@ -148,7 +139,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     });
   };
 
-  // ✅ Direct Mark as Shipped
   const handleMarkShippedDirectly = () => {
     setConfirmModal({
       isOpen: true,
@@ -201,7 +191,6 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     }
   };
 
-  // ✅ Parse Address safely
   let parsedAddress: any = null;
   if (order?.shipping_address_json) {
     if (typeof order.shipping_address_json === 'string') {
@@ -245,7 +234,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors">
             <X size={24} className="text-slate-400" />
           </button>
         </div>
@@ -264,7 +253,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                 <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                     <span className="font-bold text-slate-700 flex items-center gap-2">
-                      <Package size={18} className="text-blue-500"/> Products
+                      <Package size={18} className="text-blue-500"/> Order Contents
                     </span>
                     {suppliers.length > 0 && (
                       <button 
@@ -276,86 +265,94 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                     )}
                   </div>
                   <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
+                    <thead className="bg-slate-50 text-slate-500 font-bold text-[10px] uppercase tracking-widest border-b border-slate-100">
                       <tr>
-                        <th className="px-6 py-3">Product</th>
-                        <th className="px-6 py-3 text-center">Lot</th>
-                        <th className="px-6 py-3 text-center">Qty.</th>
-                        <th className="px-6 py-3 text-right">Total</th>
+                        <th className="px-6 py-3">Product Description</th>
+                        <th className="px-6 py-3 text-center">Batch/Lot</th>
+                        <th className="px-6 py-3 text-center">Quantity</th>
+                        <th className="px-6 py-3 text-right">Line Total</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {items.map((item) => (
-                        <tr key={item.id}>
+                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                           <td className="px-6 py-4">
                             <p className="font-bold text-slate-800">{item.product_name}</p>
-                            <p className="text-xs text-slate-500 font-mono mt-0.5">SKU: {item.global_sku}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] text-slate-400 font-mono">SKU: {item.global_sku}</span>
+                              {/* 🚀 NUEVA INFO: Unidad de medida para el admin */}
+                              <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 uppercase flex items-center gap-1">
+                                <Layers size={10}/> {item.unit_of_measure || 'Unit'}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <span className="bg-slate-100 px-2 py-1 rounded text-xs font-mono font-bold text-slate-600 border border-slate-200">
+                            <span className="bg-white px-2 py-1 rounded text-xs font-mono font-bold text-slate-600 border border-slate-200 shadow-sm">
                               {item.lot_number || 'N/A'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-center font-bold text-slate-700">{item.quantity}</td>
-                          <td className="px-6 py-4 text-right font-bold text-slate-800">{formatCurrency(item.line_total)}</td>
+                          <td className="px-6 py-4 text-center">
+                            {/* 🚀 Cantidad con sufijo de unidad para evitar errores de picking */}
+                            <div className="flex flex-col items-center">
+                              <span className="font-black text-slate-800 text-base">{item.quantity}</span>
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                                {item.unit_of_measure || 'units'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <p className="font-black text-slate-800">{formatCurrency(item.line_total)}</p>
+                            <p className="text-[10px] text-slate-400 font-bold">{formatCurrency(item.unit_price)} / {item.unit_of_measure || 'unit'}</p>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
 
-                {/* EVIDENCE VIEWER */}
-                {order.evidence_file && (
-                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
-                    <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                      <FileText className="text-purple-500" size={20}/> Attached Payment Evidence
-                    </h4>
-                    <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 flex flex-col items-center">
-                      <a 
-                        href={`https://api.medbaysupply.com${order.evidence_file}`} 
-                        target="_blank"
-                        className="text-blue-600 font-bold hover:underline flex items-center gap-2"
-                      >
-                        <ExternalLink size={16}/> View Document
-                      </a>
-                    </div>
-                  </div>
+                {order.status === 'shipped' && order.tracking_number && (
+                   <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+                     <div>
+                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Carrier Tracking</p>
+                       <p className="text-xl md:text-2xl font-black text-slate-800 font-mono tracking-wider break-all">{order.tracking_number}</p>
+                     </div>
+                     <div className="h-12 w-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center animate-pulse flex-shrink-0">
+                       <Truck size={24}/>
+                     </div>
+                   </div>
                 )}
               </div>
 
               {/* RIGHT: CONTROL PANEL */}
               <div className="space-y-6">
-                
-                {/* 1. DYNAMIC ACTION PANEL */}
                 <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl shadow-slate-900/20">
                   <h4 className="font-bold text-xs uppercase tracking-widest text-slate-400 mb-5 border-b border-slate-700 pb-2">
-                    Control Panel
+                    Action Center
                   </h4>
 
-                  {/* CASE 1: PENDING VALUATION */}
                   {order.status === 'pending_valuation' && (
                     <div className="space-y-4">
                       <div>
-                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Taxes (USD)</label>
+                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Logistics Tax (USD)</label>
                         <div className="relative">
-                           <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                           <input 
-                             type="number" 
-                             value={taxInput}
-                             onChange={(e) => {
-                               setTaxInput(e.target.value);
-                               setHasEditedTax(true); 
-                             }}
-                             placeholder="0.00"
-                             className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-white font-bold text-sm focus:border-blue-500 outline-none"
-                           />
+                            <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+                            <input 
+                              type="number" 
+                              value={taxInput}
+                              onChange={(e) => {
+                                setTaxInput(e.target.value);
+                                setHasEditedTax(true); 
+                              }}
+                              placeholder="0.00"
+                              className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-white font-bold text-sm focus:border-blue-500 outline-none"
+                            />
                         </div>
                       </div>
 
                       <div>
                         <label className="text-xs font-bold text-slate-400 uppercase mb-2 block flex justify-between">
-                          <span>Shipping Options</span>
-                          <span className="text-blue-400">{shippingOptions.length} added</span>
+                          <span>Shipping Matrix</span>
+                          <span className="text-blue-400">{shippingOptions.length} tiers</span>
                         </label>
                         <div className="space-y-2 mb-3">
                           {shippingOptions.map(opt => (
@@ -368,39 +365,39 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                             </div>
                           ))}
                           {shippingOptions.length === 0 && (
-                            <p className="text-xs text-slate-500 italic">No shipping options yet.</p>
+                            <p className="text-xs text-slate-500 italic text-center py-2">Add at least one delivery option.</p>
                           )}
                         </div>
 
                         <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 space-y-2">
-                           <input 
-                             placeholder="Name (e.g., Express, Standard)" 
-                             value={newOption.name}
-                             onChange={(e) => setNewOption({...newOption, name: e.target.value})}
-                             className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500"
-                           />
-                           <div className="flex gap-2">
-                             <input 
-                               placeholder="Days (e.g., 2-3)" 
-                               value={newOption.days}
-                               onChange={(e) => setNewOption({...newOption, days: e.target.value})}
-                               className="w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500"
-                             />
-                             <input 
-                               type="number"
-                               placeholder="Cost $" 
-                               value={newOption.cost}
-                               onChange={(e) => setNewOption({...newOption, cost: e.target.value})}
-                               className="w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500"
-                             />
-                           </div>
-                           <button 
-                             onClick={handleAddOption}
-                             disabled={isAddingOption}
-                             className="w-full py-1.5 bg-slate-700 hover:bg-blue-600 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1"
-                           >
-                             <Plus size={12}/> Add Option
-                           </button>
+                            <input 
+                              placeholder="Name (e.g., DHL Express)" 
+                              value={newOption.name}
+                              onChange={(e) => setNewOption({...newOption, name: e.target.value})}
+                              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500"
+                            />
+                            <div className="flex gap-2">
+                              <input 
+                                placeholder="Days (e.g., 1-2)" 
+                                value={newOption.days}
+                                onChange={(e) => setNewOption({...newOption, days: e.target.value})}
+                                className="w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500"
+                              />
+                              <input 
+                                type="number"
+                                placeholder="Cost $" 
+                                value={newOption.cost}
+                                onChange={(e) => setNewOption({...newOption, cost: e.target.value})}
+                                className="w-1/2 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            <button 
+                              onClick={handleAddOption}
+                              disabled={isAddingOption}
+                              className="w-full py-1.5 bg-slate-700 hover:bg-blue-600 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1"
+                            >
+                              <Plus size={12}/> Register Option
+                            </button>
                         </div>
                       </div>
 
@@ -411,85 +408,79 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                         disabled={isSubmittingValuation}
                         className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition-all"
                       >
-                         <Send size={16}/> Send Proposal to Customer
+                         <Send size={16}/> Push Proposal to Client
                       </button>
                       <button 
                         onClick={handleRejectOrder}
                         className="w-full py-3 bg-transparent text-red-400 hover:text-red-300 text-xs font-bold"
                       >
-                        Cancel and Reject
+                        Decline and Close
                       </button>
                     </div>
                   )}
 
-                  {/* CASE 2: WAITING FOR CUSTOMER APPROVAL */}
                   {order.status === 'waiting_customer_approval' && (
                     <div className="text-center py-4">
                       <div className="w-12 h-12 bg-sky-500/20 text-sky-400 rounded-full flex items-center justify-center mx-auto mb-3 animate-pulse">
                         <Clock size={24}/>
                       </div>
-                      <p className="font-bold text-white">Waiting for Customer</p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Shipping options sent. Customer must choose one to proceed.
+                      <p className="font-bold text-white uppercase tracking-wider text-xs">Awaiting Approval</p>
+                      <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                        Client is reviewing the shipping matrix. We are on stand-by.
                       </p>
                     </div>
                   )}
 
-                  {/* CASE 3: PAYMENT PENDING */}
                   {order.status === 'payment_pending' && (
                     <div className="text-center py-4">
                       <div className="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-3">
                         <AlertTriangle size={24}/>
                       </div>
-                      <p className="font-bold text-white">Payment Pending</p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Waiting for the customer to upload their payment receipt.
+                      <p className="font-bold text-white uppercase tracking-wider text-xs">Funds Pending</p>
+                      <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                        Order confirmed by client. Waiting for bank transfer receipt.
                       </p>
                     </div>
                   )}
 
-                  {/* CASE 4: PAYMENT REVIEW */}
                   {order.status === 'payment_review' && (
                      <div className="space-y-3">
-                       <p className="text-sm text-slate-300 mb-2">Receipt received. Review the attached document and validate.</p>
-                       <button onClick={handleApprovePayment} className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold flex items-center justify-center gap-2">
-                         <ShieldCheck size={18}/> Validate Payment and Process
+                       <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Internal Validation</p>
+                       <button onClick={handleApprovePayment} className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
+                         <ShieldCheck size={18}/> Approve and Pick Order
                        </button>
                      </div>
                   )}
 
-                  {/* CASE 5: PROCESSING */}
                   {order.status === 'processing' && (
                     <div className="space-y-3 text-center">
-                      <p className="text-sm text-slate-300 mb-2">Prepare the package for shipping.</p>
+                      <p className="text-xs text-slate-400 mb-3">Picking and packing in progress.</p>
                       <button onClick={handleMarkShippedDirectly} className="w-full py-3 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
                         <Truck size={18}/> Mark as Shipped
                       </button>
                     </div>
                   )}
 
-                  {/* CASE 6: SHIPPED - TRACKING AND CLOSURE */}
                   {order.status === 'shipped' && (
                     <div className="space-y-6">
-
                       <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                        <label className="text-xs font-bold text-blue-400 uppercase mb-2 flex items-center gap-2">
-                          <MessageCircle size={14}/> Direct Notification
+                        <label className="text-[10px] font-black text-blue-400 uppercase mb-2 flex items-center gap-2 tracking-widest">
+                          <MessageCircle size={14}/> Dispatch Update
                         </label>
                         <textarea
                           rows={3}
-                          placeholder="e.g.: The delivery person is already in your area."
-                          className="w-full bg-slate-900 text-white text-sm p-3 rounded-lg border border-slate-600 focus:border-blue-500 outline-none resize-none mb-3 placeholder-slate-500"
+                          placeholder="Update the customer on delivery status..."
+                          className="w-full bg-slate-900 text-white text-sm p-3 rounded-lg border border-slate-600 focus:border-blue-500 outline-none resize-none mb-3 placeholder-slate-600"
                           onChange={(e) => setNewMessage(e.target.value)} 
                           value={newMessage}
                         ></textarea>
                         <button 
                           onClick={handleSendMessage}
                           disabled={!newMessage.trim() || isSendingMsg}
-                          className="w-full py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                          className="w-full py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                          {isSendingMsg ? <Loader2 className="animate-spin" size={14}/> : <Send size={14}/>} 
-                          {isSendingMsg ? 'Sending...' : 'Send to Customer'}
+                          {isSendingMsg ? <Loader2 className="animate-spin" size={12}/> : <Send size={12}/>} 
+                          Notify Client
                         </button>
                       </div>
 
@@ -497,67 +488,65 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                         <button 
                           onClick={handleMarkDelivered} 
                           disabled={isUpdating}
-                          className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
+                          className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
                         >
-                          {isUpdating ? <Loader2 className="animate-spin"/> : <CheckCircle2 size={18}/>} 
-                          Complete Order (Delivered)
+                          {isUpdating ? <Loader2 className="animate-spin" size={16}/> : <CheckCircle2 size={16}/>} 
+                          Confirm Final Delivery
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* CASE 7: DELIVERED */}
                   {order.status === 'delivered' && (
                      <div className="text-center py-4">
                         <div className="bg-emerald-500/20 text-emerald-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
                           <CheckCircle2 size={32}/>
                         </div>
-                        <h3 className="font-bold text-lg text-white">Order Completed</h3>
-                        <p className="text-slate-400 text-xs mt-1">This sales cycle has been closed.</p>
+                        <h3 className="font-black text-sm uppercase text-white tracking-widest">Cycle Closed</h3>
+                        <p className="text-slate-500 text-[10px] mt-2 font-bold uppercase">Transaction Archived</p>
                      </div>
                   )}
 
-                  {/* CANCELLED CASES */}
                   {['cancelled', 'rejected'].includes(order.status) && (
                      <div className="text-center py-4 opacity-50">
                         <XCircle size={32} className="mx-auto mb-2 text-slate-500"/>
-                        <p className="font-bold">Order Cancelled</p>
+                        <p className="font-black uppercase text-xs tracking-widest">Order Revoked</p>
                      </div>
                   )}
                 </div>
 
                 {/* 2. FINANCIAL SUMMARY */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                  <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <CreditCard size={18} className="text-slate-400"/> Financial Summary
+                  <h4 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-widest flex items-center gap-2 border-b border-slate-50 pb-2">
+                    <CreditCard size={14} className="text-slate-400"/> Ledger Entry
                   </h4>
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between text-slate-500">
                       <span>Subtotal</span>
-                      <span>{formatCurrency(parseFloat(order.subtotal || '0'))}</span>
+                      <span className="font-bold">{formatCurrency(parseFloat(order.subtotal || '0'))}</span>
                     </div>
                     <div className="flex justify-between text-slate-500">
                       <span>Taxes</span>
                       {order.status === 'pending_valuation' ? (
-                        <span className="text-blue-500 font-bold italic">Pending</span>
+                        <span className="text-blue-500 font-bold italic">TBD</span>
                       ) : (
-                        <span>{formatCurrency(parseFloat(order.tax || '0'))}</span>
+                        <span className="font-bold">{formatCurrency(parseFloat(order.tax || '0'))}</span>
                       )}
                     </div>
                     <div className="flex justify-between text-slate-500">
-                      <span>Shipping {order.shipping_method ? `(${order.shipping_method})` : ''}</span>
+                      <span>Shipping</span>
                       {order.status === 'pending_valuation' || order.status === 'waiting_customer_approval' ? (
-                        <span className="text-blue-500 font-bold italic">To be defined</span>
+                        <span className="text-blue-500 font-bold italic">TBD</span>
                       ) : (
-                        <span>{formatCurrency(parseFloat(order.shipping_cost || '0'))}</span>
+                        <span className="font-bold">{formatCurrency(parseFloat(order.shipping_cost || '0'))}</span>
                       )}
                     </div>
                     <div className="pt-3 border-t border-slate-100 flex justify-between font-black text-lg text-slate-900">
-                      <span>Total</span>
+                      <span>Grand Total</span>
                       {order.status === 'pending_valuation' ? (
-                        <span className="text-slate-400 text-base">Calculating...</span>
+                        <span className="text-slate-400 text-sm italic">Pending valuation</span>
                       ) : (
-                        <span>{formatCurrency(order.total)}</span>
+                        <span className="text-blue-600">{formatCurrency(order.total)}</span>
                       )}
                     </div>
                   </div>
@@ -565,26 +554,26 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
 
                 {/* 3. SHIPPING ADDRESS */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                   <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                     <MapPin size={18} className="text-slate-400"/> Shipping Address
+                   <h4 className="font-bold text-slate-800 mb-4 text-xs uppercase tracking-widest flex items-center gap-2 border-b border-slate-50 pb-2">
+                     <MapPin size={14} className="text-slate-400"/> Delivery Target
                    </h4>
                    {parsedAddress ? (
                       <div className="text-sm text-slate-600 space-y-1">
-                        <p className="font-bold text-slate-900">{parsedAddress.street} {parsedAddress.street_number}</p>
-                        <p>{parsedAddress.colony ? `${parsedAddress.colony}, ` : ''}{parsedAddress.city}</p>
-                        <p className="text-xs uppercase mt-2 font-bold text-slate-400">
+                        <p className="font-black text-slate-900">{parsedAddress.street} {parsedAddress.street_number}</p>
+                        <p className="font-bold">{parsedAddress.colony ? `${parsedAddress.colony}, ` : ''}{parsedAddress.city}</p>
+                        <p className="text-[10px] uppercase mt-2 font-black text-slate-400 tracking-widest">
                           {parsedAddress.state}, {parsedAddress.country} • ZIP {parsedAddress.postal_code}
                         </p>
                       </div>
                    ) : (
-                     <p className="text-slate-400 text-xs italic">Address not specified.</p>
+                     <p className="text-slate-400 text-xs italic">No address provided.</p>
                    )}
                 </div>
 
               </div>
             </div>
           ) : (
-            <div className="text-center text-red-500">Error loading data</div>
+            <div className="text-center text-red-500 font-black uppercase text-xs tracking-widest">Critial error: Data Sync Failed</div>
           )}
         </div>
       </div>
@@ -592,19 +581,18 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
 
     {/* DESIGN MODALS */}
 
-    {/* General Confirmation Modal */}
     {confirmModal.isOpen && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in">
         <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setConfirmModal({...confirmModal, isOpen: false})}></div>
         <div className="bg-white rounded-3xl shadow-2xl p-8 relative w-full max-w-md animate-in zoom-in-95 text-center">
-          <AlertCircle size={48} className="mx-auto text-slate-300 mb-4"/>
-          <h3 className="font-black text-xl text-slate-800 mb-2">{confirmModal.title}</h3>
-          <p className="text-slate-500 text-sm mb-8 leading-relaxed">{confirmModal.message}</p>
+          <AlertCircle size={48} className="mx-auto text-slate-200 mb-4"/>
+          <h3 className="font-black text-xl text-slate-800 mb-2 uppercase tracking-tight">{confirmModal.title}</h3>
+          <p className="text-slate-500 text-sm mb-8 leading-relaxed font-medium">{confirmModal.message}</p>
           <div className="flex gap-3">
-            <button onClick={() => setConfirmModal({...confirmModal, isOpen: false})} className="w-1/2 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">
-              Cancel
+            <button onClick={() => setConfirmModal({...confirmModal, isOpen: false})} className="w-1/2 py-3 rounded-xl font-bold text-slate-400 bg-slate-50 hover:bg-slate-100 transition-colors uppercase text-xs tracking-widest">
+              Abort
             </button>
-            <button onClick={confirmModal.onConfirm} className={`w-1/2 py-3 rounded-xl font-bold text-white transition-colors shadow-lg ${confirmModal.actionColor}`}>
+            <button onClick={confirmModal.onConfirm} className={`w-1/2 py-3 rounded-xl font-black text-white transition-colors shadow-lg uppercase text-xs tracking-widest ${confirmModal.actionColor}`}>
               {confirmModal.actionLabel}
             </button>
           </div>
@@ -612,18 +600,17 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
       </div>
     )}
 
-    {/* Suppliers Mini Modal */}
     {showSupplierModal && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowSupplierModal(false)}></div>
           <div className="bg-white rounded-3xl shadow-2xl p-6 relative w-full max-w-md animate-in zoom-in-95">
-            <button onClick={() => setShowSupplierModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800"><X size={20}/></button>
-            <h3 className="font-black text-lg mb-4 text-slate-800 flex items-center gap-2"><Building2 size={18}/> Suppliers</h3>
-            <div className="space-y-3">
+            <button onClick={() => setShowSupplierModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 transition-colors"><X size={20}/></button>
+            <h3 className="font-black text-lg mb-6 text-slate-800 flex items-center gap-2 border-b pb-2"><Building2 size={18} className="text-blue-500"/> Procurement Sources</h3>
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
               {suppliers.map(sup => (
-                <div key={sup.id} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <p className="font-bold text-slate-800">{sup.name}</p>
-                  <p className="text-xs text-slate-500 mt-1">{sup.country} • Contact: {sup.contact_info}</p>
+                <div key={sup.id} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:border-blue-200 transition-colors">
+                  <p className="font-black text-slate-800 text-sm uppercase tracking-tight">{sup.name}</p>
+                  <p className="text-xs text-slate-500 mt-2 font-medium">{sup.country} • Contact: {sup.contact_info}</p>
                 </div>
               ))}
             </div>
