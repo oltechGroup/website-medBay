@@ -146,7 +146,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <div>
             <p className="text-xs text-gray-600">{isEquipment ? 'Condition' : 'Expires'}</p>
             <p className="text-sm font-bold text-gray-900">
-              {isEquipment ? 'New / Durable' : (product.expiry_date ? formatDate(product.expiry_date) : 'N/A')}
+              {isEquipment ? 'USED / OPERATIONAL' : (product.expiry_date ? formatDate(product.expiry_date) : 'N/A')}
             </p>
           </div>
         </div>
