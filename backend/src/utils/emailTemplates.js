@@ -346,6 +346,32 @@ const generateDocumentUpdateTemplate = (data) => {
 };
 
 // ==========================================
+// 🔐 AUTHENTICATION TEMPLATES (NUEVO)
+// ==========================================
+
+const generatePasswordResetTemplate = (data) => {
+  const content = `
+    <p>Hello <strong>${data.userName}</strong>,</p>
+    <p>We received a request to reset the password for your MedBay account.</p>
+    
+    <div style="background: #eff6ff; padding: 20px; border-radius: 8px; border: 1px solid #dbeafe; margin-bottom: 20px; text-align: center;">
+      <p style="margin-bottom: 10px; font-size: 14px; font-weight: bold; color: ${theme.colors.secondary};">
+        Click the button below to set a new password:
+      </p>
+      <p style="font-size: 12px; color: ${theme.colors.primary};">
+        This link is only valid for 15 minutes.
+      </p>
+    </div>
+
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin-top: 25px;">
+      If you didn't request a password reset, you can safely ignore this email. Your account and data remain secure.
+    </p>
+  `;
+  return wrapHtml(`Password Reset Request`, content, { text: 'Reset Password', url: data.resetUrl });
+};
+
+
+// ==========================================
 // 📥 GENERAL TEMPLATES
 // ==========================================
 
@@ -502,6 +528,9 @@ module.exports = {
   // Security / Profile (New)
   generateFiscalAddressChangeTemplate,
   generateDocumentUpdateTemplate,
+
+  // Auth (New)
+  generatePasswordResetTemplate,
 
   // Others
   generateContactTemplate, 

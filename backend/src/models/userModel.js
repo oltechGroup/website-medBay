@@ -40,7 +40,7 @@ const User = {
     }
   },
 
-  // ✅ MODIFICADO: Se agregó supplier_id al SELECT
+  // ✅ MODIFICADO: Se agregó supplier_id al SELECT (Se mantiene intacto)
   findById: async (id) => {
     const query = `
       SELECT id, email, full_name, company_name, verification_level, account_status, phone, created_at, supplier_id 
@@ -55,7 +55,7 @@ const User = {
     }
   },
 
-  // ✅ MODIFICADO: Se agregó supplier_id al SELECT
+  // ✅ MODIFICADO: Se agregó supplier_id al SELECT (Se mantiene intacto)
   findAll: async () => {
     const query = `
       SELECT id, email, full_name, company_name, verification_level, account_status, created_at, supplier_id 
@@ -93,6 +93,56 @@ const User = {
     const query = 'DELETE FROM users WHERE id = $1 RETURNING id';
     try {
       const result = await db.query(query, [id]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // ==========================================================
+  // 🔐 NUEVAS FUNCIONES PARA RECUPERACIÓN DE CONTRASEÑA
+  // ==========================================================
+
+  // Guardar el token temporal y su fecha de expiración
+  savePasswordResetToken: async (id, token, expires) => {
+    const query = `
+      UPDATE users 
+      SET reset_password_token = $1, reset_password_expires = $2 
+      WHERE id = $3 
+      RETURNING id, email
+    `;
+    try {
+      const result = await db.query(query, [token, expires, id]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Buscar un usuario por su token asegurando que no haya expirado
+  findByPasswordResetToken: async (token) => {
+    const query = `
+      SELECT * FROM users 
+      WHERE reset_password_token = $1 AND reset_password_expires > NOW()
+    `;
+    try {
+      const result = await db.query(query, [token]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Actualizar la contraseña y limpiar los campos del token
+  updatePassword: async (id, newPasswordHash) => {
+    const query = `
+      UPDATE users 
+      SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL 
+      WHERE id = $2 
+      RETURNING id
+    `;
+    try {
+      const result = await db.query(query, [newPasswordHash, id]);
       return result.rows[0];
     } catch (error) {
       throw error;

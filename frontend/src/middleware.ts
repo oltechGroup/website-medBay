@@ -30,7 +30,8 @@ export function middleware(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
 
   // Rutas de Autenticación
-  const isAuthRoute = ['/login', '/register', '/forgot-password'].some(route => pathname.startsWith(route));
+  // ✅ MODIFICADO: Agregamos '/reset-password' para que los usuarios logueados no puedan entrar aquí
+  const isAuthRoute = ['/login', '/register', '/forgot-password', '/reset-password'].some(route => pathname.startsWith(route));
 
   // --- LÓGICA DE REDIRECCIÓN ---
 

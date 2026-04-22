@@ -79,3 +79,27 @@ export const useCurrentUser = () => {
     retry: false, 
   });
 };
+
+// ==========================================
+// 🔐 HOOKS DE RECUPERACIÓN DE CONTRASEÑA
+// ==========================================
+
+// Hook para solicitar el correo de recuperación
+export const useRequestPasswordReset = () => {
+  return useMutation({
+    mutationFn: async (data: { email: string }) => {
+      const response = await api.post('/auth/request-password-reset', data);
+      return response.data;
+    },
+  });
+};
+
+// Hook para guardar la nueva contraseña
+export const useResetPassword = () => {
+  return useMutation({
+    mutationFn: async (data: { token: string; newPassword: string }) => {
+      const response = await api.post('/auth/reset-password', data);
+      return response.data;
+    },
+  });
+};

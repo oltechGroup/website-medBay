@@ -3,6 +3,9 @@
 const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto'); // Nativo de Node.js para generar tokens seguros
+const transporter = require('../config/mailer');
+const { generatePasswordResetTemplate, getBrandingAttachments } = require('../utils/emailTemplates');
 
 const authController = {
   // Login de usuario
@@ -104,6 +107,94 @@ const authController = {
     } catch (error) {
       console.error('Error verificando token:', error);
       res.status(401).json({ error: 'Token inválido' });
+    }
+  },
+
+  // ==========================================================
+  // 🔐 NUEVAS FUNCIONES PARA RECUPERACIÓN DE CONTRASEÑA
+  // ==========================================================
+
+  // 1. Solicitar el enlace de recuperación
+  requestPasswordReset: async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ error: 'El correo electrónico es requerido' });
+      }
+
+      const user = await User.findByEmail(email);
+      if (!user) {
+        return res.status(404).json({ error: 'No existe una cuenta registrada con este correo electrónico' });
+      }
+
+      // Generar token seguro de 32 bytes en formato hexadecimal
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      
+      // Establecer expiración de 15 minutos desde el momento actual
+      const expires = new Date(Date.now() + 15 * 60 * 1000); 
+
+      // Guardar el token y la fecha en la base de datos
+      await User.savePasswordResetToken(user.id, resetToken, expires);
+
+      // URL del frontend donde el usuario ingresará la nueva contraseña
+      const frontendUrl = process.env.FRONTEND_URL || 'https://www.medbaysupply.com';
+      const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+      // Generar el HTML usando la plantilla recién creada
+      const htmlContent = generatePasswordResetTemplate({
+        userName: user.full_name,
+        resetUrl: resetUrl
+      });
+
+      // Enviar el correo
+      await transporter.sendMail({
+        from: `"Soporte MedBay" <${process.env.EMAIL_USER}>`,
+        to: user.email,
+        subject: 'Recuperación de Contraseña - MedBay',
+        html: htmlContent,
+        attachments: getBrandingAttachments()
+      });
+
+      res.json({ message: 'Se han enviado las instrucciones de recuperación a tu correo electrónico' });
+
+    } catch (error) {
+      console.error('Error al solicitar recuperación de contraseña:', error);
+      res.status(500).json({ error: 'Error interno del servidor al procesar la solicitud' });
+    }
+  },
+
+  // 2. Restablecer la contraseña usando el token
+  resetPassword: async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+
+      if (!token || !newPassword) {
+        return res.status(400).json({ error: 'El token y la nueva contraseña son requeridos' });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+      }
+
+      // Verificar si el token existe y no ha expirado
+      const user = await User.findByPasswordResetToken(token);
+
+      if (!user) {
+        return res.status(400).json({ error: 'El enlace de recuperación es inválido o ha expirado. Por favor, solicita uno nuevo.' });
+      }
+
+      // Encriptar la nueva contraseña con 12 rondas (para mantener consistencia con el registro actual)
+      const password_hash = await bcrypt.hash(newPassword, 12);
+
+      // Guardar la nueva contraseña y limpiar el token
+      await User.updatePassword(user.id, password_hash);
+
+      res.json({ message: 'Tu contraseña ha sido actualizada exitosamente. Ya puedes iniciar sesión.' });
+
+    } catch (error) {
+      console.error('Error al restablecer la contraseña:', error);
+      res.status(500).json({ error: 'Error interno del servidor al actualizar la contraseña' });
     }
   }
 };
