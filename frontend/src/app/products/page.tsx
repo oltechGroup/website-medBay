@@ -21,6 +21,7 @@ import { CatalogHeader } from "@/components/features/products/client/catalog/Cat
 import { ClientSearch } from "@/components/features/products/client/ClientSearch";
 import { ActiveFilters } from "@/components/features/products/client/catalog/ActiveFilters";
 import { CatalogNavigation } from "@/components/features/products/client/catalog/CatalogNavigation";
+import { ExpirationDisclaimer } from "@/components/ui/ExpirationDisclaimer"; // ✅ Importamos el nuevo modal
 
 function ProductsContent() {
   const searchParams = useSearchParams();
@@ -92,6 +93,10 @@ function ProductsContent() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
       
+      {/* ✅ INYECCIÓN CONDICIONAL DEL COMPONENTE SATÉLITE */}
+      {/* Solo se mostrará si estamos en la categoría de caducados */}
+      {status === 'expired' && <ExpirationDisclaimer />}
+
       {/* ======= SECTION BANNER ======= */}
       <div className={`relative bg-gradient-to-r ${config.gradient} text-white pt-32 pb-12 md:py-20 overflow-hidden`}>
         <div className="absolute inset-0 opacity-10 bg-[url('/Images/pattern.png')] bg-repeat"></div>

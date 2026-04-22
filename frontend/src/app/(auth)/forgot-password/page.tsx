@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
     } catch (error: any) {
       setError('root', {
         type: 'manual',
-        message: error.response?.data?.error || 'Error al solicitar la recuperación. Intenta nuevamente.',
+        message: error.response?.data?.error || 'Error requesting recovery. Please try again.',
       });
     }
   };
@@ -61,10 +61,10 @@ export default function ForgotPasswordPage() {
               <ShieldCheck size={14} /> SECURE ACCOUNT RECOVERY
             </div>
             <h1 className="text-5xl font-extrabold leading-tight mb-6">
-              Restaurar <br /> <span className="text-blue-400">Acceso.</span>
+              Restore <br /> <span className="text-blue-400">Access.</span>
             </h1>
             <p className="text-slate-300 text-lg max-w-md leading-relaxed">
-              Recupera tu cuenta de manera segura para continuar gestionando suministros médicos y trazabilidad B2B.
+              Securely recover your account to continue managing medical supplies and B2B traceability.
             </p>
           </div>
 
@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
           href="/login" 
           className="absolute top-8 left-8 flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-blue-600 transition-colors"
         >
-          <ArrowLeft size={16} /> Volver al Login
+          <ArrowLeft size={16} /> Back to Login
         </Link>
 
         <div className="max-w-md w-full space-y-10 animate-in fade-in slide-in-from-right-4 duration-700 mt-10 lg:mt-0">
@@ -92,12 +92,12 @@ export default function ForgotPasswordPage() {
                 <img src="/icons/logomed.png" alt="Logo" className="w-16 h-16" />
             </div>
             <h2 className="text-4xl font-black text-slate-900 tracking-tight">
-              Recuperar Contraseña
+              Reset Password
             </h2>
             <p className="mt-3 text-slate-500 font-medium">
               {!isSubmitted 
-                ? "Ingresa el correo electrónico asociado a tu cuenta corporativa y te enviaremos un enlace seguro."
-                : "Revisa tu bandeja de entrada."}
+                ? "Enter the email address associated with your corporate account and we will send you a secure link."
+                : "Check your inbox."}
             </p>
           </div>
 
@@ -105,9 +105,9 @@ export default function ForgotPasswordPage() {
             <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
               <div className="space-y-5 relative group transition-all duration-300">
                 <Input
-                  label="Correo Corporativo"
+                  label="Corporate Email"
                   type="email"
-                  placeholder="ejemplo@medbay.com"
+                  placeholder="example@medbay.com"
                   className="bg-white border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 rounded-xl transition-all h-12"
                   error={errors.email?.message}
                   {...register('email')}
@@ -126,7 +126,7 @@ export default function ForgotPasswordPage() {
                 className="w-full bg-slate-900 hover:bg-blue-600 text-white h-14 rounded-xl text-lg font-bold shadow-xl transition-all flex items-center justify-center gap-3 group"
                 loading={requestResetMutation.isPending}
               >
-                Enviar Enlace
+                Send Link
                 {!requestResetMutation.isPending && <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />}
               </Button>
             </form>
@@ -136,13 +136,13 @@ export default function ForgotPasswordPage() {
               <div className="w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle size={32} />
               </div>
-              <h3 className="text-xl font-black text-slate-800 mb-2">¡Correo Enviado!</h3>
+              <h3 className="text-xl font-black text-slate-800 mb-2">Email Sent!</h3>
               <p className="text-slate-500 text-sm leading-relaxed mb-6">
-                Hemos enviado las instrucciones a <strong>{submittedEmail}</strong>. Por favor, revisa tu bandeja de entrada y la carpeta de spam.
+                We have sent the instructions to <strong>{submittedEmail}</strong>. Please check your inbox and spam folder.
               </p>
               <Link href="/login">
                 <Button className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 h-12 rounded-xl text-sm font-bold transition-all">
-                  Volver al inicio de sesión
+                  Back to login
                 </Button>
               </Link>
             </div>

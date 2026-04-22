@@ -1,4 +1,4 @@
-//frontend/src/app/page.tsx
+// frontend/src/app/page.tsx
 
 "use client";
 
@@ -10,9 +10,10 @@ import {
   ChevronRight, ArrowRight, Sparkles, Stethoscope, LogOut, User
 } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
-import { useAuth } from "@/hooks/useAuth"; // ✅ Auth Import
+import { useAuth } from "@/hooks/useAuth"; 
 import { ClientProductCard } from "@/components/features/products/client/ClientProductCard"; 
 import { ClientSearch } from "@/components/features/products/client/ClientSearch"; 
+import { ExpirationDisclaimer } from "@/components/ui/ExpirationDisclaimer"; // ✅ Importamos el nuevo modal
 
 export default function Home() {
   // ✅ SOLUCIÓN: Le pedimos al backend que nos mande los 15 con imagen, ya ordenados alfabéticamente
@@ -44,6 +45,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
+      
+      {/* ✅ INYECCIÓN DEL COMPONENTE SATÉLITE */}
+      <ExpirationDisclaimer />
+
       {/* ======= HERO ======= */}
       <section className="relative pt-24 pb-32 bg-slate-900">
           <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">

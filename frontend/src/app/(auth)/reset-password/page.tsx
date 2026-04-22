@@ -30,7 +30,7 @@ function ResetPasswordContent() {
 
   const onSubmit = async (data: ResetPasswordFormData) => {
     if (!token) {
-      setError('root', { message: 'No se encontró un token de seguridad válido.' });
+      setError('root', { message: 'No valid security token found.' });
       return;
     }
 
@@ -40,7 +40,7 @@ function ResetPasswordContent() {
     } catch (error: any) {
       setError('root', {
         type: 'manual',
-        message: error.response?.data?.error || 'El enlace ha expirado o es inválido. Solicita uno nuevo.',
+        message: error.response?.data?.error || 'The link has expired or is invalid. Please request a new one.',
       });
     }
   };
@@ -54,12 +54,12 @@ function ResetPasswordContent() {
               <img src="/icons/logomed.png" alt="Logo" className="w-16 h-16" />
           </div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tight">
-            Nueva Contraseña
+            New Password
           </h2>
           <p className="mt-3 text-slate-500 font-medium">
             {!isSuccess 
-              ? "Crea una contraseña segura para tu cuenta. Deberá tener al menos 6 caracteres."
-              : "Tu seguridad ha sido actualizada."}
+              ? "Create a secure password for your account. It must be at least 6 characters long."
+              : "Your security has been updated."}
           </p>
         </div>
 
@@ -69,13 +69,13 @@ function ResetPasswordContent() {
             <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertTriangle size={32} />
             </div>
-            <h3 className="text-xl font-black text-slate-800 mb-2">Enlace Inválido</h3>
+            <h3 className="text-xl font-black text-slate-800 mb-2">Invalid Link</h3>
             <p className="text-slate-500 text-sm leading-relaxed mb-6">
-              Falta el token de seguridad. Por favor, asegúrate de haber hecho clic en el enlace completo que llegó a tu correo.
+              Missing security token. Please ensure you clicked the full link sent to your email.
             </p>
             <Link href="/forgot-password">
               <Button className="w-full bg-slate-900 hover:bg-slate-800 text-white h-12 rounded-xl text-sm font-bold transition-all">
-                Solicitar un nuevo enlace
+                Request a new link
               </Button>
             </Link>
           </div>
@@ -86,7 +86,7 @@ function ResetPasswordContent() {
               
               <div className="relative group transition-all duration-300">
                 <Input
-                  label="Nueva Contraseña"
+                  label="New Password"
                   type="password"
                   placeholder="••••••••"
                   className="bg-white border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 rounded-xl transition-all h-12"
@@ -98,7 +98,7 @@ function ResetPasswordContent() {
 
               <div className="relative group transition-all duration-300">
                 <Input
-                  label="Confirmar Contraseña"
+                  label="Confirm Password"
                   type="password"
                   placeholder="••••••••"
                   className="bg-white border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 rounded-xl transition-all h-12"
@@ -121,7 +121,7 @@ function ResetPasswordContent() {
               className="w-full bg-slate-900 hover:bg-blue-600 text-white h-14 rounded-xl text-lg font-bold shadow-xl transition-all flex items-center justify-center gap-3 group"
               loading={resetMutation.isPending}
             >
-              Guardar Contraseña
+              Save Password
               {!resetMutation.isPending && <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />}
             </Button>
           </form>
@@ -131,13 +131,13 @@ function ResetPasswordContent() {
             <div className="w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle size={32} />
             </div>
-            <h3 className="text-xl font-black text-slate-800 mb-2">¡Contraseña Actualizada!</h3>
+            <h3 className="text-xl font-black text-slate-800 mb-2">Password Updated!</h3>
             <p className="text-slate-500 text-sm leading-relaxed mb-6">
-              Tu contraseña ha sido cambiada exitosamente. Ya puedes acceder a la plataforma con tus nuevas credenciales.
+              Your password has been changed successfully. You can now access the platform with your new credentials.
             </p>
             <Link href="/login">
               <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 rounded-xl text-sm font-bold shadow-lg shadow-blue-200 transition-all">
-                Ir a Iniciar Sesión
+                Go to Login
               </Button>
             </Link>
           </div>
@@ -180,10 +180,10 @@ export default function ResetPasswordPage() {
               <ShieldCheck size={14} /> SECURE CREDENTIALS
             </div>
             <h1 className="text-5xl font-extrabold leading-tight mb-6">
-              Protección de <br /> <span className="text-blue-400">Datos.</span>
+              Data <br /> <span className="text-blue-400">Protection.</span>
             </h1>
             <p className="text-slate-300 text-lg max-w-md leading-relaxed">
-              Las contraseñas de MedBay se almacenan mediante algoritmos de encriptación de grado militar (bcrypt) para garantizar la total privacidad de tu organización.
+              MedBay passwords are stored using military-grade encryption algorithms (bcrypt) to guarantee your organization's total privacy.
             </p>
           </div>
 
