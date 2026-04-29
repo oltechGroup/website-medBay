@@ -78,7 +78,7 @@ export const getLotStatusConfig = (status: string, expiryDate?: string) => {
   
   return { 
     color: 'bg-green-100 text-green-700 border-green-200', 
-    label: 'In date', // ✅ CAMBIO APLICADO AQUÍ
+    label: 'In date', 
     hex: '#22c55e' 
   };
 };
